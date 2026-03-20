@@ -80,7 +80,7 @@ ai_pal/
     ├── datetime_parser.py
     ├── json_utils.py
     └── logger.py
-
+```
 ## How to run
 
 1. Clone the project
@@ -119,7 +119,7 @@ Run the voice workflow:
 
 python main.py
 
-Configuration
+## Configuration
 
 The main settings are located in config/settings.py.
 

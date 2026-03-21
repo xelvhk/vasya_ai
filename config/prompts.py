@@ -15,7 +15,9 @@ INTENT_PROMPT_TEMPLATE = """
 2. Если не уверен — unknown
 3. Для create_event пытайся выделить:
    - title
-   - datetime
+   - datetime: только исходную фразу пользователя про дату или время
+   - не нормализуй datetime
+   - не придумывай дату или время, которых нет в тексте
 4. Для create_task:
    - task
 
@@ -25,7 +27,7 @@ INTENT_PROMPT_TEMPLATE = """
   "intent": "create_event",
   "data": {{
     "title": "Встреча с Иваном",
-    "datetime": "2026-03-21 15:00"
+    "datetime": "завтра в 15:00"
   }}
 }}
 

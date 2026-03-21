@@ -3,6 +3,7 @@ import os
 
 load_dotenv()
 
+APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")

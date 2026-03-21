@@ -4,7 +4,7 @@ Language: **English** | [Русский](README.ru.md)
 
 Local AI assistant for desktop, voice commands, tasks, calendar, and future agent workflows.
 
-Current version: `0.2.1`
+Current version: `0.3.0`
 
 At the moment, this is an MVP project that can:
 - record voice commands from the microphone
@@ -17,6 +17,7 @@ At the moment, this is an MVP project that can:
 - automatically start Ollama on app startup if the server is not running
 - choose a macOS voice for speech output
 - store data locally in SQLite
+- create events in Google Calendar when the integration is enabled
 
 ## What already works
 
@@ -146,6 +147,12 @@ TTS_RATE = 185
 STORAGE_DB_FILE = "storage/vasya.db"
 CALENDAR_STORAGE_FILE = "storage/calendar.json"
 TASK_STORAGE_FILE = "storage/tasks.json"
+GOOGLE_CALENDAR_ENABLED = false
+GOOGLE_CALENDAR_CREDENTIALS_FILE = "credentials.json"
+GOOGLE_CALENDAR_TOKEN_FILE = "storage/google_token.json"
+GOOGLE_CALENDAR_ID = "primary"
+GOOGLE_CALENDAR_TIMEZONE = "Europe/Moscow"
+GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES = 60
 
 Voice selection:
 
@@ -161,6 +168,22 @@ Set the default voice in `.env`:
 
 TTS_VOICE=Milena
 TTS_RATE=185
+
+Google Calendar integration:
+
+1. Create a Desktop App OAuth client in Google Cloud.
+2. Download the credentials file and save it as `credentials.json` in the project root.
+3. Enable the integration in `.env`:
+
+GOOGLE_CALENDAR_ENABLED=true
+GOOGLE_CALENDAR_CREDENTIALS_FILE=credentials.json
+GOOGLE_CALENDAR_TOKEN_FILE=storage/google_token.json
+GOOGLE_CALENDAR_ID=primary
+GOOGLE_CALENDAR_TIMEZONE=Europe/Moscow
+GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
+
+On the first event creation, the app will open the Google OAuth flow.
+If the integration is not configured or Google Calendar is unavailable, the event is still saved locally in SQLite.
 
 ## How it works
 
@@ -196,9 +219,9 @@ The project is still at the MVP stage, so there are some limitations:
 Planned next steps
 
 Possible next improvements:
- • Google Calendar integration
  • integration with Obsidian / Todoist / Google Tasks
  • Piper or another TTS fallback
+ • two-way sync with Google Calendar
  • always-listening mode
  • wake word “Vasya”
  • code agent for working with files and projects

@@ -9,14 +9,31 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
         spoken_dt = raw_dt.strip() if isinstance(raw_dt, str) else None
         parse_result = parse_datetime(raw_dt)
         event = create_event(title=title, dt=parse_result.normalized)
+        google_sync_error = event.get("google_sync_error")
         if parse_result.normalized:
             if spoken_dt:
                 if parse_result.status == "parsed_with_default_time" and parse_result.message:
+                    if google_sync_error:
+                        return (
+                            f"Добавил событие: {event['title']} на {spoken_dt}. "
+                            f"{parse_result.message} "
+                            f"Google Calendar не синхронизирован: {google_sync_error}"
+                        )
                     return (
                         f"Добавил событие: {event['title']} на {spoken_dt}. "
                         f"{parse_result.message}"
                     )
+                if google_sync_error:
+                    return (
+                        f"Добавил событие: {event['title']} на {spoken_dt}. "
+                        f"Google Calendar не синхронизирован: {google_sync_error}"
+                    )
                 return f"Добавил событие: {event['title']} на {spoken_dt}."
+            if google_sync_error:
+                return (
+                    f"Добавил событие: {event['title']} на {event['datetime']}. "
+                    f"Google Calendar не синхронизирован: {google_sync_error}"
+                )
             return f"Добавил событие: {event['title']} на {event['datetime']}."
         if raw_dt:
             if parse_result.status == "ambiguous" and parse_result.message:

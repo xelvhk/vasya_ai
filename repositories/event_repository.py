@@ -8,6 +8,7 @@ class EventRepository:
         title: str,
         dt: str | None = None,
         source: str = "local",
+        external_id: str | None = None,
     ) -> CalendarEvent:
         initialize_database()
 
@@ -15,9 +16,9 @@ class EventRepository:
             cursor = connection.execute(
                 """
                 INSERT INTO events (title, datetime, source, external_id, created_at)
-                VALUES (?, ?, ?, NULL, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (title, dt, source, current_timestamp()),
+                (title, dt, source, external_id, current_timestamp()),
             )
             row = connection.execute(
                 """

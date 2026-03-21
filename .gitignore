@@ -2,9 +2,11 @@
 __pycache__/
 *.pyc
 .env
+credentials.json
 input.wav
 .DS_Store
 
 storage/*.json
 storage/*.db
+storage/google_token.json
 storage/.gitkeep

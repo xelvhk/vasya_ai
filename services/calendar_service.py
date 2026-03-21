@@ -1,39 +1,12 @@
-from storage.db import current_timestamp, get_connection, initialize_database
+from repositories.event_repository import EventRepository
+
+
+_event_repository = EventRepository()
 
 
 def create_event(title: str, dt: str | None = None) -> dict:
-    initialize_database()
-
-    with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO events (title, datetime, source, external_id, created_at)
-            VALUES (?, ?, 'local', NULL, ?)
-            """,
-            (title, dt, current_timestamp()),
-        )
-        row = connection.execute(
-            """
-            SELECT id, title, datetime, source, external_id, created_at
-            FROM events
-            WHERE id = ?
-            """,
-            (cursor.lastrowid,),
-        ).fetchone()
-
-    return dict(row)
+    return _event_repository.create(title=title, dt=dt).model_dump()
 
 
 def get_events() -> list:
-    initialize_database()
-
-    with get_connection() as connection:
-        rows = connection.execute(
-            """
-            SELECT id, title, datetime, source, external_id, created_at
-            FROM events
-            ORDER BY id ASC
-            """
-        ).fetchall()
-
-    return [dict(row) for row in rows]
+    return [event.model_dump() for event in _event_repository.list_all()]

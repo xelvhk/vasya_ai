@@ -4,7 +4,7 @@ Language: **English** | [Русский](README.ru.md)
 
 Local AI assistant for desktop, voice commands, tasks, calendar, and future agent workflows.
 
-Current version: `0.2.0`
+Current version: `0.2.1`
 
 At the moment, this is an MVP project that can:
 - record voice commands from the microphone
@@ -74,6 +74,11 @@ ai_pal/
 │   ├── ollama_client.py
 │   ├── calendar_service.py
 │   └── task_service.py
+│
+├── repositories/
+│   ├── __init__.py
+│   ├── event_repository.py
+│   └── task_repository.py
 │
 ├── storage/
 │   ├── db.py
@@ -172,6 +177,11 @@ For now, data is stored locally:
 The old JSON files are kept only as legacy input for automatic migration into SQLite.
 Local data files are not pushed to the repository.
 
+Domain layer
+
+Tasks and events now use simple domain models plus repository classes on top of SQLite.
+This keeps agents and services small and makes later integrations easier.
+
 Current MVP limitations
 
 The project is still at the MVP stage, so there are some limitations:
@@ -186,7 +196,6 @@ The project is still at the MVP stage, so there are some limitations:
 Planned next steps
 
 Possible next improvements:
- • a cleaner domain layer for tasks/events on top of SQLite
  • Google Calendar integration
  • integration with Obsidian / Todoist / Google Tasks
  • Piper or another TTS fallback

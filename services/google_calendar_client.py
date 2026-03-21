@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from config.settings import (
     GOOGLE_CALENDAR_CREDENTIALS_FILE,
     GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES,
     GOOGLE_CALENDAR_ENABLED,
     GOOGLE_CALENDAR_ID,
+    GOOGLE_CALENDAR_READ_MAX_RESULTS,
     GOOGLE_CALENDAR_TIMEZONE,
     GOOGLE_CALENDAR_TOKEN_FILE,
 )
@@ -58,6 +59,33 @@ def create_google_calendar_event(title: str, dt: str) -> str:
     return event_id
 
 
+def list_google_calendar_events() -> list[dict]:
+    if not GOOGLE_CALENDAR_ENABLED:
+        raise GoogleCalendarError("Google Calendar integration is disabled.")
+
+    service = _build_service()
+
+    try:
+        response = (
+            service.events()
+            .list(
+                calendarId=GOOGLE_CALENDAR_ID,
+                timeMin=datetime.now(timezone.utc).isoformat(),
+                maxResults=GOOGLE_CALENDAR_READ_MAX_RESULTS,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
+    except Exception as exc:
+        raise GoogleCalendarError(
+            f"Failed to fetch events from Google Calendar: {exc}"
+        ) from exc
+
+    items = response.get("items", [])
+    return [_map_google_event(item) for item in items if item.get("id")]
+
+
 def _build_service():
     try:
         from google.auth.transport.requests import Request
@@ -97,3 +125,24 @@ def _ensure_token_dir() -> None:
     token_dir = os.path.dirname(GOOGLE_CALENDAR_TOKEN_FILE)
     if token_dir:
         os.makedirs(token_dir, exist_ok=True)
+
+
+def _map_google_event(item: dict) -> dict:
+    start_data = item.get("start", {})
+    start_datetime = start_data.get("dateTime")
+    start_date = start_data.get("date")
+
+    normalized_datetime = None
+    if start_datetime:
+        normalized_datetime = datetime.fromisoformat(
+            start_datetime.replace("Z", "+00:00")
+        ).strftime("%Y-%m-%d %H:%M")
+    elif start_date:
+        normalized_datetime = f"{start_date} 00:00"
+
+    return {
+        "external_id": item["id"],
+        "title": item.get("summary") or "Без названия",
+        "datetime": normalized_datetime,
+        "source": "google_calendar",
+    }

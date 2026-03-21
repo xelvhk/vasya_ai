@@ -18,6 +18,7 @@ VAS = (Voice Ai ASsistant)
 - выбирать голос macOS для озвучки
 - хранить данные локально в SQLite
 - создавать события в Google Calendar при включенной интеграции
+- подтягивать будущие события из Google Calendar в локальный SQLite при запросе списка
 
 ## Что уже работает
 
@@ -182,9 +183,13 @@ GOOGLE_CALENDAR_TOKEN_FILE=storage/google_token.json
 GOOGLE_CALENDAR_ID=primary
 GOOGLE_CALENDAR_TIMEZONE=Europe/Moscow
 GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
+GOOGLE_CALENDAR_SYNC_ON_READ=true
+GOOGLE_CALENDAR_READ_MAX_RESULTS=20
 
 При первом создании события откроется OAuth-авторизация Google.
 Если интеграция не настроена или Google Calendar недоступен, событие все равно сохранится локально в SQLite.
+При запросе списка событий приложение также может импортировать ближайшие события из Google Calendar в локальную БД.
+По умолчанию в списке событий показываются будущие события, а записи без даты остаются внизу.
 
 ## Как это работает
 

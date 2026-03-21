@@ -18,6 +18,7 @@ At the moment, this is an MVP project that can:
 - choose a macOS voice for speech output
 - store data locally in SQLite
 - create events in Google Calendar when the integration is enabled
+- import upcoming events from Google Calendar into local SQLite on event listing
 
 ## What already works
 
@@ -181,9 +182,13 @@ GOOGLE_CALENDAR_TOKEN_FILE=storage/google_token.json
 GOOGLE_CALENDAR_ID=primary
 GOOGLE_CALENDAR_TIMEZONE=Europe/Moscow
 GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
+GOOGLE_CALENDAR_SYNC_ON_READ=true
+GOOGLE_CALENDAR_READ_MAX_RESULTS=20
 
 On the first event creation, the app will open the Google OAuth flow.
 If the integration is not configured or Google Calendar is unavailable, the event is still saved locally in SQLite.
+When listing events, the app can also import upcoming Google Calendar events into the local database.
+By default, event listing shows upcoming events, while undated entries remain at the bottom.
 
 ## How it works
 

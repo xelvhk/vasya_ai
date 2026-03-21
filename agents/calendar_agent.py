@@ -48,8 +48,37 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
         return f"Добавил событие: {event['title']}."
 
     if intent_result.intent == "get_events":
-        events = get_events()
+        raw_dt = intent_result.data.get("datetime")
+        filter_date = None
+        date_context = None
+
+        if isinstance(raw_dt, str) and raw_dt.strip():
+            parse_result = parse_datetime(raw_dt)
+            if parse_result.status == "ambiguous" and parse_result.message:
+                return (
+                    "Нужно уточнить, на какую дату показать события. "
+                    f"{parse_result.message}"
+                )
+            if parse_result.normalized:
+                filter_date = parse_result.normalized.split(" ")[0]
+                date_context = raw_dt.strip()
+
+        result = get_events(filter_date=filter_date)
+        events = result["events"]
+        google_sync_error = result.get("google_sync_error")
         if not events:
+            if date_context:
+                if google_sync_error:
+                    return (
+                        f"На {date_context} событий нет. "
+                        f"Google Calendar не синхронизирован: {google_sync_error}"
+                    )
+                return f"На {date_context} событий нет."
+            if google_sync_error:
+                return (
+                    "Событий пока нет. "
+                    f"Google Calendar не синхронизирован: {google_sync_error}"
+                )
             return "Событий пока нет."
 
         lines = []
@@ -58,6 +87,20 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
                 lines.append(f"{idx}. {event['title']} — {event['datetime']}")
             else:
                 lines.append(f"{idx}. {event['title']}")
-        return "Вот события:\n" + "\n".join(lines)
+        prefix = "Вот события:"
+        if date_context:
+            normalized_context = date_context
+            if normalized_context.lower().startswith("на "):
+                prefix = f"Вот события {normalized_context}:"
+            else:
+                prefix = f"Вот события на {normalized_context}:"
+        if google_sync_error:
+            return (
+                prefix
+                + "\n"
+                + "\n".join(lines)
+                + f"\n\nGoogle Calendar не синхронизирован: {google_sync_error}"
+            )
+        return prefix + "\n" + "\n".join(lines)
 
     return "Не удалось обработать календарную команду."

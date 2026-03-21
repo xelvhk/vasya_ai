@@ -1,4 +1,4 @@
-from utils.datetime_parser import normalize_datetime
+from utils.datetime_parser import parse_datetime
 
 
 def main() -> None:
@@ -9,12 +9,20 @@ def main() -> None:
         "25 марта в 14:00",
         "в пятницу в 19:00",
         "через 2 дня в 10:00",
+        "завтра утром",
+        "в пятницу вечером",
         "25 марта",
+        "на следующей неделе",
+        "в выходные",
         "когда-нибудь потом",
     ]
 
     for sample in samples:
-        print(f"{sample!r} -> {normalize_datetime(sample)}")
+        result = parse_datetime(sample)
+        print(
+            f"{sample!r} -> normalized={result.normalized}, "
+            f"status={result.status}, message={result.message}"
+        )
 
 
 if __name__ == "__main__":

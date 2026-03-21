@@ -1,24 +1,35 @@
-import json
-import os
-from config.settings import TASK_STORAGE_FILE
+from storage.db import current_timestamp, get_connection, initialize_database
 
-def _load_tasks() -> list:
-    if not os.path.exists(TASK_STORAGE_FILE):
-        return []
-
-    with open(TASK_STORAGE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def _save_tasks(tasks: list) -> None:
-    with open(TASK_STORAGE_FILE, "w", encoding="utf-8") as f:
-        json.dump(tasks, f, ensure_ascii=False, indent=2)
 
 def create_task(task: str) -> dict:
-    tasks = _load_tasks()
-    item = {"task": task}
-    tasks.append(item)
-    _save_tasks(tasks)
-    return item
+    initialize_database()
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO tasks (task, status, source, external_id, created_at)
+            VALUES (?, 'open', 'local', NULL, ?)
+            """,
+            (task, current_timestamp()),
+        )
+        row = connection.execute(
+            "SELECT id, task, status, source, external_id, created_at FROM tasks WHERE id = ?",
+            (cursor.lastrowid,),
+        ).fetchone()
+
+    return dict(row)
+
 
 def get_tasks() -> list:
-    return _load_tasks()
+    initialize_database()
+
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, task, status, source, external_id, created_at
+            FROM tasks
+            ORDER BY id ASC
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]

@@ -1,27 +1,39 @@
-import json
-import os
-from config.settings import CALENDAR_STORAGE_FILE
+from storage.db import current_timestamp, get_connection, initialize_database
 
-def _load_events() -> list:
-    if not os.path.exists(CALENDAR_STORAGE_FILE):
-        return []
-
-    with open(CALENDAR_STORAGE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def _save_events(events: list) -> None:
-    with open(CALENDAR_STORAGE_FILE, "w", encoding="utf-8") as f:
-        json.dump(events, f, ensure_ascii=False, indent=2)
 
 def create_event(title: str, dt: str | None = None) -> dict:
-    events = _load_events()
-    event = {
-        "title": title,
-        "datetime": dt,
-    }
-    events.append(event)
-    _save_events(events)
-    return event
+    initialize_database()
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO events (title, datetime, source, external_id, created_at)
+            VALUES (?, ?, 'local', NULL, ?)
+            """,
+            (title, dt, current_timestamp()),
+        )
+        row = connection.execute(
+            """
+            SELECT id, title, datetime, source, external_id, created_at
+            FROM events
+            WHERE id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+
+    return dict(row)
+
 
 def get_events() -> list:
-    return _load_events()
+    initialize_database()
+
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, title, datetime, source, external_id, created_at
+            FROM events
+            ORDER BY id ASC
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]

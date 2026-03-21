@@ -1,12 +1,10 @@
-# Vasya MVP
-
+# Vasya AI
+VAS = (Voice Ai ASsistant)
 Language: **English** | [Русский](README.ru.md)
 
 Local AI assistant for desktop, voice commands, tasks, calendar, and future agent workflows.
 
-A local voice AI assistant for MacBook.
-
-Current version: `0.1.0`
+Current version: `0.2.0`
 
 At the moment, this is an MVP project that can:
 - record voice commands from the microphone
@@ -16,7 +14,9 @@ At the moment, this is an MVP project that can:
 - add tasks
 - add events
 - parse basic Russian date/time phrases for calendar commands
-- store data locally in JSON
+- automatically start Ollama on app startup if the server is not running
+- choose a macOS voice for speech output
+- store data locally in SQLite
 
 ## What already works
 
@@ -76,6 +76,7 @@ ai_pal/
 │   └── task_service.py
 │
 ├── storage/
+│   ├── db.py
 │   └── .gitkeep
 │
 └── utils/
@@ -111,6 +112,7 @@ Then run the model:
 ollama run llama3
 
 If the model is already downloaded, you just need to make sure Ollama is available locally.
+On `main.py` startup the app also tries to launch `ollama serve` automatically.
 
 5. Run the project
 
@@ -136,6 +138,7 @@ WHISPER_MODEL = "base"
 TTS_VOICE = "Milena"
 TTS_RATE = 185
 
+STORAGE_DB_FILE = "storage/vasya.db"
 CALENDAR_STORAGE_FILE = "storage/calendar.json"
 TASK_STORAGE_FILE = "storage/tasks.json"
 
@@ -163,10 +166,11 @@ Voice → audio recording → Whisper STT → text → Ollama → intent parsing
 Data storage
 
 For now, data is stored locally:
- • tasks — in storage/tasks.json
- • events — in storage/calendar.json
+ • tasks — in storage/vasya.db
+ • events — in storage/vasya.db
 
-These files are not pushed to the repository.
+The old JSON files are kept only as legacy input for automatic migration into SQLite.
+Local data files are not pushed to the repository.
 
 Current MVP limitations
 
@@ -182,12 +186,12 @@ The project is still at the MVP stage, so there are some limitations:
 Planned next steps
 
 Possible next improvements:
- • better Russian TTS quality and Piper fallback
- • better fallback handling for ambiguous date/time phrases
+ • a cleaner domain layer for tasks/events on top of SQLite
  • Google Calendar integration
+ • integration with Obsidian / Todoist / Google Tasks
+ • Piper or another TTS fallback
  • always-listening mode
  • wake word “Vasya”
- • integration with Obsidian / Todoist / Google Tasks
  • code agent for working with files and projects
  • unified space for multiple AI agents
 

@@ -6,4 +6,5 @@ input.wav
 .DS_Store
 
 storage/*.json
+storage/*.db
 storage/.gitkeep

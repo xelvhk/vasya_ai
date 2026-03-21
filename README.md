@@ -6,6 +6,8 @@ Local AI assistant for desktop, voice commands, tasks, calendar, and future agen
 
 A local voice AI assistant for MacBook.
 
+Current version: `0.1.0`
+
 At the moment, this is an MVP project that can:
 - record voice commands from the microphone
 - transcribe speech locally
@@ -13,6 +15,7 @@ At the moment, this is an MVP project that can:
 - understand simple commands
 - add tasks
 - add events
+- parse basic Russian date/time phrases for calendar commands
 - store data locally in JSON
 
 ## What already works
@@ -155,16 +158,16 @@ The project is still at the MVP stage, so there are some limitations:
  • no always-listening mode
  • no proper Google Calendar API integration yet
  • no task synchronization with external services
- • date/time parsing is still basic
+ • date/time parsing still covers only common cases
  • no long-term memory
  • no code agent
 
 Planned next steps
 
 Possible next improvements:
+ • better Russian TTS quality and Piper fallback
+ • better fallback handling for ambiguous date/time phrases
  • Google Calendar integration
- • proper date and time parsing
- • response speech via macOS say or Piper
  • always-listening mode
  • wake word “Vasya”
  • integration with Obsidian / Todoist / Google Tasks

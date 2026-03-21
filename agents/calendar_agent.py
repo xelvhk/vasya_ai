@@ -1,6 +1,7 @@
 from core.models import IntentResult
-from services.calendar_service import create_event, get_events
+from services.calendar_service import create_event, delete_event, get_events
 from utils.datetime_parser import parse_datetime
+from utils.humanize import humanize_event_datetime
 
 def handle_calendar_intent(intent_result: IntentResult) -> str:
     if intent_result.intent == "create_event":
@@ -84,7 +85,8 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
         lines = []
         for idx, event in enumerate(events, start=1):
             if event.get("datetime"):
-                lines.append(f"{idx}. {event['title']} — {event['datetime']}")
+                spoken_datetime = humanize_event_datetime(event["datetime"]) or event["datetime"]
+                lines.append(f"{idx}. {event['title']} — {spoken_datetime}")
             else:
                 lines.append(f"{idx}. {event['title']}")
         prefix = "Вот события:"
@@ -103,4 +105,42 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
             )
         return prefix + "\n" + "\n".join(lines)
 
+    if intent_result.intent == "delete_event":
+        result = get_events()
+        events = result["events"]
+        target = intent_result.data.get("target", "")
+        resolved = _resolve_event_target(events, target)
+        if not resolved:
+            return "Не нашел такое событие для удаления."
+
+        deleted = delete_event(resolved["id"])
+        if not deleted:
+            return "Не удалось удалить событие."
+        return f"Удалил событие: {resolved['title']}."
+
     return "Не удалось обработать календарную команду."
+
+
+def _resolve_event_target(events: list[dict], target: str) -> dict | None:
+    normalized_target = str(target).strip()
+    if not normalized_target:
+        return None
+
+    if normalized_target.isdigit():
+        index = int(normalized_target) - 1
+        if 0 <= index < len(events):
+            return events[index]
+        return None
+
+    lowered_target = normalized_target.casefold()
+    for event in events:
+        title = event.get("title", "")
+        if title.casefold() == lowered_target:
+            return event
+
+    for event in events:
+        title = event.get("title", "")
+        if lowered_target in title.casefold():
+            return event
+
+    return None

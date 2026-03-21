@@ -3,20 +3,25 @@ from storage.db import current_timestamp, get_connection, initialize_database
 
 
 class TaskRepository:
-    def create(self, task_text: str, source: str = "local") -> TaskItem:
+    def create(
+        self,
+        task_text: str,
+        dt: str | None = None,
+        source: str = "local",
+    ) -> TaskItem:
         initialize_database()
 
         with get_connection() as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO tasks (task, status, source, external_id, created_at)
-                VALUES (?, 'open', ?, NULL, ?)
+                INSERT INTO tasks (task, datetime, status, source, external_id, created_at)
+                VALUES (?, ?, 'open', ?, NULL, ?)
                 """,
-                (task_text, source, current_timestamp()),
+                (task_text, dt, source, current_timestamp()),
             )
             row = connection.execute(
                 """
-                SELECT id, task, status, source, external_id, created_at
+                SELECT id, task, datetime, status, source, external_id, created_at
                 FROM tasks
                 WHERE id = ?
                 """,
@@ -25,16 +30,73 @@ class TaskRepository:
 
         return TaskItem(**dict(row))
 
-    def list_all(self) -> list[TaskItem]:
+    def list_all(self, filter_date: str | None = None) -> list[TaskItem]:
         initialize_database()
 
         with get_connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT id, task, status, source, external_id, created_at
-                FROM tasks
-                ORDER BY id ASC
-                """
-            ).fetchall()
+            if filter_date:
+                rows = connection.execute(
+                    """
+                    SELECT id, task, datetime, status, source, external_id, created_at
+                    FROM tasks
+                    WHERE status = 'open' AND datetime LIKE ?
+                    ORDER BY datetime ASC, id DESC
+                    """,
+                    (f"{filter_date}%",),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT id, task, datetime, status, source, external_id, created_at
+                    FROM tasks
+                    WHERE status = 'open'
+                    ORDER BY datetime IS NULL, datetime ASC, id DESC
+                    """
+                ).fetchall()
 
         return [TaskItem(**dict(row)) for row in rows]
+
+    def mark_completed(self, task_id: int) -> TaskItem | None:
+        initialize_database()
+
+        with get_connection() as connection:
+            connection.execute(
+                """
+                UPDATE tasks
+                SET status = 'done'
+                WHERE id = ?
+                """,
+                (task_id,),
+            )
+            row = connection.execute(
+                """
+                SELECT id, task, datetime, status, source, external_id, created_at
+                FROM tasks
+                WHERE id = ?
+                """,
+                (task_id,),
+            ).fetchone()
+
+        return TaskItem(**dict(row)) if row else None
+
+    def delete(self, task_id: int) -> bool:
+        initialize_database()
+
+        with get_connection() as connection:
+            cursor = connection.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+
+        return cursor.rowcount > 0
+
+    def delete_by_date(self, filter_date: str) -> int:
+        initialize_database()
+
+        with get_connection() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM tasks
+                WHERE status = 'open' AND datetime LIKE ?
+                """,
+                (f"{filter_date}%",),
+            )
+
+        return cursor.rowcount

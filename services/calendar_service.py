@@ -65,3 +65,7 @@ def get_events(filter_date: str | None = None) -> dict:
         "events": events,
         "google_sync_error": google_sync_error,
     }
+
+
+def delete_event(event_id: int) -> bool:
+    return _event_repository.delete(event_id)

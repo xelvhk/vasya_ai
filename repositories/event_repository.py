@@ -107,3 +107,11 @@ class EventRepository:
                 ).fetchone()
 
         return CalendarEvent(**dict(row))
+
+    def delete(self, event_id: int) -> bool:
+        initialize_database()
+
+        with get_connection() as connection:
+            cursor = connection.execute("DELETE FROM events WHERE id = ?", (event_id,))
+
+        return cursor.rowcount > 0

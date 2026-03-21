@@ -4,7 +4,17 @@ from pydantic import BaseModel
 
 
 class IntentResult(BaseModel):
-    intent: Literal["create_event", "get_events", "create_task", "get_tasks", "unknown"]
+    intent: Literal[
+        "create_event",
+        "get_events",
+        "delete_event",
+        "create_task",
+        "get_tasks",
+        "complete_task",
+        "delete_task",
+        "delete_tasks",
+        "unknown",
+    ]
     data: Dict[str, Any] = {}
 
 
@@ -20,6 +30,7 @@ class CalendarEvent(BaseModel):
 class TaskItem(BaseModel):
     id: Optional[int] = None
     task: str
+    datetime: Optional[str] = None
     status: str = "open"
     source: str = "local"
     external_id: Optional[str] = None

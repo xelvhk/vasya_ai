@@ -22,6 +22,7 @@ def initialize_database() -> None:
             CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 task TEXT NOT NULL,
+                datetime TEXT,
                 status TEXT NOT NULL DEFAULT 'open',
                 source TEXT NOT NULL DEFAULT 'local',
                 external_id TEXT,
@@ -41,6 +42,7 @@ def initialize_database() -> None:
             )
             """
         )
+        _ensure_column(connection, "tasks", "datetime", "TEXT")
 
     _migrate_legacy_json_if_needed()
 
@@ -102,3 +104,17 @@ def _current_timestamp() -> str:
 
 def current_timestamp() -> str:
     return _current_timestamp()
+
+
+def _ensure_column(
+    connection: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_type: str,
+) -> None:
+    columns = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    column_names = {column["name"] for column in columns}
+    if column_name not in column_names:
+        connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+        )

@@ -6,8 +6,12 @@ INTENT_PROMPT_TEMPLATE = """
 Доступные intent:
 - create_event
 - get_events
+- delete_event
 - create_task
 - get_tasks
+- complete_task
+- delete_task
+- delete_tasks
 - unknown
 
 Правила:
@@ -23,6 +27,18 @@ INTENT_PROMPT_TEMPLATE = """
    - не нормализуй datetime
 5. Для create_task:
    - task
+   - datetime: только исходную фразу пользователя про дату или время, если она есть
+   - не нормализуй datetime
+6. Для get_tasks:
+   - datetime: только исходную фразу пользователя про дату или время, если пользователь спрашивает задачи на конкретную дату
+   - не нормализуй datetime
+7. Для complete_task и delete_task:
+   - target: исходный текст задачи или номер из списка, как сказал пользователь
+8. Для delete_tasks:
+   - datetime: только исходную фразу пользователя про дату или время, если пользователь просит удалить все задачи на дату
+   - all: true, если пользователь явно просит удалить все задачи
+9. Для delete_event:
+   - target: исходный текст события или номер из списка, как сказал пользователь
 
 Примеры ответа:
 
@@ -37,7 +53,8 @@ INTENT_PROMPT_TEMPLATE = """
 {{
   "intent": "create_task",
   "data": {{
-    "task": "Купить лампу"
+    "task": "Купить лампу",
+    "datetime": "на 30 марта"
   }}
 }}
 
@@ -45,6 +62,28 @@ INTENT_PROMPT_TEMPLATE = """
   "intent": "get_events",
   "data": {{
     "datetime": "на 30 марта"
+  }}
+}}
+
+{{
+  "intent": "complete_task",
+  "data": {{
+    "target": "2"
+  }}
+}}
+
+{{
+  "intent": "delete_tasks",
+  "data": {{
+    "datetime": "на 30 марта",
+    "all": true
+  }}
+}}
+
+{{
+  "intent": "delete_event",
+  "data": {{
+    "target": "встреча с Иваном"
   }}
 }}
 

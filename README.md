@@ -133,9 +133,26 @@ OLLAMA_MODEL = "llama3"
 AUDIO_FILENAME = "input.wav"
 RECORD_SECONDS = 5
 WHISPER_MODEL = "base"
+TTS_VOICE = "Milena"
+TTS_RATE = 185
 
 CALENDAR_STORAGE_FILE = "storage/calendar.json"
 TASK_STORAGE_FILE = "storage/tasks.json"
+
+Voice selection:
+
+Show available macOS voices:
+
+python -m voice.tts --list-voices
+
+Test a specific voice:
+
+python -m voice.tts --voice Milena --text "Hello, this is a voice test"
+
+Set the default voice in `.env`:
+
+TTS_VOICE=Milena
+TTS_RATE=185
 
 ## How it works
 

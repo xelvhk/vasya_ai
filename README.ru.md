@@ -132,9 +132,26 @@ OLLAMA_MODEL = "llama3"
 AUDIO_FILENAME = "input.wav"
 RECORD_SECONDS = 5
 WHISPER_MODEL = "base"
+TTS_VOICE = "Milena"
+TTS_RATE = 185
 
 CALENDAR_STORAGE_FILE = "storage/calendar.json"
 TASK_STORAGE_FILE = "storage/tasks.json"
+
+Выбор голоса для озвучки:
+
+Показать доступные голоса macOS:
+
+python -m voice.tts --list-voices
+
+Проверить конкретный голос:
+
+python -m voice.tts --voice Milena --text "Привет, это тест озвучки"
+
+Зафиксировать голос по умолчанию можно через `.env`:
+
+TTS_VOICE=Milena
+TTS_RATE=185
 
 ## Как это работает
 

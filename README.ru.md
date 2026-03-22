@@ -1,32 +1,47 @@
 # Vasya AI
-VAS = (Voice Ai ASsistant)
+
+`VAS = Voice AI Assistant`
+
 Язык: [English](README.md) | **Русский**
 
-Локальный AI-ассистент для десктопа, голосовых команд, задач, календаря и будущих агентных сценариев.
+Локальный voice-first AI-ассистент с текущим MVP-фокусом на macOS и дальнейшим развитием в сторону Windows и Linux.
+Vasya развивается из CLI MVP в более широкую систему персонального AI: задачи, календарь, будущие сценарии для заметок, десктопный интерфейс и специализированные агенты.
 
 Текущая версия: `0.3.0`
 
-Сейчас это MVP-проект, который умеет:
-- записывать голосовую команду с микрофона
-- распознавать речь локально
-- отправлять текст в локальную LLM через Ollama
-- понимать простые команды
-- добавлять задачи
-- добавлять события
-- разбирать базовые русские фразы даты и времени для команд календаря
-- автоматически поднимать Ollama при старте, если сервер не запущен
-- выбирать голос macOS для озвучки
-- хранить данные локально в SQLite
-- создавать события в Google Calendar при включенной интеграции
-- подтягивать будущие события из Google Calendar в локальный SQLite при запросе списка
+## Обзор
 
-## Что уже работает
+Vasya уже умеет:
+- принимать голосовой ввод локально
+- распознавать речь локально
+- разбирать интенты через локальную LLM в Ollama
+- работать с задачами
+- работать с календарем
+- синхронизировать события с Google Calendar
+- хранить данные в локальном SQLite
+- озвучивать ответы через macOS `say`
+
+Roadmap:
+- см. [ROADMAP.md](ROADMAP.md)
+
+## Текущее MVP
+
+Сейчас проект умеет:
+- записывать звук с микрофона
+- транскрибировать речь локально
+- маршрутизировать команды в задачи и календарь
+- разбирать частые русские фразы даты и времени
+- создавать, показывать, отмечать выполненными и удалять задачи
+- создавать, показывать и удалять события
+- фильтровать задачи и события по дате
+- хранить локальные данные в SQLite
+- при необходимости синхронизировать календарные события с Google Calendar
 
 Примеры команд:
-- «Добавь задачу купить лампу»
-- «Какие у меня задачи»
-- «Добавь встречу с Сашей завтра в 18:00»
-- «Покажи события»
+- `Добавь задачу купить лампу`
+- `Какие у меня задачи?`
+- `Добавь встречу с Сашей завтра в 18:00`
+- `Покажи события на 30 марта`
 
 ## Стек
 
@@ -37,6 +52,18 @@ VAS = (Voice Ai ASsistant)
 - sounddevice
 - scipy
 - pydantic
+- SQLite
+
+## Архитектура
+
+Текущий pipeline:
+
+`Голос -> запись аудио -> Whisper STT -> текст -> Ollama -> intent parsing -> router -> agent -> локальное действие -> ответ`
+
+Модель хранения:
+- задачи и события лежат в `storage/vasya.db`
+- старые JSON-файлы используются только как источник миграции
+- внешние интеграции подключаются как адаптеры поверх локального ядра
 
 ## Структура проекта
 
@@ -47,6 +74,8 @@ ai_pal/
 ├── requirements.txt
 ├── .env
 ├── README.md
+├── README.ru.md
+├── ROADMAP.md
 │
 ├── config/
 │   ├── __init__.py
@@ -60,12 +89,6 @@ ai_pal/
 │   ├── router.py
 │   └── models.py
 │
-├── voice/
-│   ├── __init__.py
-│   ├── recorder.py
-│   ├── stt.py
-│   └── tts.py
-│
 ├── agents/
 │   ├── __init__.py
 │   ├── calendar_agent.py
@@ -74,6 +97,7 @@ ai_pal/
 ├── services/
 │   ├── __init__.py
 │   ├── ollama_client.py
+│   ├── google_calendar_client.py
 │   ├── calendar_service.py
 │   └── task_service.py
 │
@@ -86,98 +110,91 @@ ai_pal/
 │   ├── db.py
 │   └── .gitkeep
 │
+├── voice/
+│   ├── __init__.py
+│   ├── recorder.py
+│   ├── stt.py
+│   └── tts.py
+│
 └── utils/
     ├── __init__.py
     ├── datetime_parser.py
+    ├── humanize.py
     ├── json_utils.py
     └── logger.py
 ```
 
-## Как запустить
+## Запуск
 
-1. Клонировать проект
+1. Клонировать репозиторий
 
+```bash
 git clone <repo_url>
 cd ai_pal
+```
 
-2. Создать виртуальное окружение
+2. Создать и активировать виртуальное окружение
 
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
 
 3. Установить зависимости
 
+```bash
 pip install -r requirements.txt
+```
 
-4. Установить и запустить Ollama
+4. Установить Ollama и скачать модель
 
-Сначала установить Ollama:
-
+```bash
 brew install ollama
-
-Потом запустить модель:
-
 ollama run llama3
+```
 
-Если модель уже скачана, достаточно просто убедиться, что Ollama доступна локально.
-При старте `main.py` приложение также пытается поднять `ollama serve` автоматически.
+Если Ollama уже установлена и модель доступна локально, этого достаточно.
+При старте `main.py` приложение также пытается автоматически поднять `ollama serve`.
 
 5. Запустить проект
 
-Проверка текстом:
+Текстовая проверка:
 
+```bash
 python test_text.py
+```
 
-Запуск голосового сценария:
+Голосовой сценарий:
 
+```bash
 python main.py
+```
 
-## Настройки
+Текущий платформенный фокус:
+- рабочий MVP сейчас ориентирован на macOS
+- в дальнейшем планируется поддержка Windows и Linux
 
-Основные настройки лежат в config/settings.py.
+## Конфигурация
+
+Основные настройки находятся в `config/settings.py`.
 
 Пример:
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3"
-AUDIO_FILENAME = "input.wav"
-RECORD_SECONDS = 5
-WHISPER_MODEL = "base"
-TTS_VOICE = "Milena"
-TTS_RATE = 185
-
-STORAGE_DB_FILE = "storage/vasya.db"
-CALENDAR_STORAGE_FILE = "storage/calendar.json"
-TASK_STORAGE_FILE = "storage/tasks.json"
-GOOGLE_CALENDAR_ENABLED = false
-GOOGLE_CALENDAR_CREDENTIALS_FILE = "credentials.json"
-GOOGLE_CALENDAR_TOKEN_FILE = "storage/google_token.json"
-GOOGLE_CALENDAR_ID = "primary"
-GOOGLE_CALENDAR_TIMEZONE = "Europe/Moscow"
-GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES = 60
-
-Выбор голоса для озвучки:
-
-Показать доступные голоса macOS:
-
-python -m voice.tts --list-voices
-
-Проверить конкретный голос:
-
-python -m voice.tts --voice Milena --text "Привет, это тест озвучки"
-
-Зафиксировать голос по умолчанию можно через `.env`:
+```env
+OLLAMA_URL=http://localhost:11434/api/generate
+OLLAMA_MODEL=llama3
+AUDIO_FILENAME=input.wav
+RECORD_SECONDS=5
+WHISPER_MODEL=base
 
 TTS_VOICE=Milena
 TTS_RATE=185
 
-Интеграция с Google Calendar:
+STORAGE_DB_FILE=storage/vasya.db
+CALENDAR_STORAGE_FILE=storage/calendar.json
+TASK_STORAGE_FILE=storage/tasks.json
 
-1. Создать OAuth Client для Desktop App в Google Cloud.
-2. Скачать файл credentials и сохранить его как `credentials.json` в корне проекта.
-3. Включить интеграцию через `.env`:
-
-GOOGLE_CALENDAR_ENABLED=true
+GOOGLE_CALENDAR_ENABLED=false
 GOOGLE_CALENDAR_CREDENTIALS_FILE=credentials.json
 GOOGLE_CALENDAR_TOKEN_FILE=storage/google_token.json
 GOOGLE_CALENDAR_ID=primary
@@ -185,71 +202,68 @@ GOOGLE_CALENDAR_TIMEZONE=Europe/Moscow
 GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
 GOOGLE_CALENDAR_SYNC_ON_READ=true
 GOOGLE_CALENDAR_READ_MAX_RESULTS=20
+```
 
-При первом создании события откроется OAuth-авторизация Google.
-Если интеграция не настроена или Google Calendar недоступен, событие все равно сохранится локально в SQLite.
-При запросе списка событий приложение также может импортировать ближайшие события из Google Calendar в локальную БД.
-По умолчанию в списке событий показываются будущие события, а записи без даты остаются внизу.
+Выбор голоса:
 
-## Как это работает
+```bash
+python -m voice.tts --list-voices
+python -m voice.tts --voice Milena --text "Привет, это тест озвучки"
+```
 
-Pipeline сейчас такой:
+## Google Calendar
 
-Голос → запись аудио → Whisper STT → текст → Ollama → intent parsing → router → agent → локальное действие → ответ
+Настройка:
+1. Создать Desktop App OAuth client в Google Cloud
+2. Включить Google Calendar API
+3. Сохранить credentials как `credentials.json` в корне проекта
+4. Включить интеграцию через `.env`
 
-Хранение данных
+Поведение:
+- новые события могут отправляться в Google Calendar
+- ближайшие события из Google Calendar могут импортироваться в SQLite
+- если синхронизация с Google не удалась, Vasya продолжает работать локально и возвращает понятную ошибку
 
-Пока данные хранятся локально:
- • задачи — в storage/vasya.db
- • события — в storage/vasya.db
+## Текущие ограничения
 
-Старые JSON-файлы используются только как legacy-источник для автоматической миграции в SQLite.
-В репозиторий локальные данные не пушатся.
+Это все еще MVP, поэтому ограничения пока такие:
+- нет wake word
+- нет режима постоянного прослушивания
+- нет десктопной оболочки или плавающего аватара
+- понимание речи все еще требует улучшения
+- нет интеграции с Obsidian
+- нет долговременной памяти
+- нет специализированных code и writing agents
 
-Доменный слой
+## Что запланировано
 
-Задачи и события теперь проходят через простые доменные модели и репозитории поверх SQLite.
-Это упрощает сервисы и подготавливает проект к будущим интеграциям.
+Ближайшие направления:
+- улучшение понимания фраз и retry UX
+- упрощение установки и первого запуска
+- desktop shell с hotkey и легким avatar или widget
+- интеграция с Obsidian
+- специализированные code и writing agents
 
-Ограничения текущего MVP
-
-Сейчас проект находится на стадии MVP, поэтому есть ограничения:
- • нет wake word
- • нет постоянного прослушивания
- • нет нормальной работы с календарём через Google Calendar API
- • нет синхронизации задач с внешними сервисами
- • разбор дат пока покрывает только частые сценарии
- • нет долговременной памяти
- • нет code-agent
-
-Что планируется дальше
-
-Следующие возможные шаги:
- • интеграция с Obsidian / Todoist / Google Tasks
- • fallback на Piper или другой TTS-движок
- • двусторонняя синхронизация с Google Calendar
- • режим постоянного прослушивания
- • wake word «Vasya»
- • code-agent для работы с файлами и проектами
- • единое пространство для нескольких AI-агентов
+Полный маршрут развития:
+- см. [ROADMAP.md](ROADMAP.md)
 
 ## Безопасность
 
-Проект использует локальные модели и локальное хранение данных, но при дальнейшей интеграции с внешними сервисами стоит отдельно продумать:
- • хранение токенов
- • доступ к календарю
- • доступ к файлам
- • журналирование действий агента
+При использовании внешних интеграций важно отдельно учитывать:
+- хранение токенов
+- доступ к календарю
+- доступ к файлам
+- журналирование действий
 
 ## Заметки
 
-На macOS для записи звука может понадобиться доступ Terminal / IDE к микрофону:
- • System Settings
- • Privacy & Security
- • Microphone
+На macOS для записи звука может понадобиться доступ Terminal или IDE к микрофону:
+- `System Settings`
+- `Privacy & Security`
+- `Microphone`
 
 ## Автор
 
-Xelvhk :computer:
+Xelvhk
 
-Личный pet-project по созданию локального голосового AI-ассистента с возможностью дальнейшего расширения в систему персональных AI-агентов.
+Личный проект по созданию локального голосового AI-ассистента, который со временем может вырасти в более широкую систему персонального AI.

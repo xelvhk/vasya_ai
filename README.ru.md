@@ -126,6 +126,18 @@ ai_pal/
 
 ## Запуск
 
+Быстрая настройка для macOS:
+
+```bash
+bash scripts/setup_mac.sh
+```
+
+Диагностика окружения:
+
+```bash
+python scripts/doctor.py
+```
+
 1. Клонировать репозиторий
 
 ```bash

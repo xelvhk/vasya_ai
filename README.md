@@ -126,6 +126,18 @@ ai_pal/
 
 ## Run
 
+Fast macOS setup:
+
+```bash
+bash scripts/setup_mac.sh
+```
+
+Environment diagnostics:
+
+```bash
+python scripts/doctor.py
+```
+
 1. Clone the repository
 
 ```bash

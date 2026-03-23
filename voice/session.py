@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from assistant.state import AssistantStateName, assistant_state
 from config.settings import AUDIO_FILENAME, MAX_VOICE_RETRIES, MIN_AUDIO_RMS, RECORD_SECONDS
 from core.orchestrator import process_text
 from services.ollama_client import OllamaClientError, ensure_ollama_running
@@ -14,18 +15,26 @@ def run_voice_interaction() -> None:
         ensure_ollama_running()
     except OllamaClientError as exc:
         message = str(exc)
+        assistant_state.set(AssistantStateName.ERROR, message)
         print(message)
         speak(message)
+        assistant_state.set(AssistantStateName.IDLE)
         return
 
+    assistant_state.set(AssistantStateName.LISTENING)
     user_text = _capture_user_text()
     if not user_text:
+        assistant_state.set(AssistantStateName.ERROR, "Не удалось распознать голосовую команду")
         speak("Я так и не смог нормально расслышать команду.")
+        assistant_state.set(AssistantStateName.IDLE)
         return
 
     print(f"Ты сказал: {user_text}")
+    assistant_state.set(AssistantStateName.THINKING)
     response = process_text(user_text)
+    assistant_state.set(AssistantStateName.SPEAKING, response)
     speak(response)
+    assistant_state.set(AssistantStateName.IDLE)
 
 
 def _capture_user_text() -> str | None:

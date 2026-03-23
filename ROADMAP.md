@@ -67,6 +67,10 @@ Why this matters:
 Focus:
 - move from script-style usage to real desktop presence
 
+Current status:
+- background hotkey mode is already implemented
+- first floating avatar widget MVP is available as `v0.4.0`
+
 Targets:
 - menu bar app or lightweight desktop shell
 - global hotkey
@@ -75,9 +79,10 @@ Targets:
 
 Recommended order:
 1. hotkey
-2. menu bar app
-3. floating widget
+2. floating widget MVP
+3. menu bar app
 4. richer avatar and animation
+5. compact response bubble and settings
 
 Why this matters:
 - a desktop assistant should feel immediately available, not hidden behind terminal commands
@@ -156,8 +161,9 @@ Good future exports:
 ## Suggested version path
 
 - `v0.3.x`: voice reliability, task/calendar UX, better phrasing
-- `v0.4.x`: installation and diagnostics
-- `v0.5.x`: desktop shell with hotkey and lightweight UI
+- `v0.4.0`: assistant state layer and first floating desktop avatar widget
+- `v0.4.x`: installation polish, diagnostics, better voice recovery, widget UX
+- `v0.5.x`: fuller desktop shell with menu bar or tray integration
 - `v0.6.x`: Obsidian integration
 - `v0.7.x`: code agent and writing/research agent
 - `v0.8+`: richer multi-agent and desktop workflows
@@ -166,8 +172,8 @@ Good future exports:
 
 If choosing one practical path from here, the best next order is:
 
-1. Improve speech understanding and recovery UX
-2. Simplify setup and first-run experience
-3. Add desktop shell with hotkey and lightweight avatar/widget
+1. Finish the first desktop widget MVP
+2. Improve speech understanding and recovery UX
+3. Simplify setup and first-run experience
 4. Add Obsidian integration
 5. Add code and writing agents

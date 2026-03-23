@@ -3,7 +3,7 @@ import os
 
 load_dotenv()
 
-APP_VERSION = os.getenv("APP_VERSION", "0.3.0")
+APP_VERSION = os.getenv("APP_VERSION", "0.4.0")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")
@@ -19,6 +19,9 @@ TTS_BACKEND = os.getenv("TTS_BACKEND", "auto")
 VOICE_INPUT_BACKEND = os.getenv("VOICE_INPUT_BACKEND", "auto")
 HOTKEY_COMBINATION = os.getenv("HOTKEY_COMBINATION", "<ctrl>+<alt>+space")
 HOTKEY_EXIT_COMBINATION = os.getenv("HOTKEY_EXIT_COMBINATION", "<ctrl>+<alt>+q")
+AVATAR_IMAGE_PATH = os.getenv("AVATAR_IMAGE_PATH", "")
+AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "140"))
+AVATAR_STATE_FILE = os.getenv("AVATAR_STATE_FILE", "storage/avatar_widget.json")
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
 

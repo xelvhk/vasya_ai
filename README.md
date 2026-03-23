@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.3.0`
+Current version: `0.4.0`
 
 ## Overview
 
@@ -20,6 +20,8 @@ Vasya already supports:
 - Google Calendar event sync and import
 - local SQLite storage
 - macOS speech output through `say`
+- background hotkey voice activation
+- first floating desktop avatar widget MVP
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -36,6 +38,8 @@ Current capabilities:
 - filter tasks and events by date
 - keep local data in SQLite
 - optionally sync calendar events with Google Calendar
+- run in background and start voice capture by hotkey
+- show a floating avatar widget with click-to-talk states
 
 Example commands:
 - `Add a task to buy a lamp`
@@ -93,6 +97,16 @@ ai_pal/
 │   ├── __init__.py
 │   ├── calendar_agent.py
 │   └── task_agent.py
+│
+├── assistant/
+│   ├── __init__.py
+│   └── state.py
+│
+├── scripts/
+│   ├── avatar_widget.py
+│   ├── doctor.py
+│   ├── hotkey_daemon.py
+│   └── setup_mac.sh
 │
 ├── services/
 │   ├── __init__.py
@@ -188,6 +202,20 @@ Background hotkey mode:
 python scripts/hotkey_daemon.py
 ```
 
+Desktop avatar widget MVP:
+
+```bash
+python scripts/avatar_widget.py
+```
+
+Notes:
+- left click starts one voice interaction
+- drag moves the avatar on screen
+- set `AVATAR_IMAGE_PATH` to use your own PNG avatar
+- widget position is restored between launches
+- response bubble is shown next to the avatar during listening, thinking, speaking, and errors
+- right click closes the widget
+
 Current platform focus:
 - the working MVP is currently oriented around macOS
 - future roadmap includes Windows and Linux support
@@ -211,6 +239,9 @@ TTS_BACKEND=auto
 VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<ctrl>+<alt>+space
 HOTKEY_EXIT_COMBINATION=<ctrl>+<alt>+q
+AVATAR_IMAGE_PATH=
+AVATAR_SIZE=140
+AVATAR_STATE_FILE=storage/avatar_widget.json
 
 STORAGE_DB_FILE=storage/vasya.db
 CALENDAR_STORAGE_FILE=storage/calendar.json
@@ -251,18 +282,28 @@ Behavior:
 This is still an MVP, so current limits include:
 - no wake word yet
 - no always-listening mode
-- no desktop shell or floating avatar yet
 - speech understanding still needs improvement in noisy or imperfect conditions
+- the desktop avatar is still a first lightweight widget, not a full desktop app
+- no menu bar app yet
 - no Obsidian integration yet
 - no long-term memory yet
 - no specialized code or writing agents yet
+
+## Version Path
+
+- `v0.3.x`: core voice MVP, local storage, calendar/tasks, Google Calendar, hotkey mode
+- `v0.4.0`: first desktop widget MVP with assistant state layer and click-to-talk avatar
+- `v0.4.x`: installation polish, voice understanding improvements, better desktop UX
+- `v0.5.x`: fuller desktop shell with tray or menu bar app and richer avatar behavior
+- `v0.6.x`: Obsidian integration
+- `v0.7.x`: code agent and writing/research agent
 
 ## Planned Direction
 
 Near-term goals:
 - better phrase understanding and retry UX
 - simpler installation and onboarding
-- desktop shell with hotkey and lightweight avatar or widget
+- better desktop shell around the current widget MVP
 - Obsidian integration
 - specialized code and writing agents
 
@@ -285,6 +326,11 @@ On macOS, microphone access may be required for Terminal or your IDE:
 - `Microphone`
 
 Global hotkeys on macOS may also require:
+- `System Settings`
+- `Privacy & Security`
+- `Accessibility`
+
+Running the desktop avatar may also require:
 - `System Settings`
 - `Privacy & Security`
 - `Accessibility`

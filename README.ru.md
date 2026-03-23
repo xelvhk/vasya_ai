@@ -201,6 +201,8 @@ WHISPER_MODEL=base
 
 TTS_VOICE=Milena
 TTS_RATE=185
+TTS_BACKEND=auto
+VOICE_INPUT_BACKEND=auto
 
 STORAGE_DB_FILE=storage/vasya.db
 CALENDAR_STORAGE_FILE=storage/calendar.json

@@ -182,6 +182,12 @@ Voice workflow:
 python main.py
 ```
 
+Background hotkey mode:
+
+```bash
+python scripts/hotkey_daemon.py
+```
+
 Current platform focus:
 - the working MVP is currently oriented around macOS
 - future roadmap includes Windows and Linux support
@@ -203,6 +209,8 @@ TTS_VOICE=Milena
 TTS_RATE=185
 TTS_BACKEND=auto
 VOICE_INPUT_BACKEND=auto
+HOTKEY_COMBINATION=<ctrl>+<alt>+space
+HOTKEY_EXIT_COMBINATION=<ctrl>+<alt>+q
 
 STORAGE_DB_FILE=storage/vasya.db
 CALENDAR_STORAGE_FILE=storage/calendar.json
@@ -275,6 +283,11 @@ On macOS, microphone access may be required for Terminal or your IDE:
 - `System Settings`
 - `Privacy & Security`
 - `Microphone`
+
+Global hotkeys on macOS may also require:
+- `System Settings`
+- `Privacy & Security`
+- `Accessibility`
 
 ## Author
 

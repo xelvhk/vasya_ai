@@ -17,6 +17,8 @@ VOICE_LOG_FILE = os.getenv("VOICE_LOG_FILE", "storage/voice.log")
 INTERACTION_LOG_FILE = os.getenv("INTERACTION_LOG_FILE", "storage/interactions.log")
 TTS_BACKEND = os.getenv("TTS_BACKEND", "auto")
 VOICE_INPUT_BACKEND = os.getenv("VOICE_INPUT_BACKEND", "auto")
+HOTKEY_COMBINATION = os.getenv("HOTKEY_COMBINATION", "<ctrl>+<alt>+space")
+HOTKEY_EXIT_COMBINATION = os.getenv("HOTKEY_EXIT_COMBINATION", "<ctrl>+<alt>+q")
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
 

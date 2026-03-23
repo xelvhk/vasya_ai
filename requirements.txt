@@ -28,6 +28,7 @@ numpy==2.4.3
 onnxruntime==1.24.4
 packaging==26.0
 protobuf==7.34.0
+pynput==1.8.1
 pycparser==3.0
 pydantic==2.12.5
 pydantic_core==2.41.5

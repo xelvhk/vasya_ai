@@ -12,6 +12,8 @@ INTENT_PROMPT_TEMPLATE = """
 - complete_task
 - delete_task
 - delete_tasks
+- stop_speaking
+- exit_assistant
 - unknown
 
 Правила:
@@ -39,6 +41,10 @@ INTENT_PROMPT_TEMPLATE = """
    - all: true, если пользователь явно просит удалить все задачи
 9. Для delete_event:
    - target: исходный текст события или номер из списка, как сказал пользователь
+10. Для stop_speaking:
+   - используй, если пользователь просит замолчать, прекратить озвучивание или остановить голос
+11. Для exit_assistant:
+   - используй, если пользователь просит закрыть, выключить или завершить работу помощника
 
 Примеры ответа:
 
@@ -85,6 +91,16 @@ INTENT_PROMPT_TEMPLATE = """
   "data": {{
     "target": "встреча с Иваном"
   }}
+}}
+
+{{
+  "intent": "stop_speaking",
+  "data": {{}}
+}}
+
+{{
+  "intent": "exit_assistant",
+  "data": {{}}
 }}
 
 Текст пользователя:

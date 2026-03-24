@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from threading import Lock
 
 import numpy as np
 import sounddevice as sd
@@ -24,16 +25,39 @@ class BaseTTSBackend:
     def list_voices(self) -> list[str]:
         return []
 
+    def stop(self) -> None:
+        return None
+
+    def is_speaking(self) -> bool:
+        return False
+
 
 class MacOSTTSBackend(BaseTTSBackend):
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._process: subprocess.Popen[str] | None = None
+
     def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
         selected_voice = voice or TTS_VOICE
         selected_rate = rate or TTS_RATE
 
         command = ["say", "-v", selected_voice, "-r", str(selected_rate), text]
-        result = subprocess.run(command, check=False)
-        if result.returncode != 0:
-            subprocess.run(["say", "-r", str(selected_rate), text], check=False)
+        process = subprocess.Popen(command)
+        with self._lock:
+            self._process = process
+        return_code = process.wait()
+        with self._lock:
+            if self._process is process:
+                self._process = None
+
+        if return_code != 0:
+            fallback_process = subprocess.Popen(["say", "-r", str(selected_rate), text])
+            with self._lock:
+                self._process = fallback_process
+            fallback_process.wait()
+            with self._lock:
+                if self._process is fallback_process:
+                    self._process = None
 
     def list_voices(self) -> list[str]:
         result = subprocess.run(
@@ -54,11 +78,34 @@ class MacOSTTSBackend(BaseTTSBackend):
             voices.append(voice_name)
         return voices
 
+    def stop(self) -> None:
+        with self._lock:
+            process = self._process
+        if process is None:
+            return
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        with self._lock:
+            if self._process is process:
+                self._process = None
+
+    def is_speaking(self) -> bool:
+        with self._lock:
+            process = self._process
+        return process is not None and process.poll() is None
+
 
 class PrintTTSBackend(BaseTTSBackend):
     def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
         _ = voice, rate
         print(f"[TTS fallback] {text}")
+
+
+_TTS_BACKEND: BaseTTSBackend | None = None
 
 
 class BaseVoiceInputBackend:
@@ -84,19 +131,28 @@ class SoundDeviceVoiceInputBackend(BaseVoiceInputBackend):
 
 
 def get_tts_backend() -> BaseTTSBackend:
+    global _TTS_BACKEND
+    if _TTS_BACKEND is not None:
+        return _TTS_BACKEND
+
     backend_name = TTS_BACKEND.lower()
     platform_name = get_platform_name()
 
     if backend_name == "print":
-        return PrintTTSBackend()
+        _TTS_BACKEND = PrintTTSBackend()
+        return _TTS_BACKEND
     if backend_name == "say":
-        return MacOSTTSBackend()
+        _TTS_BACKEND = MacOSTTSBackend()
+        return _TTS_BACKEND
     if backend_name == "auto":
         if platform_name == "macos":
-            return MacOSTTSBackend()
-        return PrintTTSBackend()
+            _TTS_BACKEND = MacOSTTSBackend()
+            return _TTS_BACKEND
+        _TTS_BACKEND = PrintTTSBackend()
+        return _TTS_BACKEND
 
-    return PrintTTSBackend()
+    _TTS_BACKEND = PrintTTSBackend()
+    return _TTS_BACKEND
 
 
 def get_voice_input_backend() -> BaseVoiceInputBackend:

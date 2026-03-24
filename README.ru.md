@@ -110,6 +110,9 @@ ai_pal/
 │   ├── hotkey_daemon.py
 │   └── setup_mac.sh
 │
+├── assets/
+│   └── vasya_avatar.svg
+│
 ├── services/
 │   ├── __init__.py
 │   ├── ollama_client.py
@@ -217,10 +220,13 @@ python scripts/avatar_widget.py
 - перетаскивание двигает аватар по экрану
 - клик по tray-иконке скрывает или показывает аватар
 - через tray-меню можно запустить listening или завершить Vasya
-- через `AVATAR_IMAGE_PATH` можно подставить свой PNG-аватар
+- через tray и меню аватара доступны настройки размера, позиции, hotkey и tray-click behavior
+- по умолчанию Vasya использует встроенный `assets/vasya_avatar.svg`
+- через `AVATAR_IMAGE_PATH` можно подставить свой PNG или SVG-аватар
+- для аккуратного результата лучше использовать прозрачный SVG
 - позиция виджета сохраняется между запусками
 - рядом с аватаром показывается bubble во время listening, thinking, speaking и error
-- правый клик закрывает виджет
+- правый клик открывает контекстное меню аватара
 
 Текущий платформенный фокус:
 - рабочий MVP сейчас ориентирован на macOS
@@ -246,7 +252,7 @@ VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
 AVATAR_IMAGE_PATH=
-AVATAR_SIZE=140
+AVATAR_SIZE=210
 AVATAR_STATE_FILE=storage/avatar_widget.json
 
 STORAGE_DB_FILE=storage/vasya.db

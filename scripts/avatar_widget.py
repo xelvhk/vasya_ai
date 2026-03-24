@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 import threading
 from pathlib import Path
 
+from assistant.control import AssistantControlAction
 from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
     AVATAR_IMAGE_PATH,
@@ -16,6 +18,7 @@ from config.settings import (
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from voice.session import run_voice_interaction
+from voice.tts import stop_speaking
 
 
 def main() -> None:
@@ -23,22 +26,27 @@ def main() -> None:
         from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal
         from PySide6.QtGui import (
             QAction,
+            QActionGroup,
             QColor,
             QFont,
             QGuiApplication,
+            QImage,
             QIcon,
             QMouseEvent,
             QPainter,
+            QPainterPath,
             QPen,
             QPixmap,
         )
-        from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
+        from PySide6.QtWidgets import QApplication, QInputDialog, QMenu, QSystemTrayIcon, QWidget
+        from PySide6.QtSvg import QSvgRenderer
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
 
     class StateBridge(QObject):
         state_changed = Signal(object)
+        exit_requested = Signal()
 
     class ResponseBubble(QWidget):
         def __init__(self) -> None:
@@ -81,14 +89,27 @@ def main() -> None:
                 | Qt.WindowType.Tool
             )
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-            self.setFixedSize(AVATAR_SIZE, AVATAR_SIZE)
+            self._widget_state = _load_widget_state()
+            self._avatar_size = int(self._widget_state.get("size", AVATAR_SIZE))
+            self._tray_click_action = str(
+                self._widget_state.get("tray_click_action", "toggle")
+            )
+            self._activation_hotkey = str(
+                self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
+            )
+            self.setFixedSize(self._avatar_size, self._avatar_size)
 
             self._drag_pos: QPoint | None = None
             self._press_pos: QPoint | None = None
             self._interaction_lock = threading.Lock()
             self._state = assistant_state.get()
             self._pulse = 0.0
+            self._bob = 0.0
+            self._avatar_path = self._resolve_avatar_path()
             self._avatar = self._load_avatar()
+            self._avatar_is_svg = (
+                self._avatar_path is not None and self._avatar_path.suffix.lower() == ".svg"
+            )
             self._tray_icon_pixmap = self._build_tray_pixmap()
             self._bridge = StateBridge()
             self._bubble = ResponseBubble()
@@ -97,6 +118,7 @@ def main() -> None:
             self._allow_close = False
 
             self._bridge.state_changed.connect(self._apply_state)
+            self._bridge.exit_requested.connect(self.quit_application)
             assistant_state.subscribe(self._on_state_changed)
 
             self._timer = QTimer(self)
@@ -108,23 +130,26 @@ def main() -> None:
             self._start_hotkey_listener()
             self._setup_tray()
 
-        def _load_avatar(self):
+        def _resolve_avatar_path(self) -> Path | None:
             if not AVATAR_IMAGE_PATH:
                 return None
-            path = Path(AVATAR_IMAGE_PATH)
+            path = Path(AVATAR_IMAGE_PATH).expanduser()
             if not path.exists():
                 return None
+            return path
+
+        def _load_avatar(self):
+            path = self._avatar_path
+            if path is None:
+                return None
+            if path.suffix.lower() == ".svg":
+                return self._render_svg_avatar(512)
             pixmap = QPixmap(str(path))
             return pixmap if not pixmap.isNull() else None
 
         def _build_tray_pixmap(self) -> QPixmap:
             if self._avatar:
-                return self._avatar.scaled(
-                    32,
-                    32,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
+                return self._prepare_avatar_pixmap(32, 32)
 
             pixmap = QPixmap(32, 32)
             pixmap.fill(Qt.GlobalColor.transparent)
@@ -149,7 +174,9 @@ def main() -> None:
             self.update()
 
         def _tick(self) -> None:
-            self._pulse = (self._pulse + 0.08) % 6.28
+            speed = _animation_speed(self._state.name)
+            self._pulse = (self._pulse + speed) % 6.28
+            self._bob = (self._bob + speed * 0.7) % 6.28
             self.update()
             self._update_bubble_position()
 
@@ -183,6 +210,7 @@ def main() -> None:
                 "Hide Avatar" if self.isVisible() else "Show Avatar"
             )
             listen_action = menu.addAction("Start Listening")
+            settings_menu = self._build_settings_menu(menu)
             menu.addSeparator()
             quit_action = menu.addAction("Quit Vasya")
 
@@ -193,16 +221,24 @@ def main() -> None:
                 self._activate_interaction()
             elif chosen_action == quit_action:
                 self.quit_application()
+            elif chosen_action is not None:
+                self._handle_settings_action(chosen_action)
 
         def _activate_interaction(self) -> None:
             if self._interaction_lock.locked():
-                log_voice_event("widget_activation_ignored reason=interaction_in_progress")
-                return
+                if assistant_state.get().name == AssistantStateName.SPEAKING:
+                    log_voice_event("widget_activation_interrupt_speaking")
+                    stop_speaking()
+                else:
+                    log_voice_event("widget_activation_ignored reason=interaction_in_progress")
+                    return
 
             def worker() -> None:
                 with self._interaction_lock:
                     log_voice_event("widget_activation_started")
-                    run_voice_interaction()
+                    action = run_voice_interaction()
+                    if action == AssistantControlAction.EXIT:
+                        self._bridge.exit_requested.emit()
 
             threading.Thread(target=worker, daemon=True).start()
 
@@ -225,18 +261,90 @@ def main() -> None:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-            glow_color = _glow_color(self._state.name)
-            glow_alpha = 110 + int(40 * abs(__import__("math").sin(self._pulse)))
-            glow = QColor(glow_color)
-            glow.setAlpha(glow_alpha)
+            glow = _animated_glow(self._state.name, self._pulse)
             painter.setBrush(glow)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(QRectF(8, 8, self.width() - 16, self.height() - 16))
+            outer_glow = QRectF(6, 6, self.width() - 12, self.height() - 12)
+            painter.drawEllipse(outer_glow)
+
+            halo = QColor(glow)
+            halo.setAlpha(max(30, glow.alpha() - 45))
+            painter.setBrush(halo)
+            painter.drawEllipse(QRectF(12, 12, self.width() - 24, self.height() - 24))
 
             if self._avatar:
-                painter.drawPixmap(self.rect(), self._avatar)
+                self._paint_avatar(painter)
             else:
                 self._paint_fallback(painter)
+
+        def _paint_avatar(self, painter: QPainter) -> None:
+            bob_offset = _avatar_bob_offset(self._state.name, self._bob)
+            avatar_rect = QRectF(-6, -12 + bob_offset, self.width() + 12, self.height() + 16)
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            shadow_alpha = 65 + int(20 * abs(math.sin(self._bob)))
+            painter.setBrush(QColor(11, 23, 66, shadow_alpha))
+            shadow_width = self.width() - 36 + _shadow_width_delta(self._state.name, self._pulse)
+            shadow_x = (self.width() - shadow_width) / 2
+            painter.drawEllipse(QRectF(shadow_x, self.height() - 26, shadow_width, 14))
+
+            avatar_pixmap = self._prepare_avatar_pixmap(
+                int(avatar_rect.width()),
+                int(avatar_rect.height()),
+            )
+            if not avatar_pixmap.isNull():
+                draw_x = int((self.width() - avatar_pixmap.width()) / 2)
+                draw_y = int((self.height() - avatar_pixmap.height()) / 2) - 2 + int(bob_offset)
+                painter.drawPixmap(draw_x, draw_y, avatar_pixmap)
+
+            highlight_path = QPainterPath()
+            highlight_path.addEllipse(QRectF(18, 20 + bob_offset, self.width() - 36, self.height() - 44))
+            painter.setPen(QPen(_highlight_color(self._state.name, self._pulse), 2))
+            painter.drawPath(highlight_path)
+            painter.restore()
+
+        def _prepare_avatar_pixmap(self, width: int, height: int) -> QPixmap:
+            if self._avatar_path is None:
+                return QPixmap()
+
+            if self._avatar_is_svg:
+                return self._render_svg_avatar(max(width, height))
+
+            if not self._avatar:
+                return QPixmap()
+
+            source = self._avatar
+            return source.scaled(
+                width,
+                height,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+
+        def _render_svg_avatar(self, size: int) -> QPixmap:
+            if self._avatar_path is None:
+                return QPixmap()
+
+            renderer = QSvgRenderer(str(self._avatar_path))
+            if not renderer.isValid():
+                return QPixmap()
+
+            canvas_size = max(64, size)
+            image = QImage(canvas_size, canvas_size, QImage.Format.Format_ARGB32_Premultiplied)
+            image.fill(Qt.GlobalColor.transparent)
+
+            svg_painter = QPainter(image)
+            svg_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            svg_painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            render_rect = QRectF(
+                canvas_size * -0.05,
+                canvas_size * -0.10,
+                canvas_size * 1.10,
+                canvas_size * 1.12,
+            )
+            renderer.render(svg_painter, render_rect)
+            svg_painter.end()
+            return QPixmap.fromImage(image)
 
         def _paint_fallback(self, painter: QPainter) -> None:
             rect = QRectF(18, 18, self.width() - 36, self.height() - 36)
@@ -298,11 +406,20 @@ def main() -> None:
 
         def _restore_position(self) -> None:
             saved_pos = _load_saved_position()
-            target_pos = saved_pos or _default_position()
+            target_pos = saved_pos or _default_position(self.width(), self.height())
             self.move(_clamp_to_visible_area(target_pos, self.width(), self.height()))
 
         def _save_position(self) -> None:
-            _save_position(self.pos())
+            _save_widget_state(
+                {
+                    **self._widget_state,
+                    "x": int(self.pos().x()),
+                    "y": int(self.pos().y()),
+                    "size": self._avatar_size,
+                    "tray_click_action": self._tray_click_action,
+                    "hotkey_combination": self._activation_hotkey,
+                }
+            )
 
         def _start_hotkey_listener(self) -> None:
             try:
@@ -311,7 +428,7 @@ def main() -> None:
                 log("pynput is not installed. Global hotkey support is disabled.")
                 return
 
-            activation_hotkey = normalize_hotkey_combination(HOTKEY_COMBINATION)
+            activation_hotkey = normalize_hotkey_combination(self._activation_hotkey)
             exit_hotkey = normalize_hotkey_combination(HOTKEY_EXIT_COMBINATION)
             hotkeys = {
                 activation_hotkey: self._activate_interaction,
@@ -347,6 +464,8 @@ def main() -> None:
             menu.addAction(listen_action)
 
             menu.addSeparator()
+            self._build_settings_menu(menu)
+            menu.addSeparator()
 
             quit_action = QAction("Quit Vasya", self)
             quit_action.triggered.connect(self.quit_application)
@@ -359,7 +478,10 @@ def main() -> None:
 
         def _on_tray_activated(self, reason) -> None:
             if reason == QSystemTrayIcon.ActivationReason.Trigger:
-                self.toggle_avatar_visibility()
+                if self._tray_click_action == "listen":
+                    self._activate_interaction()
+                else:
+                    self.toggle_avatar_visibility()
 
         def toggle_avatar_visibility(self) -> None:
             if self.isVisible():
@@ -398,6 +520,103 @@ def main() -> None:
                 suffix = f" [{self._state.name.value}]"
             self._tray.setToolTip(f"Vasya AI{suffix}")
 
+        def _build_settings_menu(self, parent_menu: QMenu) -> QMenu:
+            settings_menu = parent_menu.addMenu("Settings")
+
+            size_menu = settings_menu.addMenu("Avatar Size")
+            self._size_action_group = QActionGroup(self)
+            self._size_action_group.setExclusive(True)
+            for label, size in (("Small", 180), ("Medium", 210), ("Large", 270)):
+                action = size_menu.addAction(label)
+                action.setCheckable(True)
+                action.setChecked(self._avatar_size == size)
+                action.setData(("size", size))
+                action.triggered.connect(
+                    lambda checked=False, selected_action=action: self._handle_settings_action(selected_action)
+                )
+                self._size_action_group.addAction(action)
+
+            tray_click_menu = settings_menu.addMenu("Tray Click Action")
+            self._tray_action_group = QActionGroup(self)
+            self._tray_action_group.setExclusive(True)
+            for label, value in (("Toggle Avatar", "toggle"), ("Start Listening", "listen")):
+                action = tray_click_menu.addAction(label)
+                action.setCheckable(True)
+                action.setChecked(self._tray_click_action == value)
+                action.setData(("tray_click_action", value))
+                action.triggered.connect(
+                    lambda checked=False, selected_action=action: self._handle_settings_action(selected_action)
+                )
+                self._tray_action_group.addAction(action)
+
+            set_hotkey_action = settings_menu.addAction("Set Listening Hotkey...")
+            set_hotkey_action.setData(("set_hotkey", None))
+            set_hotkey_action.triggered.connect(
+                lambda checked=False, selected_action=set_hotkey_action: self._handle_settings_action(selected_action)
+            )
+
+            reset_position_action = settings_menu.addAction("Reset Position")
+            reset_position_action.setData(("reset_position", None))
+            reset_position_action.triggered.connect(
+                lambda checked=False, selected_action=reset_position_action: self._handle_settings_action(selected_action)
+            )
+            return settings_menu
+
+        def _handle_settings_action(self, action: QAction) -> None:
+            data = action.data()
+            if not isinstance(data, tuple) or len(data) != 2:
+                return
+
+            key, value = data
+            if key == "size" and isinstance(value, int):
+                self._set_avatar_size(value)
+            elif key == "tray_click_action" and isinstance(value, str):
+                self._tray_click_action = value
+                self._save_position()
+            elif key == "set_hotkey":
+                self._prompt_hotkey()
+            elif key == "reset_position":
+                self.move(_default_position(self.width(), self.height()))
+                self._update_bubble_position()
+                self._save_position()
+
+        def _set_avatar_size(self, size: int) -> None:
+            self._avatar_size = size
+            self.setFixedSize(size, size)
+            self._tray_icon_pixmap = self._build_tray_pixmap()
+            if self._tray is not None:
+                self._tray.setIcon(QIcon(self._tray_icon_pixmap))
+            self.move(_clamp_to_visible_area(self.pos(), self.width(), self.height()))
+            self._update_bubble_position()
+            self._save_position()
+            self.update()
+
+        def _prompt_hotkey(self) -> None:
+            text, accepted = QInputDialog.getText(
+                self,
+                "Set Listening Hotkey",
+                "Enter hotkey in pynput format:",
+                text=self._activation_hotkey,
+            )
+            if not accepted or not text.strip():
+                return
+
+            new_hotkey = normalize_hotkey_combination(text)
+            old_hotkey = self._activation_hotkey
+            self._activation_hotkey = new_hotkey
+
+            if self._hotkey_listener is not None:
+                self._hotkey_listener.stop()
+                self._hotkey_listener = None
+
+            self._start_hotkey_listener()
+            if self._hotkey_listener is None:
+                self._activation_hotkey = old_hotkey
+                self._start_hotkey_listener()
+                return
+
+            self._save_position()
+
     def _glow_color(state_name: AssistantStateName) -> str:
         if state_name == AssistantStateName.LISTENING:
             return "#3ec8ff"
@@ -409,14 +628,67 @@ def main() -> None:
             return "#ff6b6b"
         return "#4f8fff"
 
-    def _load_saved_position() -> QPoint | None:
+    def _animation_speed(state_name: AssistantStateName) -> float:
+        if state_name == AssistantStateName.LISTENING:
+            return 0.14
+        if state_name == AssistantStateName.THINKING:
+            return 0.09
+        if state_name == AssistantStateName.SPEAKING:
+            return 0.18
+        if state_name == AssistantStateName.ERROR:
+            return 0.22
+        return 0.06
+
+    def _animated_glow(state_name: AssistantStateName, pulse: float) -> QColor:
+        base = QColor(_glow_color(state_name))
+        if state_name == AssistantStateName.LISTENING:
+            alpha = 120 + int(55 * abs(math.sin(pulse)))
+        elif state_name == AssistantStateName.THINKING:
+            alpha = 105 + int(32 * (0.5 + 0.5 * math.sin(pulse)))
+        elif state_name == AssistantStateName.SPEAKING:
+            alpha = 125 + int(65 * abs(math.sin(pulse * 1.5)))
+        elif state_name == AssistantStateName.ERROR:
+            alpha = 120 + int(80 * abs(math.sin(pulse * 2.0)))
+        else:
+            alpha = 95 + int(18 * abs(math.sin(pulse)))
+        base.setAlpha(alpha)
+        return base
+
+    def _avatar_bob_offset(state_name: AssistantStateName, bob: float) -> float:
+        if state_name == AssistantStateName.LISTENING:
+            return -2.5 * abs(math.sin(bob))
+        if state_name == AssistantStateName.THINKING:
+            return -1.4 * math.sin(bob)
+        if state_name == AssistantStateName.SPEAKING:
+            return -3.2 * abs(math.sin(bob * 1.2))
+        if state_name == AssistantStateName.ERROR:
+            return 1.2 * math.sin(bob * 2.4)
+        return -0.6 * math.sin(bob)
+
+    def _shadow_width_delta(state_name: AssistantStateName, pulse: float) -> float:
+        if state_name == AssistantStateName.SPEAKING:
+            return -6 * abs(math.sin(pulse * 1.4))
+        if state_name == AssistantStateName.LISTENING:
+            return -4 * abs(math.sin(pulse))
+        return -2 * abs(math.sin(pulse))
+
+    def _highlight_color(state_name: AssistantStateName, pulse: float) -> QColor:
+        color = QColor(_glow_color(state_name))
+        color.setAlpha(105 + int(35 * abs(math.sin(pulse))))
+        return color
+
+    def _load_widget_state() -> dict:
         state_path = Path(AVATAR_STATE_FILE)
         if not state_path.exists():
-            return None
+            return {}
         try:
             payload = json.loads(state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            return None
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def _load_saved_position() -> QPoint | None:
+        payload = _load_widget_state()
 
         x = payload.get("x")
         y = payload.get("y")
@@ -424,14 +696,14 @@ def main() -> None:
             return None
         return QPoint(x, y)
 
-    def _default_position() -> QPoint:
+    def _default_position(width: int, height: int) -> QPoint:
         screen = QGuiApplication.primaryScreen()
         if screen is None:
             return QPoint(100, 100)
 
         available = screen.availableGeometry()
-        default_x = max(24, available.right() - AVATAR_SIZE - 48)
-        default_y = max(24, available.bottom() - AVATAR_SIZE - 120)
+        default_x = max(24, available.right() - width - 48)
+        default_y = max(24, available.bottom() - height - 120)
         return QPoint(default_x, default_y)
 
     def _clamp_to_visible_area(position: QPoint, width: int, height: int) -> QPoint:
@@ -454,14 +726,13 @@ def main() -> None:
         clamped_y = min(max(position.y(), available.top() + 24), available.bottom() - height)
         return QPoint(clamped_x, clamped_y)
 
-    def _save_position(position: QPoint) -> None:
+    def _save_widget_state(payload: dict) -> None:
         state_path = Path(AVATAR_STATE_FILE)
         state_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"x": int(position.x()), "y": int(position.y())}
         try:
             state_path.write_text(json.dumps(payload), encoding="utf-8")
         except OSError as exc:
-            log(f"Failed to save avatar position: {exc}")
+            log(f"Failed to save avatar widget state: {exc}")
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)

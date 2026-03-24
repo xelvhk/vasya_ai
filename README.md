@@ -110,6 +110,9 @@ ai_pal/
 │   ├── hotkey_daemon.py
 │   └── setup_mac.sh
 │
+├── assets/
+│   └── vasya_avatar.svg
+│
 ├── services/
 │   ├── __init__.py
 │   ├── ollama_client.py
@@ -217,10 +220,13 @@ Notes:
 - drag moves the avatar on screen
 - tray click toggles avatar visibility
 - tray menu can start listening or quit Vasya
-- set `AVATAR_IMAGE_PATH` to use your own PNG avatar
+- tray and avatar menu now also expose size, position, hotkey, and tray-click settings
+- Vasya now uses the bundled `assets/vasya_avatar.svg` by default
+- set `AVATAR_IMAGE_PATH` to use your own PNG or SVG avatar
+- transparent SVG gives the cleanest result and is the recommended format for a polished avatar
 - widget position is restored between launches
 - response bubble is shown next to the avatar during listening, thinking, speaking, and errors
-- right click closes the widget
+- right click opens the avatar context menu
 
 Current platform focus:
 - the working MVP is currently oriented around macOS
@@ -246,7 +252,7 @@ VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
 AVATAR_IMAGE_PATH=
-AVATAR_SIZE=140
+AVATAR_SIZE=210
 AVATAR_STATE_FILE=storage/avatar_widget.json
 
 STORAGE_DB_FILE=storage/vasya.db

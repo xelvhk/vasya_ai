@@ -28,6 +28,16 @@ def list_voices() -> list[str]:
     return backend.list_voices()
 
 
+def stop_speaking() -> None:
+    backend = get_tts_backend()
+    backend.stop()
+
+
+def is_speaking() -> bool:
+    backend = get_tts_backend()
+    return backend.is_speaking()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Vasya TTS helper")
     parser.add_argument("--list-voices", action="store_true", help="Show available voices")

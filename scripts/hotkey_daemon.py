@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import threading
 
+from assistant.control import AssistantControlAction
+from assistant.state import AssistantStateName, assistant_state
 from config.settings import HOTKEY_COMBINATION, HOTKEY_EXIT_COMBINATION
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from voice.session import run_voice_interaction
-from voice.tts import speak
+from voice.tts import speak, stop_speaking
 
 
 def main() -> None:
@@ -21,13 +23,19 @@ def main() -> None:
 
     def on_activate() -> None:
         if interaction_lock.locked():
-            log_voice_event("hotkey_ignored reason=interaction_in_progress")
-            return
+            if assistant_state.get().name == AssistantStateName.SPEAKING:
+                log_voice_event("hotkey_interrupt_speaking")
+                stop_speaking()
+            else:
+                log_voice_event("hotkey_ignored reason=interaction_in_progress")
+                return
 
         def worker() -> None:
             with interaction_lock:
                 log_voice_event("hotkey_activated")
-                run_voice_interaction()
+                action = run_voice_interaction()
+                if action == AssistantControlAction.EXIT:
+                    on_exit()
 
         threading.Thread(target=worker, daemon=True).start()
 

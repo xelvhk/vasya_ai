@@ -13,6 +13,8 @@ class IntentResult(BaseModel):
         "complete_task",
         "delete_task",
         "delete_tasks",
+        "stop_speaking",
+        "exit_assistant",
         "unknown",
     ]
     data: Dict[str, Any] = {}

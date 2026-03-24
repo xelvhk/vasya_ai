@@ -1,14 +1,22 @@
 import argparse
 import re
 
-from voice.backends import get_tts_backend
+from voice.backends import get_tts_backend, get_tts_backend_status
+
+
+_BACKEND_STATUS_PRINTED = False
 
 
 def speak(text: str, voice: str | None = None, rate: int | None = None) -> None:
+    global _BACKEND_STATUS_PRINTED
     print(f"Vasya: {text}")
 
     if not text.strip():
         return
+
+    if not _BACKEND_STATUS_PRINTED:
+        print(get_tts_backend_status())
+        _BACKEND_STATUS_PRINTED = True
 
     backend = get_tts_backend()
     backend.speak(_prepare_text_for_speech(text), voice=voice, rate=rate)

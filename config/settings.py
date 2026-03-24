@@ -1,7 +1,10 @@
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
 load_dotenv()
+
+_BASE_DIR = Path(__file__).resolve().parent.parent
 
 APP_VERSION = os.getenv("APP_VERSION", "0.4.0")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
@@ -19,13 +22,18 @@ TTS_BACKEND = os.getenv("TTS_BACKEND", "auto")
 VOICE_INPUT_BACKEND = os.getenv("VOICE_INPUT_BACKEND", "auto")
 HOTKEY_COMBINATION = os.getenv("HOTKEY_COMBINATION", "<cmd>+<option>+<space>")
 HOTKEY_EXIT_COMBINATION = os.getenv("HOTKEY_EXIT_COMBINATION", "<cmd>+<option>+q")
-DEFAULT_AVATAR_IMAGE_PATH = "assets/vasya_avatar.svg"
-_avatar_image_path = os.getenv("AVATAR_IMAGE_PATH", "").strip()
-AVATAR_IMAGE_PATH = _avatar_image_path or DEFAULT_AVATAR_IMAGE_PATH
+AVATAR_IMAGE_PATH = os.getenv("AVATAR_IMAGE_PATH", "").strip()
 AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "210"))
 AVATAR_STATE_FILE = os.getenv("AVATAR_STATE_FILE", "storage/avatar_widget.json")
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
+PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
+PIPER_MODEL_PATH = os.getenv(
+    "PIPER_MODEL_PATH",
+    str(_BASE_DIR / "storage" / "voices" / "ru_RU-irina-medium.onnx"),
+)
+PIPER_SPEAKER = os.getenv("PIPER_SPEAKER", "")
+PIPER_LENGTH_SCALE = os.getenv("PIPER_LENGTH_SCALE", "1.0")
 
 STORAGE_DB_FILE = os.getenv("STORAGE_DB_FILE", "storage/vasya.db")
 CALENDAR_STORAGE_FILE = os.getenv("CALENDAR_STORAGE_FILE", "storage/calendar.json")

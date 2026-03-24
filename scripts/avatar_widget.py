@@ -32,11 +32,13 @@ def main() -> None:
             QGuiApplication,
             QImage,
             QIcon,
+            QLinearGradient,
             QMouseEvent,
             QPainter,
             QPainterPath,
             QPen,
             QPixmap,
+            QRadialGradient,
         )
         from PySide6.QtWidgets import QApplication, QInputDialog, QMenu, QSystemTrayIcon, QWidget
         from PySide6.QtSvg import QSvgRenderer
@@ -261,21 +263,28 @@ def main() -> None:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-            glow = _animated_glow(self._state.name, self._pulse)
-            painter.setBrush(glow)
-            painter.setPen(Qt.PenStyle.NoPen)
-            outer_glow = QRectF(6, 6, self.width() - 12, self.height() - 12)
-            painter.drawEllipse(outer_glow)
-
-            halo = QColor(glow)
-            halo.setAlpha(max(30, glow.alpha() - 45))
-            painter.setBrush(halo)
-            painter.drawEllipse(QRectF(12, 12, self.width() - 24, self.height() - 24))
-
             if self._avatar:
+                self._paint_ambient_glow(painter)
                 self._paint_avatar(painter)
             else:
-                self._paint_fallback(painter)
+                self._paint_character(painter)
+
+        def _paint_ambient_glow(self, painter: QPainter) -> None:
+            glow = _animated_glow(self._state.name, self._pulse)
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            outer_glow = QRadialGradient(self.width() * 0.5, self.height() * 0.48, self.width() * 0.48)
+            outer_glow.setColorAt(0.0, glow)
+            fade = QColor(glow)
+            fade.setAlpha(max(0, glow.alpha() - 90))
+            outer_glow.setColorAt(0.55, fade)
+            transparent = QColor(glow)
+            transparent.setAlpha(0)
+            outer_glow.setColorAt(1.0, transparent)
+            painter.setBrush(outer_glow)
+            painter.drawEllipse(QRectF(0, 0, self.width(), self.height()))
+            painter.restore()
 
         def _paint_avatar(self, painter: QPainter) -> None:
             bob_offset = _avatar_bob_offset(self._state.name, self._bob)
@@ -347,28 +356,186 @@ def main() -> None:
             return QPixmap.fromImage(image)
 
         def _paint_fallback(self, painter: QPainter) -> None:
-            rect = QRectF(18, 18, self.width() - 36, self.height() - 36)
-            gradient_color = _glow_color(self._state.name)
+            self._paint_character(painter)
 
-            painter.setBrush(QColor("#102a72"))
-            painter.setPen(QPen(QColor(gradient_color), 4))
-            painter.drawEllipse(rect)
+        def _paint_character(self, painter: QPainter) -> None:
+            bob_offset = _avatar_bob_offset(self._state.name, self._bob)
+            glow = _animated_glow(self._state.name, self._pulse)
 
-            inner = QRectF(32, 32, self.width() - 64, self.height() - 64)
-            painter.setBrush(QColor("#f7f9ff"))
+            painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(inner)
 
-            painter.setBrush(QColor("#101a4d"))
-            painter.drawEllipse(QRectF(44, 52, 20, 28))
-            painter.drawEllipse(QRectF(76, 52, 20, 28))
+            ambient = QRadialGradient(self.width() * 0.5, self.height() * 0.46, self.width() * 0.52)
+            ambient.setColorAt(0.0, glow)
+            ambient_fade = QColor(glow)
+            ambient_fade.setAlpha(max(0, glow.alpha() - 110))
+            ambient.setColorAt(0.62, ambient_fade)
+            ambient_clear = QColor(glow)
+            ambient_clear.setAlpha(0)
+            ambient.setColorAt(1.0, ambient_clear)
+            painter.setBrush(ambient)
+            painter.drawEllipse(QRectF(-8, -6, self.width() + 16, self.height() + 12))
 
-            painter.setPen(QPen(QColor("#1c275f"), 4))
-            painter.drawArc(QRectF(54, 76, 32, 18), 200 * 16, 140 * 16)
+            shadow_alpha = 70 + int(18 * abs(math.sin(self._bob)))
+            shadow_width = self.width() * 0.54 + _shadow_width_delta(self._state.name, self._pulse)
+            shadow_x = (self.width() - shadow_width) / 2
+            painter.setBrush(QColor(9, 18, 54, shadow_alpha))
+            painter.drawEllipse(QRectF(shadow_x, self.height() - 30, shadow_width, 16))
 
-            painter.setPen(QColor("#d9e7ff"))
-            painter.setFont(QFont("Helvetica", 8))
-            painter.drawText(self.rect().adjusted(0, self.height() - 22, 0, -4), Qt.AlignmentFlag.AlignCenter, self._state.name.value)
+            body_rect = QRectF(self.width() * 0.10, self.height() * 0.18 + bob_offset, self.width() * 0.80, self.height() * 0.74)
+            body_gradient = QLinearGradient(body_rect.left(), body_rect.top(), body_rect.right(), body_rect.bottom())
+            body_gradient.setColorAt(0.0, QColor("#4f86ff"))
+            body_gradient.setColorAt(0.32, QColor("#224eb6"))
+            body_gradient.setColorAt(0.75, QColor("#0f245f"))
+            body_gradient.setColorAt(1.0, QColor("#08153b"))
+
+            painter.setBrush(body_gradient)
+            painter.setPen(QPen(QColor("#6fe3ff"), 3))
+            painter.drawEllipse(body_rect)
+
+            rim_path = QPainterPath()
+            rim_path.addEllipse(body_rect.adjusted(4, 4, -4, -4))
+            painter.setPen(QPen(QColor(120, 222, 255, 95 + int(30 * abs(math.sin(self._pulse)))), 2))
+            painter.drawPath(rim_path)
+
+            face_rect = QRectF(self.width() * 0.20, self.height() * 0.23 + bob_offset, self.width() * 0.60, self.height() * 0.48)
+            face_gradient = QRadialGradient(face_rect.center().x(), face_rect.center().y(), face_rect.width() * 0.72)
+            face_gradient.setColorAt(0.0, QColor("#ffffff"))
+            face_gradient.setColorAt(0.72, QColor("#eef3ff"))
+            face_gradient.setColorAt(1.0, QColor("#cad8f2"))
+            painter.setBrush(face_gradient)
+            painter.setPen(QPen(QColor("#d9e6ff"), 1))
+            painter.drawEllipse(face_rect)
+
+            painter.setBrush(QColor(255, 255, 255, 125))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(QRectF(self.width() * 0.63, self.height() * 0.24 + bob_offset, self.width() * 0.13, self.height() * 0.08))
+
+            eye_w = self.width() * 0.17
+            eye_h = self.height() * 0.21
+            eye_y = self.height() * 0.38 + bob_offset
+            left_eye = QRectF(self.width() * 0.28, eye_y, eye_w, eye_h)
+            right_eye = QRectF(self.width() * 0.55, eye_y, eye_w, eye_h)
+            blink = _blink_scale(self._state.name, self._pulse)
+            visible_eye_height = max(eye_h * (0.18 + blink * 0.82), eye_h * 0.18)
+            eye_vertical_shift = (eye_h - visible_eye_height) * 0.48
+
+            def draw_eye(rect: QRectF) -> None:
+                adjusted_rect = QRectF(
+                    rect.left(),
+                    rect.top() + eye_vertical_shift,
+                    rect.width(),
+                    visible_eye_height,
+                )
+                eye_gradient = QRadialGradient(
+                    adjusted_rect.center().x(),
+                    adjusted_rect.top() + adjusted_rect.height() * 0.34,
+                    adjusted_rect.width() * 0.88,
+                )
+                eye_gradient.setColorAt(0.0, QColor("#2c56be"))
+                eye_gradient.setColorAt(0.35, QColor("#122869"))
+                eye_gradient.setColorAt(1.0, QColor("#071131"))
+                painter.setBrush(eye_gradient)
+                painter.setPen(QPen(QColor("#456ee0"), 1))
+                painter.drawRoundedRect(
+                    adjusted_rect,
+                    adjusted_rect.width() * 0.48,
+                    adjusted_rect.height() * 0.48,
+                )
+
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QColor("#eef3ff"))
+                top_lid = QPainterPath()
+                top_lid.moveTo(rect.left() - 2, rect.top() + rect.height() * 0.08)
+                top_lid.cubicTo(
+                    rect.left() + rect.width() * 0.18,
+                    rect.top() - rect.height() * 0.08,
+                    rect.left() + rect.width() * 0.82,
+                    rect.top() - rect.height() * 0.08,
+                    rect.right() + 2,
+                    rect.top() + rect.height() * 0.08,
+                )
+                top_lid.lineTo(rect.right() + 2, adjusted_rect.top())
+                top_lid.lineTo(rect.left() - 2, adjusted_rect.top())
+                top_lid.closeSubpath()
+                painter.drawPath(top_lid)
+
+                bottom_lid = QPainterPath()
+                bottom_lid.moveTo(rect.left() - 2, adjusted_rect.bottom())
+                bottom_lid.lineTo(rect.right() + 2, adjusted_rect.bottom())
+                bottom_lid.cubicTo(
+                    rect.left() + rect.width() * 0.82,
+                    rect.bottom() + rect.height() * 0.08,
+                    rect.left() + rect.width() * 0.18,
+                    rect.bottom() + rect.height() * 0.08,
+                    rect.left() - 2,
+                    adjusted_rect.bottom(),
+                )
+                bottom_lid.closeSubpath()
+                painter.drawPath(bottom_lid)
+
+                if blink > 0.45:
+                    highlight_size = min(adjusted_rect.width(), adjusted_rect.height()) * 0.24
+                    painter.setBrush(QColor("#ffffff"))
+                    painter.drawEllipse(
+                        QRectF(
+                            adjusted_rect.left() + adjusted_rect.width() * 0.38,
+                            adjusted_rect.top() + adjusted_rect.height() * 0.16,
+                            highlight_size,
+                            highlight_size,
+                        )
+                    )
+
+            draw_eye(left_eye)
+            draw_eye(right_eye)
+
+            mouth_pen = QPen(QColor("#1e2c63"), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            painter.setPen(mouth_pen)
+            mouth_rect = QRectF(self.width() * 0.41, self.height() * 0.58 + bob_offset, self.width() * 0.18, self.height() * 0.10)
+            painter.drawArc(mouth_rect, 205 * 16, 130 * 16)
+
+            cheek_glow = QRadialGradient(
+                self.width() * 0.72,
+                self.height() * 0.58 + bob_offset,
+                self.width() * 0.10,
+            )
+            cheek_glow.setColorAt(0.0, QColor(122, 214, 255, 58))
+            cheek_glow.setColorAt(1.0, QColor(122, 214, 255, 0))
+            painter.setBrush(cheek_glow)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(
+                QRectF(
+                    self.width() * 0.64,
+                    self.height() * 0.49 + bob_offset,
+                    self.width() * 0.18,
+                    self.height() * 0.18,
+                )
+            )
+
+            tuft_pen = QPen(QColor("#2e5fe0"), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            painter.setPen(tuft_pen)
+            tuft_path = QPainterPath()
+            tuft_path.moveTo(self.width() * 0.48, self.height() * 0.17 + bob_offset)
+            tuft_path.cubicTo(
+                self.width() * 0.45,
+                self.height() * 0.06 + bob_offset,
+                self.width() * 0.57,
+                self.height() * 0.02 + bob_offset,
+                self.width() * 0.61,
+                self.height() * 0.13 + bob_offset,
+            )
+            tuft_path.moveTo(self.width() * 0.52, self.height() * 0.16 + bob_offset)
+            tuft_path.cubicTo(
+                self.width() * 0.54,
+                self.height() * 0.05 + bob_offset,
+                self.width() * 0.66,
+                self.height() * 0.04 + bob_offset,
+                self.width() * 0.69,
+                self.height() * 0.16 + bob_offset,
+            )
+            painter.drawPath(tuft_path)
+
+            painter.restore()
 
         def _bubble_text(self) -> str:
             if self._state.message:
@@ -676,6 +843,13 @@ def main() -> None:
         color = QColor(_glow_color(state_name))
         color.setAlpha(105 + int(35 * abs(math.sin(pulse))))
         return color
+
+    def _blink_scale(state_name: AssistantStateName, pulse: float) -> float:
+        if state_name == AssistantStateName.THINKING:
+            return 0.78 + 0.22 * abs(math.sin(pulse * 0.8))
+        if state_name == AssistantStateName.ERROR:
+            return 0.88 + 0.12 * abs(math.sin(pulse * 1.6))
+        return 1.0
 
     def _load_widget_state() -> dict:
         state_path = Path(AVATAR_STATE_FILE)

@@ -8,5 +8,6 @@ input.wav
 
 storage/*.json
 storage/*.db
+storage/voices/
 storage/google_token.json
 storage/.gitkeep

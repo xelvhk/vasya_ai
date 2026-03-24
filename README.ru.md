@@ -48,6 +48,8 @@ Roadmap:
 - `Какие у меня задачи?`
 - `Добавь встречу с Сашей завтра в 18:00`
 - `Покажи события на 30 марта`
+- `Замолчи`
+- `Выход`
 
 ## Стек
 
@@ -109,9 +111,6 @@ ai_pal/
 │   ├── doctor.py
 │   ├── hotkey_daemon.py
 │   └── setup_mac.sh
-│
-├── assets/
-│   └── vasya_avatar.svg
 │
 ├── services/
 │   ├── __init__.py
@@ -221,9 +220,8 @@ python scripts/avatar_widget.py
 - клик по tray-иконке скрывает или показывает аватар
 - через tray-меню можно запустить listening или завершить Vasya
 - через tray и меню аватара доступны настройки размера, позиции, hotkey и tray-click behavior
-- по умолчанию Vasya использует встроенный `assets/vasya_avatar.svg`
-- через `AVATAR_IMAGE_PATH` можно подставить свой PNG или SVG-аватар
-- для аккуратного результата лучше использовать прозрачный SVG
+- по умолчанию Vasya использует встроенный процедурный живой аватар
+- через `AVATAR_IMAGE_PATH` можно подставить свой PNG или SVG-аватар, если захочешь переопределить внешний вид
 - позиция виджета сохраняется между запусками
 - рядом с аватаром показывается bubble во время listening, thinking, speaking и error
 - правый клик открывает контекстное меню аватара
@@ -248,6 +246,10 @@ WHISPER_MODEL=base
 TTS_VOICE=Milena
 TTS_RATE=185
 TTS_BACKEND=auto
+PIPER_COMMAND=piper
+PIPER_MODEL_PATH=storage/voices/ru_RU-irina-medium.onnx
+PIPER_SPEAKER=
+PIPER_LENGTH_SCALE=1.0
 VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
@@ -275,6 +277,20 @@ GOOGLE_CALENDAR_READ_MAX_RESULTS=20
 python -m voice.tts --list-voices
 python -m voice.tts --voice Milena --text "Привет, это тест озвучки"
 ```
+
+Системные голосовые команды:
+- `Замолчи`
+- `Останови озвучивание`
+- `Выход`
+- `Закройся`
+
+Альтернативный путь для TTS:
+- `say` пока остается самым простым встроенным вариантом для macOS
+- `auto` теперь сам выберет `piper`, если команда установлена и настроен `PIPER_MODEL_PATH`
+- `piper` можно принудительно включить через `TTS_BACKEND=piper`
+- для `piper` нужно как минимум указать `PIPER_MODEL_PATH`
+- при первой озвучке Vasya печатает, какой TTS backend реально используется
+- для русской локальной озвучки можно скачать подготовленную модель так: `python scripts/setup_piper_ru.py`
 
 ## Google Calendar
 

@@ -48,6 +48,8 @@ Example commands:
 - `What tasks do I have?`
 - `Add a meeting with Sasha tomorrow at 6 PM`
 - `Show my events for March 30`
+- `Be quiet`
+- `Exit`
 
 ## Stack
 
@@ -109,9 +111,6 @@ ai_pal/
 │   ├── doctor.py
 │   ├── hotkey_daemon.py
 │   └── setup_mac.sh
-│
-├── assets/
-│   └── vasya_avatar.svg
 │
 ├── services/
 │   ├── __init__.py
@@ -221,9 +220,8 @@ Notes:
 - tray click toggles avatar visibility
 - tray menu can start listening or quit Vasya
 - tray and avatar menu now also expose size, position, hotkey, and tray-click settings
-- Vasya now uses the bundled `assets/vasya_avatar.svg` by default
-- set `AVATAR_IMAGE_PATH` to use your own PNG or SVG avatar
-- transparent SVG gives the cleanest result and is the recommended format for a polished avatar
+- Vasya now uses a built-in procedural live avatar by default
+- set `AVATAR_IMAGE_PATH` only if you want to override the default look with your own PNG or SVG
 - widget position is restored between launches
 - response bubble is shown next to the avatar during listening, thinking, speaking, and errors
 - right click opens the avatar context menu
@@ -248,6 +246,10 @@ WHISPER_MODEL=base
 TTS_VOICE=Milena
 TTS_RATE=185
 TTS_BACKEND=auto
+PIPER_COMMAND=piper
+PIPER_MODEL_PATH=storage/voices/ru_RU-irina-medium.onnx
+PIPER_SPEAKER=
+PIPER_LENGTH_SCALE=1.0
 VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
@@ -275,6 +277,20 @@ Voice selection:
 python -m voice.tts --list-voices
 python -m voice.tts --voice Milena --text "Hello, this is a voice test"
 ```
+
+System voice commands:
+- `Be quiet`
+- `Stop speaking`
+- `Exit`
+- `Close assistant`
+
+Alternative TTS path:
+- `say` is still the simplest built-in macOS option
+- `auto` now prefers `piper` if the command is installed and `PIPER_MODEL_PATH` is configured
+- `piper` can be forced explicitly with `TTS_BACKEND=piper`
+- for `piper`, configure at least `PIPER_MODEL_PATH`
+- on first speech, Vasya prints which TTS backend is actually active
+- for Russian local TTS, you can fetch the prepared voice model with `python scripts/setup_piper_ru.py`
 
 ## Google Calendar
 

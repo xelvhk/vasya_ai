@@ -1,4 +1,5 @@
 import argparse
+import re
 
 from voice.backends import get_tts_backend
 
@@ -10,7 +11,16 @@ def speak(text: str, voice: str | None = None, rate: int | None = None) -> None:
         return
 
     backend = get_tts_backend()
-    backend.speak(text, voice=voice, rate=rate)
+    backend.speak(_prepare_text_for_speech(text), voice=voice, rate=rate)
+
+
+def _prepare_text_for_speech(text: str) -> str:
+    cleaned_lines = []
+    for line in text.splitlines():
+        normalized = re.sub(r"^\s*\d+\.\s+", "", line).strip()
+        if normalized:
+            cleaned_lines.append(normalized)
+    return ". ".join(cleaned_lines) if cleaned_lines else text.strip()
 
 
 def list_voices() -> list[str]:

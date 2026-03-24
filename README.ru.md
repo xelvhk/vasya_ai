@@ -22,6 +22,7 @@ Vasya уже умеет:
 - озвучивать ответы через macOS `say`
 - запускаться в фоне с hotkey
 - показывать первый MVP плавающего аватара на рабочем столе
+- управляться через tray или menu bar style control
 
 Roadmap:
 - см. [ROADMAP.md](ROADMAP.md)
@@ -38,8 +39,9 @@ Roadmap:
 - фильтровать задачи и события по дате
 - хранить локальные данные в SQLite
 - при необходимости синхронизировать календарные события с Google Calendar
-- работать в фоне и запускать голосовой цикл по горячей клавише
+- работать в desktop background и запускать голосовой цикл по горячей клавише
 - показывать виджет-аватар с click-to-talk и индикацией состояний
+- управляться через tray-иконку
 
 Примеры команд:
 - `Добавь задачу купить лампу`
@@ -190,13 +192,13 @@ ollama run llama3
 python test_text.py
 ```
 
-Голосовой сценарий:
+Desktop shell:
 
 ```bash
 python main.py
 ```
 
-Фоновый режим с горячей клавишей:
+Headless фоновый режим с горячей клавишей:
 
 ```bash
 python scripts/hotkey_daemon.py
@@ -209,8 +211,12 @@ python scripts/avatar_widget.py
 ```
 
 Что умеет:
+- `python main.py` теперь запускает desktop shell
 - левый клик запускает один голосовой цикл
+- глобальная горячая клавиша тоже работает внутри процесса виджета
 - перетаскивание двигает аватар по экрану
+- клик по tray-иконке скрывает или показывает аватар
+- через tray-меню можно запустить listening или завершить Vasya
 - через `AVATAR_IMAGE_PATH` можно подставить свой PNG-аватар
 - позиция виджета сохраняется между запусками
 - рядом с аватаром показывается bubble во время listening, thinking, speaking и error
@@ -237,8 +243,8 @@ TTS_VOICE=Milena
 TTS_RATE=185
 TTS_BACKEND=auto
 VOICE_INPUT_BACKEND=auto
-HOTKEY_COMBINATION=<ctrl>+<alt>+space
-HOTKEY_EXIT_COMBINATION=<ctrl>+<alt>+q
+HOTKEY_COMBINATION=<cmd>+<option>+<space>
+HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
 AVATAR_IMAGE_PATH=
 AVATAR_SIZE=140
 AVATAR_STATE_FILE=storage/avatar_widget.json

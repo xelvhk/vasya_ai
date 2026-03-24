@@ -70,6 +70,7 @@ Focus:
 Current status:
 - background hotkey mode is already implemented
 - first floating avatar widget MVP is available as `v0.4.0`
+- tray-controlled desktop shell groundwork is in progress in `v0.4.x`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -162,7 +163,7 @@ Good future exports:
 
 - `v0.3.x`: voice reliability, task/calendar UX, better phrasing
 - `v0.4.0`: assistant state layer and first floating desktop avatar widget
-- `v0.4.x`: installation polish, diagnostics, better voice recovery, widget UX
+- `v0.4.x`: installation polish, diagnostics, better voice recovery, tray and widget UX
 - `v0.5.x`: fuller desktop shell with menu bar or tray integration
 - `v0.6.x`: Obsidian integration
 - `v0.7.x`: code agent and writing/research agent

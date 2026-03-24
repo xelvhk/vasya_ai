@@ -6,16 +6,33 @@ import threading
 from pathlib import Path
 
 from assistant.state import AssistantState, AssistantStateName, assistant_state
-from config.settings import AVATAR_IMAGE_PATH, AVATAR_SIZE, AVATAR_STATE_FILE
-from utils.logger import log
+from config.settings import (
+    AVATAR_IMAGE_PATH,
+    AVATAR_SIZE,
+    AVATAR_STATE_FILE,
+    HOTKEY_COMBINATION,
+    HOTKEY_EXIT_COMBINATION,
+)
+from utils.hotkeys import normalize_hotkey_combination
+from utils.logger import log, log_voice_event
 from voice.session import run_voice_interaction
 
 
 def main() -> None:
     try:
         from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal
-        from PySide6.QtGui import QColor, QFont, QGuiApplication, QMouseEvent, QPainter, QPen, QPixmap
-        from PySide6.QtWidgets import QApplication, QWidget
+        from PySide6.QtGui import (
+            QAction,
+            QColor,
+            QFont,
+            QGuiApplication,
+            QIcon,
+            QMouseEvent,
+            QPainter,
+            QPen,
+            QPixmap,
+        )
+        from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
@@ -72,8 +89,12 @@ def main() -> None:
             self._state = assistant_state.get()
             self._pulse = 0.0
             self._avatar = self._load_avatar()
+            self._tray_icon_pixmap = self._build_tray_pixmap()
             self._bridge = StateBridge()
             self._bubble = ResponseBubble()
+            self._hotkey_listener = None
+            self._tray = None
+            self._allow_close = False
 
             self._bridge.state_changed.connect(self._apply_state)
             assistant_state.subscribe(self._on_state_changed)
@@ -84,6 +105,8 @@ def main() -> None:
 
             self._restore_position()
             self._update_bubble()
+            self._start_hotkey_listener()
+            self._setup_tray()
 
         def _load_avatar(self):
             if not AVATAR_IMAGE_PATH:
@@ -94,12 +117,35 @@ def main() -> None:
             pixmap = QPixmap(str(path))
             return pixmap if not pixmap.isNull() else None
 
+        def _build_tray_pixmap(self) -> QPixmap:
+            if self._avatar:
+                return self._avatar.scaled(
+                    32,
+                    32,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+
+            pixmap = QPixmap(32, 32)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setBrush(QColor("#1d4ed8"))
+            painter.setPen(QPen(QColor("#8fd0ff"), 2))
+            painter.drawEllipse(QRectF(3, 3, 26, 26))
+            painter.setBrush(QColor("#f7f9ff"))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(QRectF(8, 8, 16, 16))
+            painter.end()
+            return pixmap
+
         def _on_state_changed(self, state: AssistantState) -> None:
             self._bridge.state_changed.emit(state)
 
         def _apply_state(self, state: AssistantState) -> None:
             self._state = state
             self._update_bubble()
+            self._update_tray_tooltip()
             self.update()
 
         def _tick(self) -> None:
@@ -131,22 +177,47 @@ def main() -> None:
                     self._save_position()
 
         def contextMenuEvent(self, event) -> None:
-            _ = event
-            self.close()
+            menu = QMenu(self)
+
+            toggle_action = menu.addAction(
+                "Hide Avatar" if self.isVisible() else "Show Avatar"
+            )
+            listen_action = menu.addAction("Start Listening")
+            menu.addSeparator()
+            quit_action = menu.addAction("Quit Vasya")
+
+            chosen_action = menu.exec(event.globalPos())
+            if chosen_action == toggle_action:
+                self.toggle_avatar_visibility()
+            elif chosen_action == listen_action:
+                self._activate_interaction()
+            elif chosen_action == quit_action:
+                self.quit_application()
 
         def _activate_interaction(self) -> None:
             if self._interaction_lock.locked():
+                log_voice_event("widget_activation_ignored reason=interaction_in_progress")
                 return
 
             def worker() -> None:
                 with self._interaction_lock:
+                    log_voice_event("widget_activation_started")
                     run_voice_interaction()
 
             threading.Thread(target=worker, daemon=True).start()
 
         def closeEvent(self, event) -> None:
+            if not self._allow_close:
+                event.ignore()
+                self.hide_avatar()
+                return
+
             self._save_position()
             self._bubble.close()
+            if self._hotkey_listener is not None:
+                self._hotkey_listener.stop()
+            if self._tray is not None:
+                self._tray.hide()
             super().closeEvent(event)
 
         def paintEvent(self, event) -> None:
@@ -206,7 +277,7 @@ def main() -> None:
 
         def _update_bubble(self) -> None:
             text = self._bubble_text()
-            if not text or self._state.name == AssistantStateName.IDLE:
+            if not text or self._state.name == AssistantStateName.IDLE or not self.isVisible():
                 self._bubble.hide()
                 return
 
@@ -227,22 +298,105 @@ def main() -> None:
 
         def _restore_position(self) -> None:
             saved_pos = _load_saved_position()
-            if saved_pos is not None:
-                self.move(saved_pos)
-                return
-
-            screen = QGuiApplication.primaryScreen()
-            if screen is None:
-                self.move(100, 100)
-                return
-
-            available = screen.availableGeometry()
-            default_x = max(24, available.right() - self.width() - 48)
-            default_y = max(24, available.bottom() - self.height() - 120)
-            self.move(default_x, default_y)
+            target_pos = saved_pos or _default_position()
+            self.move(_clamp_to_visible_area(target_pos, self.width(), self.height()))
 
         def _save_position(self) -> None:
             _save_position(self.pos())
+
+        def _start_hotkey_listener(self) -> None:
+            try:
+                from pynput import keyboard
+            except ImportError:
+                log("pynput is not installed. Global hotkey support is disabled.")
+                return
+
+            activation_hotkey = normalize_hotkey_combination(HOTKEY_COMBINATION)
+            exit_hotkey = normalize_hotkey_combination(HOTKEY_EXIT_COMBINATION)
+            hotkeys = {
+                activation_hotkey: self._activate_interaction,
+                exit_hotkey: self.close,
+            }
+            try:
+                self._hotkey_listener = keyboard.GlobalHotKeys(hotkeys)
+            except ValueError as exc:
+                log(f"Invalid hotkey configuration. Global hotkeys disabled: {exc}")
+                self._hotkey_listener = None
+                return
+            self._hotkey_listener.start()
+            log(
+                f"Avatar widget hotkeys enabled. Activation: {activation_hotkey}. "
+                f"Exit: {exit_hotkey}."
+            )
+
+        def _setup_tray(self) -> None:
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                log("System tray is not available on this platform.")
+                return
+
+            self._tray = QSystemTrayIcon(QIcon(self._tray_icon_pixmap), self)
+            self._tray.setToolTip("Vasya AI")
+
+            menu = QMenu()
+            self._toggle_avatar_action = QAction("Hide Avatar", self)
+            self._toggle_avatar_action.triggered.connect(self.toggle_avatar_visibility)
+            menu.addAction(self._toggle_avatar_action)
+
+            listen_action = QAction("Start Listening", self)
+            listen_action.triggered.connect(self._activate_interaction)
+            menu.addAction(listen_action)
+
+            menu.addSeparator()
+
+            quit_action = QAction("Quit Vasya", self)
+            quit_action.triggered.connect(self.quit_application)
+            menu.addAction(quit_action)
+
+            self._tray.setContextMenu(menu)
+            self._tray.activated.connect(self._on_tray_activated)
+            self._tray.show()
+            self._update_tray_tooltip()
+
+        def _on_tray_activated(self, reason) -> None:
+            if reason == QSystemTrayIcon.ActivationReason.Trigger:
+                self.toggle_avatar_visibility()
+
+        def toggle_avatar_visibility(self) -> None:
+            if self.isVisible():
+                self.hide_avatar()
+            else:
+                self.show_avatar()
+
+        def show_avatar(self) -> None:
+            self.show()
+            self.raise_()
+            self.activateWindow()
+            self._update_bubble()
+            self._update_toggle_action()
+
+        def hide_avatar(self) -> None:
+            self._save_position()
+            self._bubble.hide()
+            self.hide()
+            self._update_toggle_action()
+
+        def quit_application(self) -> None:
+            self._allow_close = True
+            self.close()
+            QApplication.instance().quit()
+
+        def _update_toggle_action(self) -> None:
+            if self._tray is None:
+                return
+            self._toggle_avatar_action.setText("Hide Avatar" if self.isVisible() else "Show Avatar")
+
+        def _update_tray_tooltip(self) -> None:
+            if self._tray is None:
+                return
+            suffix = ""
+            if self._state.name != AssistantStateName.IDLE:
+                suffix = f" [{self._state.name.value}]"
+            self._tray.setToolTip(f"Vasya AI{suffix}")
 
     def _glow_color(state_name: AssistantStateName) -> str:
         if state_name == AssistantStateName.LISTENING:
@@ -270,6 +424,36 @@ def main() -> None:
             return None
         return QPoint(x, y)
 
+    def _default_position() -> QPoint:
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return QPoint(100, 100)
+
+        available = screen.availableGeometry()
+        default_x = max(24, available.right() - AVATAR_SIZE - 48)
+        default_y = max(24, available.bottom() - AVATAR_SIZE - 120)
+        return QPoint(default_x, default_y)
+
+    def _clamp_to_visible_area(position: QPoint, width: int, height: int) -> QPoint:
+        for screen in QGuiApplication.screens():
+            available = screen.availableGeometry()
+            max_x = available.right() - width
+            max_y = available.bottom() - height
+            if (
+                available.left() <= position.x() <= max_x
+                and available.top() <= position.y() <= max_y
+            ):
+                return position
+
+        primary = QGuiApplication.primaryScreen()
+        if primary is None:
+            return QPoint(100, 100)
+
+        available = primary.availableGeometry()
+        clamped_x = min(max(position.x(), available.left() + 24), available.right() - width)
+        clamped_y = min(max(position.y(), available.top() + 24), available.bottom() - height)
+        return QPoint(clamped_x, clamped_y)
+
     def _save_position(position: QPoint) -> None:
         state_path = Path(AVATAR_STATE_FILE)
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -280,6 +464,7 @@ def main() -> None:
             log(f"Failed to save avatar position: {exc}")
 
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     widget = AvatarWidget()
     widget.show()
     log("Avatar widget started")

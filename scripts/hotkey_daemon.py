@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 
 from config.settings import HOTKEY_COMBINATION, HOTKEY_EXIT_COMBINATION
+from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from voice.session import run_voice_interaction
 from voice.tts import speak
@@ -35,18 +36,23 @@ def main() -> None:
         stop_event.set()
         listener.stop()
 
+    activation_hotkey = normalize_hotkey_combination(HOTKEY_COMBINATION)
+    exit_hotkey = normalize_hotkey_combination(HOTKEY_EXIT_COMBINATION)
     hotkeys = {
-        HOTKEY_COMBINATION: on_activate,
-        HOTKEY_EXIT_COMBINATION: on_exit,
+        activation_hotkey: on_activate,
+        exit_hotkey: on_exit,
     }
 
     log(
-        f"Starting hotkey daemon. Activation: {HOTKEY_COMBINATION}. "
-        f"Exit: {HOTKEY_EXIT_COMBINATION}."
+        f"Starting hotkey daemon. Activation: {activation_hotkey}. "
+        f"Exit: {exit_hotkey}."
     )
     speak("Vasya запущен в фоновом режиме.")
 
-    listener = keyboard.GlobalHotKeys(hotkeys)
+    try:
+        listener = keyboard.GlobalHotKeys(hotkeys)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid hotkey configuration: {exc}") from exc
     listener.start()
     stop_event.wait()
 

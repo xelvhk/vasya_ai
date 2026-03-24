@@ -22,6 +22,7 @@ Vasya already supports:
 - macOS speech output through `say`
 - background hotkey voice activation
 - first floating desktop avatar widget MVP
+- tray or menu bar style control for the desktop shell
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -38,8 +39,9 @@ Current capabilities:
 - filter tasks and events by date
 - keep local data in SQLite
 - optionally sync calendar events with Google Calendar
-- run in background and start voice capture by hotkey
+- run in desktop background and start voice capture by hotkey
 - show a floating avatar widget with click-to-talk states
+- control the desktop shell through a tray icon
 
 Example commands:
 - `Add a task to buy a lamp`
@@ -190,13 +192,13 @@ Text-based test:
 python test_text.py
 ```
 
-Voice workflow:
+Desktop shell:
 
 ```bash
 python main.py
 ```
 
-Background hotkey mode:
+Headless background hotkey mode:
 
 ```bash
 python scripts/hotkey_daemon.py
@@ -209,8 +211,12 @@ python scripts/avatar_widget.py
 ```
 
 Notes:
+- `python main.py` now starts the desktop shell
 - left click starts one voice interaction
+- global hotkey also works inside the widget process
 - drag moves the avatar on screen
+- tray click toggles avatar visibility
+- tray menu can start listening or quit Vasya
 - set `AVATAR_IMAGE_PATH` to use your own PNG avatar
 - widget position is restored between launches
 - response bubble is shown next to the avatar during listening, thinking, speaking, and errors
@@ -237,8 +243,8 @@ TTS_VOICE=Milena
 TTS_RATE=185
 TTS_BACKEND=auto
 VOICE_INPUT_BACKEND=auto
-HOTKEY_COMBINATION=<ctrl>+<alt>+space
-HOTKEY_EXIT_COMBINATION=<ctrl>+<alt>+q
+HOTKEY_COMBINATION=<cmd>+<option>+<space>
+HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
 AVATAR_IMAGE_PATH=
 AVATAR_SIZE=140
 AVATAR_STATE_FILE=storage/avatar_widget.json

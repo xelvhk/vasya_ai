@@ -13,3 +13,9 @@ class TranscriptionResult:
     @property
     def is_empty(self) -> bool:
         return not self.text.strip()
+
+    @property
+    def is_low_confidence(self) -> bool:
+        if self.is_empty:
+            return True
+        return False

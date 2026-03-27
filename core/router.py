@@ -1,10 +1,11 @@
 from assistant.control import assistant_control
+from agents.chat_agent import handle_chat_intent
 from core.models import IntentResult
 from agents.calendar_agent import handle_calendar_intent
 from agents.task_agent import handle_task_intent
 from voice.tts import stop_speaking
 
-def route_intent(intent_result: IntentResult) -> str:
+def route_intent(intent_result: IntentResult, user_text: str) -> str:
     if intent_result.intent in ("create_event", "get_events", "delete_event"):
         return handle_calendar_intent(intent_result)
 
@@ -25,5 +26,8 @@ def route_intent(intent_result: IntentResult) -> str:
         stop_speaking()
         assistant_control.request_exit()
         return "Завершаю работу."
+
+    if intent_result.intent in ("chat", "unknown"):
+        return handle_chat_intent(user_text)
 
     return "Я пока не понял команду. Попробуй сказать по-другому."

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import threading
+import time
 
 from assistant.control import AssistantControlAction
 from assistant.state import AssistantStateName, assistant_state
-from config.settings import HOTKEY_COMBINATION, HOTKEY_EXIT_COMBINATION
+from config.settings import (
+    HOTKEY_COMBINATION,
+    HOTKEY_EXIT_COMBINATION,
+    INTERRUPT_LISTEN_DELAY_SECONDS,
+)
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from voice.session import run_voice_interaction
@@ -38,6 +43,7 @@ def main() -> None:
         def delayed_worker() -> None:
             with interaction_lock:
                 pass
+            time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
             start_interaction_thread("hotkey_followup_activated")
 
         threading.Thread(target=delayed_worker, daemon=True).start()

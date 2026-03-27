@@ -4,6 +4,7 @@ import json
 import math
 import sys
 import threading
+import time
 from pathlib import Path
 
 from assistant.control import AssistantControlAction
@@ -14,6 +15,7 @@ from config.settings import (
     AVATAR_STATE_FILE,
     HOTKEY_COMBINATION,
     HOTKEY_EXIT_COMBINATION,
+    INTERRUPT_LISTEN_DELAY_SECONDS,
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
@@ -572,6 +574,7 @@ def main() -> None:
             def delayed_worker() -> None:
                 with self._interaction_lock:
                     pass
+                time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
                 self._start_interaction_thread("widget_activation_followup_started")
 
             threading.Thread(target=delayed_worker, daemon=True).start()

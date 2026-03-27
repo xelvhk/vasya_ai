@@ -20,8 +20,9 @@ from config.settings import (
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from utils.platform_runtime import get_platform_name
+from voice.profiles import get_active_voice_profile, list_voice_profiles
 from voice.session import run_voice_interaction
-from voice.tts import stop_speaking
+from voice.tts import set_voice_profile, stop_speaking
 
 
 def main() -> None:
@@ -159,6 +160,15 @@ def main() -> None:
                     border: none;
                     width: 22px;
                 }
+                QComboBox QAbstractItemView {
+                    background: #13204e;
+                    color: #f4f8ff;
+                    border: 1px solid #345ab3;
+                    border-radius: 10px;
+                    selection-background-color: #2e5ec9;
+                    selection-color: #ffffff;
+                    outline: 0;
+                }
                 QSlider::groove:horizontal {
                     border: 0;
                     height: 6px;
@@ -237,6 +247,16 @@ def main() -> None:
             self._size_combo.currentIndexChanged.connect(self._sync_preview)
             form.addRow("Размер Васи", self._size_combo)
 
+            self._voice_profile_combo = QComboBox(self)
+            active_profile = get_active_voice_profile()
+            for profile in list_voice_profiles():
+                self._voice_profile_combo.addItem(
+                    f"{profile.label} ({profile.gender})",
+                    profile.profile_id,
+                )
+            self._select_combo_value(self._voice_profile_combo, active_profile.profile_id)
+            form.addRow("Голос Васи", self._voice_profile_combo)
+
             self._tray_click_combo = QComboBox(self)
             self._tray_click_combo.addItem("Показать или скрыть Васю", "toggle")
             self._tray_click_combo.addItem("Начать слушать", "listen")
@@ -299,6 +319,9 @@ def main() -> None:
 
         def apply(self) -> None:
             self._widget._set_avatar_size(int(self._size_combo.currentData()))
+            selected_profile_id = str(self._voice_profile_combo.currentData())
+            if selected_profile_id != get_active_voice_profile().profile_id:
+                set_voice_profile(selected_profile_id)
             self._widget._tray_click_action = str(self._tray_click_combo.currentData())
             self._widget._avatar_opacity = self._opacity_slider.value() / 100.0
             self._widget._show_response_bubble = self._show_bubble_checkbox.isChecked()

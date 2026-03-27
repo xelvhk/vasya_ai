@@ -1,7 +1,12 @@
 import argparse
 import re
 
-from voice.backends import get_tts_backend, get_tts_backend_status
+from voice.backends import get_tts_backend, get_tts_backend_status, reset_tts_backend
+from voice.profiles import (
+    get_active_voice_profile,
+    list_voice_profiles,
+    set_active_voice_profile,
+)
 
 
 _BACKEND_STATUS_PRINTED = False
@@ -36,6 +41,23 @@ def list_voices() -> list[str]:
     return backend.list_voices()
 
 
+def list_voice_profiles_text() -> list[str]:
+    active_id = get_active_voice_profile().profile_id
+    rows = []
+    for profile in list_voice_profiles():
+        marker = "*" if profile.profile_id == active_id else " "
+        rows.append(
+            f"{marker} {profile.profile_id}: {profile.label} "
+            f"({profile.gender}; {profile.character})"
+        )
+    return rows
+
+
+def set_voice_profile(profile_id: str) -> None:
+    set_active_voice_profile(profile_id)
+    reset_tts_backend()
+
+
 def stop_speaking() -> None:
     backend = get_tts_backend()
     backend.stop()
@@ -49,7 +71,13 @@ def is_speaking() -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Vasya TTS helper")
     parser.add_argument("--list-voices", action="store_true", help="Show available voices")
+    parser.add_argument(
+        "--list-profiles",
+        action="store_true",
+        help="Show available voice profiles",
+    )
     parser.add_argument("--voice", help="Voice name for test playback")
+    parser.add_argument("--profile", help="Voice profile id for test playback")
     parser.add_argument("--rate", type=int, help="Speech rate for test playback")
     parser.add_argument(
         "--text",
@@ -63,6 +91,14 @@ def main() -> None:
         for voice_name in voices:
             print(voice_name)
         return
+
+    if args.list_profiles:
+        for line in list_voice_profiles_text():
+            print(line)
+        return
+
+    if args.profile:
+        set_voice_profile(args.profile)
 
     speak(args.text, voice=args.voice, rate=args.rate)
 

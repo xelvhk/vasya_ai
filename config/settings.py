@@ -13,11 +13,11 @@ OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
 OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", OLLAMA_MODEL)
 OLLAMA_FAST_THINK = os.getenv("OLLAMA_FAST_THINK", "false").lower() == "true"
 OLLAMA_FAST_TEMPERATURE = float(os.getenv("OLLAMA_FAST_TEMPERATURE", "0.1"))
-OLLAMA_FAST_NUM_PREDICT = int(os.getenv("OLLAMA_FAST_NUM_PREDICT", "256"))
-OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", OLLAMA_REASONING_MODEL)
+OLLAMA_FAST_NUM_PREDICT = int(os.getenv("OLLAMA_FAST_NUM_PREDICT", "160"))
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", OLLAMA_FAST_MODEL)
 OLLAMA_CHAT_THINK = os.getenv("OLLAMA_CHAT_THINK", "false").lower() == "true"
-OLLAMA_CHAT_TEMPERATURE = float(os.getenv("OLLAMA_CHAT_TEMPERATURE", "0.4"))
-OLLAMA_CHAT_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_NUM_PREDICT", "384"))
+OLLAMA_CHAT_TEMPERATURE = float(os.getenv("OLLAMA_CHAT_TEMPERATURE", "0.25"))
+OLLAMA_CHAT_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_NUM_PREDICT", "220"))
 AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")
 RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "5"))
 CHAT_FOLLOWUP_MAX_TURNS = int(os.getenv("CHAT_FOLLOWUP_MAX_TURNS", "3"))
@@ -46,10 +46,12 @@ AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "210"))
 AVATAR_STATE_FILE = os.getenv("AVATAR_STATE_FILE", "storage/avatar_widget.json")
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
+TTS_PROFILE = os.getenv("TTS_PROFILE", "ruslan_direct")
+TTS_STATE_FILE = os.getenv("TTS_STATE_FILE", "storage/tts_settings.json")
 PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
 PIPER_MODEL_PATH = os.getenv(
     "PIPER_MODEL_PATH",
-    str(_BASE_DIR / "storage" / "voices" / "ru_RU-irina-medium.onnx"),
+    str(_BASE_DIR / "storage" / "voices" / "ru_RU-ruslan-medium.onnx"),
 )
 PIPER_SPEAKER = os.getenv("PIPER_SPEAKER", "")
 PIPER_LENGTH_SCALE = os.getenv("PIPER_LENGTH_SCALE", "1.0")

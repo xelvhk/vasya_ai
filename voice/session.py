@@ -57,7 +57,7 @@ def run_voice_interaction() -> AssistantControlAction:
             assistant_state.set(AssistantStateName.SPEAKING, response)
             speak(response)
 
-        if result.intent != "chat" or followup_turns_left <= 0:
+        if not _should_keep_conversation_open(result.intent, response) or followup_turns_left <= 0:
             break
 
         keep_conversation_open = True
@@ -66,6 +66,12 @@ def run_voice_interaction() -> AssistantControlAction:
 
     assistant_state.set(AssistantStateName.IDLE)
     return assistant_control.consume_action()
+
+
+def _should_keep_conversation_open(intent: str, response: str) -> bool:
+    if intent in {"chat", "unknown"}:
+        return True
+    return response.strip().endswith("?")
 
 
 def _capture_user_text() -> str | None:

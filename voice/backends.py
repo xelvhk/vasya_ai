@@ -25,6 +25,14 @@ from config.settings import (
     VOICE_INPUT_BACKEND,
 )
 from utils.platform_runtime import get_platform_name
+from voice.profiles import (
+    VoiceProfile,
+    get_active_voice_profile,
+    get_profile_model_path,
+    get_voice_profile,
+    is_profile_installed,
+    list_voice_profiles,
+)
 
 
 @dataclass(frozen=True)
@@ -58,8 +66,10 @@ class MacOSTTSBackend(BaseTTSBackend):
         self._interrupted = False
 
     def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
-        selected_voice = voice or TTS_VOICE
-        selected_rate = rate or TTS_RATE
+        profile = _resolve_voice_profile(voice)
+        selected_voice = voice if voice and voice not in _VOICE_PROFILE_IDS else None
+        selected_voice = selected_voice or profile.say_voice or TTS_VOICE
+        selected_rate = rate or profile.say_rate or TTS_RATE
 
         command = ["say", "-v", selected_voice, "-r", str(selected_rate), text]
         with self._lock:
@@ -84,6 +94,7 @@ class MacOSTTSBackend(BaseTTSBackend):
                 self._interrupted = False
 
     def list_voices(self) -> list[str]:
+        profile_labels = [profile.label for profile in list_voice_profiles()]
         result = subprocess.run(
             ["say", "-v", "?"],
             check=False,
@@ -91,7 +102,7 @@ class MacOSTTSBackend(BaseTTSBackend):
             text=True,
         )
         if result.returncode != 0:
-            return []
+            return profile_labels
 
         voices = []
         for line in result.stdout.splitlines():
@@ -100,7 +111,7 @@ class MacOSTTSBackend(BaseTTSBackend):
                 continue
             voice_name = stripped.split("#", maxsplit=1)[0].rsplit(maxsplit=1)[0].strip()
             voices.append(voice_name)
-        return voices
+        return profile_labels + voices
 
     def stop(self) -> None:
         with self._lock:
@@ -143,8 +154,10 @@ class PiperTTSBackend(BaseTTSBackend):
 
     def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
         _ = voice, rate
-        if not PIPER_MODEL_PATH:
-            raise RuntimeError("PIPER_MODEL_PATH is not configured.")
+        profile = _resolve_voice_profile(voice)
+        model_path = get_profile_model_path(profile)
+        if model_path is None:
+            raise RuntimeError(f"Piper model for profile '{profile.label}' is not available.")
         command_path = _resolve_piper_command()
         if command_path is None:
             raise RuntimeError(f"Piper command '{PIPER_COMMAND}' was not found.")
@@ -155,14 +168,17 @@ class PiperTTSBackend(BaseTTSBackend):
         command = [
             command_path,
             "--model",
-            PIPER_MODEL_PATH,
+            str(model_path),
             "--output_file",
             str(output_path),
         ]
         if PIPER_SPEAKER:
             command.extend(["--speaker", PIPER_SPEAKER])
-        if PIPER_LENGTH_SCALE:
-            command.extend(["--length_scale", PIPER_LENGTH_SCALE])
+        length_scale = profile.piper_length_scale
+        if length_scale is None and PIPER_LENGTH_SCALE:
+            length_scale = float(PIPER_LENGTH_SCALE)
+        if length_scale is not None:
+            command.extend(["--length_scale", str(length_scale)])
 
         tts_process = subprocess.Popen(
             command,
@@ -187,6 +203,13 @@ class PiperTTSBackend(BaseTTSBackend):
             with self._lock:
                 self._is_playing = False
             output_path.unlink(missing_ok=True)
+
+    def list_voices(self) -> list[str]:
+        voices = []
+        for profile in list_voice_profiles():
+            suffix = "" if is_profile_installed(profile) else " (нужно скачать)"
+            voices.append(f"{profile.label}{suffix}")
+        return voices
 
     def stop(self) -> None:
         with self._lock:
@@ -267,6 +290,7 @@ class PiperTTSBackend(BaseTTSBackend):
 
 
 _TTS_BACKEND: BaseTTSBackend | None = None
+_VOICE_PROFILE_IDS = {profile.profile_id for profile in list_voice_profiles()}
 
 
 class BaseVoiceInputBackend:
@@ -332,7 +356,7 @@ def get_voice_input_backend() -> BaseVoiceInputBackend:
 
 
 def is_piper_available() -> bool:
-    return bool(PIPER_MODEL_PATH) and _resolve_piper_command() is not None
+    return get_profile_model_path() is not None and _resolve_piper_command() is not None
 
 
 def get_tts_backend_name() -> str:
@@ -342,24 +366,37 @@ def get_tts_backend_name() -> str:
 def get_tts_backend_status() -> str:
     configured_backend = TTS_BACKEND.lower()
     active_backend = get_tts_backend_name()
+    active_profile = get_active_voice_profile()
 
     if configured_backend == "auto":
         if active_backend == "piper":
-            return f"TTS backend: piper ({Path(PIPER_MODEL_PATH).name})"
+            model_path = get_profile_model_path(active_profile)
+            model_name = model_path.name if model_path is not None else "missing model"
+            return f"TTS backend: piper ({active_profile.label}, {model_name})"
         if active_backend == "say":
-            return f"TTS backend: say ({TTS_VOICE})"
+            return f"TTS backend: say ({active_profile.label})"
         return f"TTS backend: {active_backend}"
 
     if configured_backend == "piper" and not is_piper_available():
-        if not PIPER_MODEL_PATH:
-            return "TTS backend: piper is selected, but PIPER_MODEL_PATH is not configured"
+        if get_profile_model_path(active_profile) is None:
+            return f"TTS backend: piper is selected, but the model for '{active_profile.label}' is not installed"
         return f"TTS backend: piper is selected, but command '{PIPER_COMMAND}' was not found"
 
     if active_backend == "piper":
-        return f"TTS backend: piper ({Path(PIPER_MODEL_PATH).name})"
+        model_path = get_profile_model_path(active_profile)
+        model_name = model_path.name if model_path is not None else "missing model"
+        return f"TTS backend: piper ({active_profile.label}, {model_name})"
     if active_backend == "say":
-        return f"TTS backend: say ({TTS_VOICE})"
+        return f"TTS backend: say ({active_profile.label})"
     return f"TTS backend: {active_backend}"
+
+
+def reset_tts_backend() -> None:
+    global _TTS_BACKEND
+    backend = _TTS_BACKEND
+    if backend is not None:
+        backend.stop()
+    _TTS_BACKEND = None
 
 
 def _resolve_piper_command() -> str | None:
@@ -381,3 +418,9 @@ def _resolve_piper_command() -> str | None:
         return str(sibling_command)
 
     return None
+
+
+def _resolve_voice_profile(voice: str | None = None) -> VoiceProfile:
+    if voice and voice in _VOICE_PROFILE_IDS:
+        return get_voice_profile(voice)
+    return get_active_voice_profile()

@@ -252,10 +252,12 @@ WHISPER_MODEL=base
 TTS_VOICE=Milena
 TTS_RATE=185
 TTS_BACKEND=auto
+TTS_PROFILE=ruslan_direct
 PIPER_COMMAND=piper
-PIPER_MODEL_PATH=storage/voices/ru_RU-irina-medium.onnx
+PIPER_MODEL_PATH=storage/voices/ru_RU-ruslan-medium.onnx
 PIPER_SPEAKER=
 PIPER_LENGTH_SCALE=1.0
+TTS_STATE_FILE=storage/tts_settings.json
 VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
@@ -285,9 +287,13 @@ For faster intent parsing:
 Voice selection:
 
 ```bash
+python -m voice.tts --list-profiles
 python -m voice.tts --list-voices
-python -m voice.tts --voice Milena --text "Hello, this is a voice test"
+python -m voice.tts --profile ruslan_direct --text "Hello, this is a voice test"
 ```
+
+Voice profiles:
+- `ruslan_direct` — male, fast and direct
 
 System voice commands:
 - `Be quiet`
@@ -301,7 +307,7 @@ Alternative TTS path:
 - `piper` can be forced explicitly with `TTS_BACKEND=piper`
 - for `piper`, configure at least `PIPER_MODEL_PATH`
 - on first speech, Vasya prints which TTS backend is actually active
-- for Russian local TTS, you can fetch the prepared voice model with `python scripts/setup_piper_ru.py`
+- for Russian local TTS, you can fetch the current voice with `python scripts/setup_piper_ru.py --voices ruslan`
 
 ## Google Calendar
 

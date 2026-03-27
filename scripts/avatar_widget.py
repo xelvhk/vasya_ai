@@ -102,6 +102,11 @@ def main() -> None:
             self._idle_motion_enabled = bool(
                 self._widget_state.get("idle_motion_enabled", True)
             )
+            self._snap_to_edge_enabled = bool(
+                self._widget_state.get("snap_to_edge_enabled", True)
+            )
+            self._avatar_opacity = float(self._widget_state.get("avatar_opacity", 1.0))
+            self._start_hidden = bool(self._widget_state.get("start_hidden", False))
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
             )
@@ -213,18 +218,21 @@ def main() -> None:
                 if moved_distance <= 6:
                     self._activate_interaction()
                 else:
+                    if self._snap_to_edge_enabled:
+                        self.move(_snap_to_nearest_edge(self.pos(), self.width(), self.height()))
+                        self._update_bubble_position()
                     self._save_position()
 
         def contextMenuEvent(self, event) -> None:
             menu = QMenu(self)
 
             toggle_action = menu.addAction(
-                "Hide Avatar" if self.isVisible() else "Show Avatar"
+                "Скрыть Васю" if self.isVisible() else "Показать Васю"
             )
-            listen_action = menu.addAction("Start Listening")
+            listen_action = menu.addAction("Начать слушать")
             settings_menu = self._build_settings_menu(menu)
             menu.addSeparator()
-            quit_action = menu.addAction("Quit Vasya")
+            quit_action = menu.addAction("Закрыть Васю")
 
             chosen_action = menu.exec(event.globalPos())
             if chosen_action == toggle_action:
@@ -273,6 +281,7 @@ def main() -> None:
             _ = event
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setOpacity(max(0.45, min(1.0, self._avatar_opacity)))
 
             if self._avatar:
                 self._paint_ambient_glow(painter)
@@ -585,6 +594,11 @@ def main() -> None:
 
             bubble_x = self.x() + self.width() + 12
             bubble_y = self.y() + max(8, (self.height() - self._bubble.height()) // 2)
+            primary = QGuiApplication.primaryScreen()
+            if primary is not None:
+                available = primary.availableGeometry()
+                if bubble_x + self._bubble.width() > available.right() - 8:
+                    bubble_x = self.x() - self._bubble.width() - 12
             self._bubble.move(bubble_x, bubble_y)
 
         def _restore_position(self) -> None:
@@ -603,6 +617,9 @@ def main() -> None:
                     "hotkey_combination": self._activation_hotkey,
                     "show_response_bubble": self._show_response_bubble,
                     "idle_motion_enabled": self._idle_motion_enabled,
+                    "snap_to_edge_enabled": self._snap_to_edge_enabled,
+                    "avatar_opacity": self._avatar_opacity,
+                    "start_hidden": not self.isVisible(),
                 }
             )
 
@@ -637,14 +654,14 @@ def main() -> None:
                 return
 
             self._tray = QSystemTrayIcon(QIcon(self._tray_icon_pixmap), self)
-            self._tray.setToolTip("Vasya AI")
+            self._tray.setToolTip("Вася AI")
 
             menu = QMenu()
-            self._toggle_avatar_action = QAction("Hide Avatar", self)
+            self._toggle_avatar_action = QAction("Скрыть Васю", self)
             self._toggle_avatar_action.triggered.connect(self.toggle_avatar_visibility)
             menu.addAction(self._toggle_avatar_action)
 
-            listen_action = QAction("Start Listening", self)
+            listen_action = QAction("Начать слушать", self)
             listen_action.triggered.connect(self._activate_interaction)
             menu.addAction(listen_action)
 
@@ -652,7 +669,7 @@ def main() -> None:
             self._build_settings_menu(menu)
             menu.addSeparator()
 
-            quit_action = QAction("Quit Vasya", self)
+            quit_action = QAction("Закрыть Васю", self)
             quit_action.triggered.connect(self.quit_application)
             menu.addAction(quit_action)
 
@@ -695,23 +712,23 @@ def main() -> None:
         def _update_toggle_action(self) -> None:
             if self._tray is None:
                 return
-            self._toggle_avatar_action.setText("Hide Avatar" if self.isVisible() else "Show Avatar")
+            self._toggle_avatar_action.setText("Скрыть Васю" if self.isVisible() else "Показать Васю")
 
         def _update_tray_tooltip(self) -> None:
             if self._tray is None:
                 return
             suffix = ""
             if self._state.name != AssistantStateName.IDLE:
-                suffix = f" [{self._state.name.value}]"
-            self._tray.setToolTip(f"Vasya AI{suffix}")
+                suffix = f" [{_state_label(self._state.name)}]"
+            self._tray.setToolTip(f"Вася AI{suffix}")
 
         def _build_settings_menu(self, parent_menu: QMenu) -> QMenu:
-            settings_menu = parent_menu.addMenu("Settings")
+            settings_menu = parent_menu.addMenu("Настройки")
 
-            size_menu = settings_menu.addMenu("Avatar Size")
+            size_menu = settings_menu.addMenu("Размер Васи")
             self._size_action_group = QActionGroup(self)
             self._size_action_group.setExclusive(True)
-            for label, size in (("Small", 180), ("Medium", 210), ("Large", 270)):
+            for label, size in (("Маленький", 180), ("Средний", 210), ("Большой", 270)):
                 action = size_menu.addAction(label)
                 action.setCheckable(True)
                 action.setChecked(self._avatar_size == size)
@@ -721,10 +738,10 @@ def main() -> None:
                 )
                 self._size_action_group.addAction(action)
 
-            tray_click_menu = settings_menu.addMenu("Tray Click Action")
+            tray_click_menu = settings_menu.addMenu("Клик по иконке в трее")
             self._tray_action_group = QActionGroup(self)
             self._tray_action_group.setExclusive(True)
-            for label, value in (("Toggle Avatar", "toggle"), ("Start Listening", "listen")):
+            for label, value in (("Показать или скрыть Васю", "toggle"), ("Начать слушать", "listen")):
                 action = tray_click_menu.addAction(label)
                 action.setCheckable(True)
                 action.setChecked(self._tray_click_action == value)
@@ -734,7 +751,7 @@ def main() -> None:
                 )
                 self._tray_action_group.addAction(action)
 
-            show_bubble_action = settings_menu.addAction("Show Response Bubble")
+            show_bubble_action = settings_menu.addAction("Показывать пузырь ответа")
             show_bubble_action.setCheckable(True)
             show_bubble_action.setChecked(self._show_response_bubble)
             show_bubble_action.setData(("show_response_bubble", None))
@@ -742,7 +759,7 @@ def main() -> None:
                 lambda checked=False, selected_action=show_bubble_action: self._handle_settings_action(selected_action)
             )
 
-            idle_motion_action = settings_menu.addAction("Gentle Idle Motion")
+            idle_motion_action = settings_menu.addAction("Плавное движение в покое")
             idle_motion_action.setCheckable(True)
             idle_motion_action.setChecked(self._idle_motion_enabled)
             idle_motion_action.setData(("idle_motion_enabled", None))
@@ -750,13 +767,42 @@ def main() -> None:
                 lambda checked=False, selected_action=idle_motion_action: self._handle_settings_action(selected_action)
             )
 
-            set_hotkey_action = settings_menu.addAction("Set Listening Hotkey...")
+            snap_action = settings_menu.addAction("Прилипать к краю экрана")
+            snap_action.setCheckable(True)
+            snap_action.setChecked(self._snap_to_edge_enabled)
+            snap_action.setData(("snap_to_edge_enabled", None))
+            snap_action.triggered.connect(
+                lambda checked=False, selected_action=snap_action: self._handle_settings_action(selected_action)
+            )
+
+            visibility_action = settings_menu.addAction("Запускать скрытым")
+            visibility_action.setCheckable(True)
+            visibility_action.setChecked(self._start_hidden)
+            visibility_action.setData(("start_hidden", None))
+            visibility_action.triggered.connect(
+                lambda checked=False, selected_action=visibility_action: self._handle_settings_action(selected_action)
+            )
+
+            opacity_menu = settings_menu.addMenu("Прозрачность Васи")
+            self._opacity_action_group = QActionGroup(self)
+            self._opacity_action_group.setExclusive(True)
+            for label, value in (("100%", 1.0), ("85%", 0.85), ("70%", 0.70)):
+                action = opacity_menu.addAction(label)
+                action.setCheckable(True)
+                action.setChecked(abs(self._avatar_opacity - value) < 0.01)
+                action.setData(("avatar_opacity", value))
+                action.triggered.connect(
+                    lambda checked=False, selected_action=action: self._handle_settings_action(selected_action)
+                )
+                self._opacity_action_group.addAction(action)
+
+            set_hotkey_action = settings_menu.addAction("Изменить горячую клавишу...")
             set_hotkey_action.setData(("set_hotkey", None))
             set_hotkey_action.triggered.connect(
                 lambda checked=False, selected_action=set_hotkey_action: self._handle_settings_action(selected_action)
             )
 
-            reset_position_action = settings_menu.addAction("Reset Position")
+            reset_position_action = settings_menu.addAction("Сбросить позицию")
             reset_position_action.setData(("reset_position", None))
             reset_position_action.triggered.connect(
                 lambda checked=False, selected_action=reset_position_action: self._handle_settings_action(selected_action)
@@ -785,6 +831,19 @@ def main() -> None:
                 self._idle_motion_enabled = action.isChecked()
                 self.update()
                 self._save_position()
+            elif key == "snap_to_edge_enabled":
+                self._snap_to_edge_enabled = action.isChecked()
+                if self._snap_to_edge_enabled:
+                    self.move(_snap_to_nearest_edge(self.pos(), self.width(), self.height()))
+                    self._update_bubble_position()
+                self._save_position()
+            elif key == "start_hidden":
+                self._start_hidden = action.isChecked()
+                self._save_position()
+            elif key == "avatar_opacity" and isinstance(value, float):
+                self._avatar_opacity = value
+                self.update()
+                self._save_position()
             elif key == "set_hotkey":
                 self._prompt_hotkey()
             elif key == "reset_position":
@@ -806,8 +865,8 @@ def main() -> None:
         def _prompt_hotkey(self) -> None:
             text, accepted = QInputDialog.getText(
                 self,
-                "Set Listening Hotkey",
-                "Enter hotkey in pynput format:",
+                "Горячая клавиша",
+                "Введи сочетание в формате pynput:",
                 text=self._activation_hotkey,
             )
             if not accepted or not text.strip():
@@ -889,6 +948,17 @@ def main() -> None:
         color.setAlpha(105 + int(35 * abs(math.sin(pulse))))
         return color
 
+    def _state_label(state_name: AssistantStateName) -> str:
+        if state_name == AssistantStateName.LISTENING:
+            return "слушает"
+        if state_name == AssistantStateName.THINKING:
+            return "думает"
+        if state_name == AssistantStateName.SPEAKING:
+            return "говорит"
+        if state_name == AssistantStateName.ERROR:
+            return "ошибка"
+        return "в покое"
+
     def _blink_scale(state_name: AssistantStateName, pulse: float) -> float:
         if state_name == AssistantStateName.THINKING:
             return 0.90 + 0.10 * abs(math.sin(pulse * 0.55))
@@ -921,6 +991,10 @@ def main() -> None:
             return None
         return QPoint(x, y)
 
+    def _widget_visible_on_start() -> bool:
+        payload = _load_widget_state()
+        return not bool(payload.get("start_hidden", False))
+
     def _default_position(width: int, height: int) -> QPoint:
         screen = QGuiApplication.primaryScreen()
         if screen is None:
@@ -951,6 +1025,18 @@ def main() -> None:
         clamped_y = min(max(position.y(), available.top() + 24), available.bottom() - height)
         return QPoint(clamped_x, clamped_y)
 
+    def _snap_to_nearest_edge(position: QPoint, width: int, height: int) -> QPoint:
+        primary = QGuiApplication.primaryScreen()
+        if primary is None:
+            return position
+
+        available = primary.availableGeometry()
+        clamped = _clamp_to_visible_area(position, width, height)
+        left_x = available.left() + 16
+        right_x = available.right() - width - 16
+        target_x = left_x if abs(clamped.x() - left_x) <= abs(clamped.x() - right_x) else right_x
+        return QPoint(target_x, clamped.y())
+
     def _save_widget_state(payload: dict) -> None:
         state_path = Path(AVATAR_STATE_FILE)
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -962,7 +1048,10 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     widget = AvatarWidget()
-    widget.show()
+    if _widget_visible_on_start():
+        widget.show()
+    else:
+        widget.hide()
     log("Avatar widget started")
     sys.exit(app.exec())
 

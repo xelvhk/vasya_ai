@@ -21,6 +21,7 @@ from config.settings import (  # noqa: E402
     OLLAMA_URL,
     STORAGE_DB_FILE,
 )
+from utils.platform_runtime import get_platform_name  # noqa: E402
 
 
 def main() -> None:
@@ -36,6 +37,7 @@ def main() -> None:
         check_ollama_server,
         check_storage,
         check_google_calendar,
+        check_autostart,
     ]
 
     failed = False
@@ -141,6 +143,23 @@ def check_google_calendar() -> bool:
         "google calendar",
         False,
         f"credentials file not found: {GOOGLE_CALENDAR_CREDENTIALS_FILE}",
+    )
+
+
+def check_autostart() -> bool:
+    if get_platform_name() != "macos":
+        return report("autostart", True, "not applicable on this platform")
+
+    try:
+        from scripts.autostart_macos import is_autostart_enabled
+    except Exception as exc:
+        return report("autostart", False, f"cannot inspect autostart: {exc}")
+
+    enabled = is_autostart_enabled()
+    return report(
+        "autostart",
+        True,
+        "launch at login is enabled" if enabled else "launch at login is disabled",
     )
 
 

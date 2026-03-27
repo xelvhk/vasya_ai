@@ -17,6 +17,7 @@ from config.settings import (
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
+from utils.platform_runtime import get_platform_name
 from voice.session import run_voice_interaction
 from voice.tts import stop_speaking
 
@@ -40,11 +41,39 @@ def main() -> None:
             QPixmap,
             QRadialGradient,
         )
-        from PySide6.QtWidgets import QApplication, QInputDialog, QMenu, QSystemTrayIcon, QWidget
+        from PySide6.QtWidgets import (
+            QApplication,
+            QCheckBox,
+            QComboBox,
+            QDialog,
+            QDialogButtonBox,
+            QFormLayout,
+            QHBoxLayout,
+            QInputDialog,
+            QLabel,
+            QLineEdit,
+            QMenu,
+            QSlider,
+            QSystemTrayIcon,
+            QVBoxLayout,
+            QWidget,
+        )
         from PySide6.QtSvg import QSvgRenderer
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
+
+    if get_platform_name() == "macos":
+        from scripts.autostart_macos import install_autostart, is_autostart_enabled, uninstall_autostart
+    else:
+        def is_autostart_enabled() -> bool:
+            return False
+
+        def install_autostart() -> None:
+            raise RuntimeError("Autostart is currently available only on macOS.")
+
+        def uninstall_autostart() -> None:
+            return None
 
     class StateBridge(QObject):
         state_changed = Signal(object)
@@ -82,6 +111,287 @@ def main() -> None:
                 self._text,
             )
 
+    class SettingsDialog(QDialog):
+        def __init__(self, widget: "AvatarWidget") -> None:
+            super().__init__(widget)
+            self.setWindowTitle("Настройки Васи")
+            self.setModal(True)
+            self.setMinimumWidth(400)
+            self._widget = widget
+            self.setStyleSheet(
+                """
+                QDialog {
+                    background-color: #0b1435;
+                    border: 1px solid #274a99;
+                    border-radius: 18px;
+                }
+                QLabel {
+                    color: #e9f2ff;
+                    font-size: 13px;
+                }
+                QCheckBox {
+                    color: #eef5ff;
+                    spacing: 8px;
+                    font-size: 13px;
+                }
+                QCheckBox::indicator {
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 4px;
+                    border: 1px solid #4d74d6;
+                    background: #13204e;
+                }
+                QCheckBox::indicator:checked {
+                    background: #4f8fff;
+                    border: 1px solid #7ab6ff;
+                }
+                QComboBox, QLineEdit {
+                    background: #13204e;
+                    color: #f4f8ff;
+                    border: 1px solid #345ab3;
+                    border-radius: 10px;
+                    padding: 8px 10px;
+                    min-height: 18px;
+                }
+                QComboBox::drop-down {
+                    border: none;
+                    width: 22px;
+                }
+                QSlider::groove:horizontal {
+                    border: 0;
+                    height: 6px;
+                    background: #18306d;
+                    border-radius: 3px;
+                }
+                QSlider::handle:horizontal {
+                    background: #7ddcff;
+                    border: 1px solid #b0ecff;
+                    width: 16px;
+                    margin: -6px 0;
+                    border-radius: 8px;
+                }
+                QDialogButtonBox QPushButton {
+                    background: #173377;
+                    color: #f5f9ff;
+                    border: 1px solid #3c67d1;
+                    border-radius: 10px;
+                    padding: 8px 14px;
+                    min-width: 100px;
+                }
+                QDialogButtonBox QPushButton:hover {
+                    background: #1d439c;
+                }
+                """
+            )
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(20, 20, 20, 18)
+            layout.setSpacing(14)
+
+            title = QLabel("Настройки Васи", self)
+            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            subtitle = QLabel(
+                "Управление поведением виджета, автозапуском и голосовой активацией.",
+                self,
+            )
+            subtitle.setWordWrap(True)
+            subtitle.setStyleSheet("font-size: 12px; color: #9fb8ec;")
+            layout.addWidget(title)
+            layout.addWidget(subtitle)
+
+            preview_wrap = QWidget(self)
+            preview_wrap.setStyleSheet(
+                """
+                QWidget {
+                    background: qradialgradient(cx:0.5, cy:0.4, radius:0.8,
+                        fx:0.5, fy:0.4,
+                        stop:0 #17357a,
+                        stop:1 #0b1435);
+                    border: 1px solid #274a99;
+                    border-radius: 16px;
+                }
+                """
+            )
+            preview_layout = QVBoxLayout(preview_wrap)
+            preview_layout.setContentsMargins(12, 10, 12, 12)
+            preview_layout.setSpacing(8)
+            preview_title = QLabel("Превью", self)
+            preview_title.setStyleSheet("font-size: 12px; color: #b9cdf3; font-weight: 600;")
+            preview_layout.addWidget(preview_title)
+            self._preview = _AvatarPreview(widget, self)
+            preview_layout.addWidget(self._preview, alignment=Qt.AlignmentFlag.AlignHCenter)
+            layout.addWidget(preview_wrap)
+
+            form = QFormLayout()
+            form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+            form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+            form.setHorizontalSpacing(16)
+            form.setVerticalSpacing(12)
+
+            self._size_combo = QComboBox(self)
+            for label, size in (("Маленький", 180), ("Средний", 210), ("Большой", 270)):
+                self._size_combo.addItem(label, size)
+            self._select_combo_value(self._size_combo, widget._avatar_size)
+            self._size_combo.currentIndexChanged.connect(self._sync_preview)
+            form.addRow("Размер Васи", self._size_combo)
+
+            self._tray_click_combo = QComboBox(self)
+            self._tray_click_combo.addItem("Показать или скрыть Васю", "toggle")
+            self._tray_click_combo.addItem("Начать слушать", "listen")
+            self._select_combo_value(self._tray_click_combo, widget._tray_click_action)
+            form.addRow("Клик по иконке в трее", self._tray_click_combo)
+
+            self._opacity_slider = QSlider(Qt.Orientation.Horizontal, self)
+            self._opacity_slider.setMinimum(70)
+            self._opacity_slider.setMaximum(100)
+            self._opacity_slider.setSingleStep(5)
+            self._opacity_slider.setValue(int(widget._avatar_opacity * 100))
+            opacity_row = QHBoxLayout()
+            opacity_row.addWidget(self._opacity_slider)
+            self._opacity_label = QLabel(f"{int(widget._avatar_opacity * 100)}%")
+            opacity_row.addWidget(self._opacity_label)
+            self._opacity_slider.valueChanged.connect(
+                lambda value: self._opacity_label.setText(f"{value}%")
+            )
+            self._opacity_slider.valueChanged.connect(self._sync_preview)
+            form.addRow("Прозрачность Васи", opacity_row)
+
+            self._show_bubble_checkbox = QCheckBox("Показывать пузырь ответа", self)
+            self._show_bubble_checkbox.setChecked(widget._show_response_bubble)
+            form.addRow(self._show_bubble_checkbox)
+
+            self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)
+            self._idle_motion_checkbox.setChecked(widget._idle_motion_enabled)
+            self._idle_motion_checkbox.toggled.connect(self._sync_preview)
+            form.addRow(self._idle_motion_checkbox)
+
+            self._snap_checkbox = QCheckBox("Прилипать к краю экрана", self)
+            self._snap_checkbox.setChecked(widget._snap_to_edge_enabled)
+            form.addRow(self._snap_checkbox)
+
+            self._start_hidden_checkbox = QCheckBox("Запускать скрытым", self)
+            self._start_hidden_checkbox.setChecked(widget._start_hidden)
+            form.addRow(self._start_hidden_checkbox)
+
+            if get_platform_name() == "macos":
+                self._autostart_checkbox = QCheckBox("Запускать при входе", self)
+                self._autostart_checkbox.setChecked(widget._launch_at_login_enabled)
+                form.addRow(self._autostart_checkbox)
+            else:
+                self._autostart_checkbox = None
+
+            self._hotkey_input = QLineEdit(widget._activation_hotkey, self)
+            form.addRow("Горячая клавиша", self._hotkey_input)
+
+            layout.addLayout(form)
+
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+                self,
+            )
+            buttons.accepted.connect(self.accept)
+            buttons.rejected.connect(self.reject)
+            layout.addWidget(buttons)
+
+            self._sync_preview()
+
+        def apply(self) -> None:
+            self._widget._set_avatar_size(int(self._size_combo.currentData()))
+            self._widget._tray_click_action = str(self._tray_click_combo.currentData())
+            self._widget._avatar_opacity = self._opacity_slider.value() / 100.0
+            self._widget._show_response_bubble = self._show_bubble_checkbox.isChecked()
+            self._widget._idle_motion_enabled = self._idle_motion_checkbox.isChecked()
+            self._widget._snap_to_edge_enabled = self._snap_checkbox.isChecked()
+            self._widget._start_hidden = self._start_hidden_checkbox.isChecked()
+
+            if self._autostart_checkbox is not None:
+                desired_autostart = self._autostart_checkbox.isChecked()
+                if desired_autostart != self._widget._launch_at_login_enabled:
+                    if desired_autostart:
+                        install_autostart()
+                    else:
+                        uninstall_autostart()
+                    self._widget._launch_at_login_enabled = desired_autostart
+
+            hotkey_value = self._hotkey_input.text().strip()
+            if hotkey_value and hotkey_value != self._widget._activation_hotkey:
+                self._widget._apply_hotkey(hotkey_value)
+
+            if not self._widget._show_response_bubble:
+                self._widget._bubble.hide()
+            else:
+                self._widget._update_bubble()
+
+            if self._widget._snap_to_edge_enabled:
+                self._widget.move(
+                    _snap_to_nearest_edge(
+                        self._widget.pos(),
+                        self._widget.width(),
+                        self._widget.height(),
+                    )
+                )
+                self._widget._update_bubble_position()
+
+            self._widget.update()
+            self._widget._save_position()
+
+        @staticmethod
+        def _select_combo_value(combo: "QComboBox", expected_value) -> None:
+            for index in range(combo.count()):
+                if combo.itemData(index) == expected_value:
+                    combo.setCurrentIndex(index)
+                    return
+
+        def _sync_preview(self) -> None:
+            self._preview.update_preview(
+                size=int(self._size_combo.currentData()),
+                opacity=self._opacity_slider.value() / 100.0,
+                idle_motion=self._idle_motion_checkbox.isChecked(),
+            )
+
+    class _AvatarPreview(QWidget):
+        def __init__(self, widget: "AvatarWidget", parent: QWidget | None = None) -> None:
+            super().__init__(parent)
+            self._widget = widget
+            self._preview_size = widget._avatar_size
+            self._preview_opacity = widget._avatar_opacity
+            self._idle_motion = widget._idle_motion_enabled
+            self._pulse = 0.0
+            self._bob = 0.0
+            self.setFixedSize(150, 150)
+
+            self._timer = QTimer(self)
+            self._timer.timeout.connect(self._tick)
+            self._timer.start(60)
+
+        def update_preview(self, *, size: int, opacity: float, idle_motion: bool) -> None:
+            self._preview_size = size
+            self._preview_opacity = opacity
+            self._idle_motion = idle_motion
+            self.update()
+
+        def _tick(self) -> None:
+            if self._idle_motion:
+                self._pulse = (self._pulse + 0.05) % 6.28
+                self._bob = (self._bob + 0.035) % 6.28
+            else:
+                self._pulse = 0.0
+                self._bob = 0.0
+            self.update()
+
+        def paintEvent(self, event) -> None:
+            _ = event
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setOpacity(max(0.45, min(1.0, self._preview_opacity)))
+            self._widget._paint_preview_character(
+                painter,
+                QRectF(10, 10, self.width() - 20, self.height() - 20),
+                pulse=self._pulse,
+                bob=self._bob,
+                scale=max(0.82, min(1.18, self._preview_size / 210.0)),
+            )
+
     class AvatarWidget(QWidget):
         def __init__(self) -> None:
             super().__init__()
@@ -107,6 +417,7 @@ def main() -> None:
             )
             self._avatar_opacity = float(self._widget_state.get("avatar_opacity", 1.0))
             self._start_hidden = bool(self._widget_state.get("start_hidden", False))
+            self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
             )
@@ -230,7 +541,7 @@ def main() -> None:
                 "Скрыть Васю" if self.isVisible() else "Показать Васю"
             )
             listen_action = menu.addAction("Начать слушать")
-            settings_menu = self._build_settings_menu(menu)
+            settings_action = menu.addAction("Настройки...")
             menu.addSeparator()
             quit_action = menu.addAction("Закрыть Васю")
 
@@ -239,10 +550,10 @@ def main() -> None:
                 self.toggle_avatar_visibility()
             elif chosen_action == listen_action:
                 self._activate_interaction()
+            elif chosen_action == settings_action:
+                self._open_settings_dialog()
             elif chosen_action == quit_action:
                 self.quit_application()
-            elif chosen_action is not None:
-                self._handle_settings_action(chosen_action)
 
         def _activate_interaction(self) -> None:
             if self._interaction_lock.locked():
@@ -391,10 +702,35 @@ def main() -> None:
             self._paint_character(painter)
 
         def _paint_character(self, painter: QPainter) -> None:
+            self._paint_preview_character(
+                painter,
+                QRectF(0, 0, self.width(), self.height()),
+                pulse=self._pulse,
+                bob=self._bob,
+                scale=1.0,
+            )
+
+        def _paint_preview_character(
+            self,
+            painter: QPainter,
+            bounds: QRectF,
+            *,
+            pulse: float,
+            bob: float,
+            scale: float,
+        ) -> None:
+            painter.save()
+            painter.translate(bounds.left(), bounds.top())
+            painter.scale(bounds.width() / self.width(), bounds.height() / self.height())
+
+            original_pulse = self._pulse
+            original_bob = self._bob
+            self._pulse = pulse
+            self._bob = bob
+
             bob_offset = _avatar_bob_offset(self._state.name, self._bob)
             glow = _animated_glow(self._state.name, self._pulse)
 
-            painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
 
             ambient = QRadialGradient(self.width() * 0.5, self.height() * 0.46, self.width() * 0.52)
@@ -409,7 +745,7 @@ def main() -> None:
             painter.drawEllipse(QRectF(-8, -6, self.width() + 16, self.height() + 12))
 
             shadow_alpha = 70 + int(18 * abs(math.sin(self._bob)))
-            shadow_width = self.width() * 0.54 + _shadow_width_delta(self._state.name, self._pulse)
+            shadow_width = self.width() * (0.54 * scale) + _shadow_width_delta(self._state.name, self._pulse)
             shadow_x = (self.width() - shadow_width) / 2
             painter.setBrush(QColor(9, 18, 54, shadow_alpha))
             painter.drawEllipse(QRectF(shadow_x, self.height() - 30, shadow_width, 16))
@@ -567,6 +903,8 @@ def main() -> None:
             )
             painter.drawPath(tuft_path)
 
+            self._pulse = original_pulse
+            self._bob = original_bob
             painter.restore()
 
         def _bubble_text(self) -> str:
@@ -677,8 +1015,9 @@ def main() -> None:
             listen_action.triggered.connect(self._activate_interaction)
             menu.addAction(listen_action)
 
-            menu.addSeparator()
-            self._build_settings_menu(menu)
+            settings_action = QAction("Настройки...", self)
+            settings_action.triggered.connect(self._open_settings_dialog)
+            menu.addAction(settings_action)
             menu.addSeparator()
 
             quit_action = QAction("Закрыть Васю", self)
@@ -734,134 +1073,13 @@ def main() -> None:
                 suffix = f" [{_state_label(self._state.name)}]"
             self._tray.setToolTip(f"Вася AI{suffix}")
 
-        def _build_settings_menu(self, parent_menu: QMenu) -> QMenu:
-            settings_menu = parent_menu.addMenu("Настройки")
-
-            size_menu = settings_menu.addMenu("Размер Васи")
-            self._size_action_group = QActionGroup(self)
-            self._size_action_group.setExclusive(True)
-            for label, size in (("Маленький", 180), ("Средний", 210), ("Большой", 270)):
-                action = size_menu.addAction(label)
-                action.setCheckable(True)
-                action.setChecked(self._avatar_size == size)
-                action.setData(("size", size))
-                action.triggered.connect(
-                    lambda checked=False, selected_action=action: self._handle_settings_action(selected_action)
-                )
-                self._size_action_group.addAction(action)
-
-            tray_click_menu = settings_menu.addMenu("Клик по иконке в трее")
-            self._tray_action_group = QActionGroup(self)
-            self._tray_action_group.setExclusive(True)
-            for label, value in (("Показать или скрыть Васю", "toggle"), ("Начать слушать", "listen")):
-                action = tray_click_menu.addAction(label)
-                action.setCheckable(True)
-                action.setChecked(self._tray_click_action == value)
-                action.setData(("tray_click_action", value))
-                action.triggered.connect(
-                    lambda checked=False, selected_action=action: self._handle_settings_action(selected_action)
-                )
-                self._tray_action_group.addAction(action)
-
-            show_bubble_action = settings_menu.addAction("Показывать пузырь ответа")
-            show_bubble_action.setCheckable(True)
-            show_bubble_action.setChecked(self._show_response_bubble)
-            show_bubble_action.setData(("show_response_bubble", None))
-            show_bubble_action.triggered.connect(
-                lambda checked=False, selected_action=show_bubble_action: self._handle_settings_action(selected_action)
-            )
-
-            idle_motion_action = settings_menu.addAction("Плавное движение в покое")
-            idle_motion_action.setCheckable(True)
-            idle_motion_action.setChecked(self._idle_motion_enabled)
-            idle_motion_action.setData(("idle_motion_enabled", None))
-            idle_motion_action.triggered.connect(
-                lambda checked=False, selected_action=idle_motion_action: self._handle_settings_action(selected_action)
-            )
-
-            snap_action = settings_menu.addAction("Прилипать к краю экрана")
-            snap_action.setCheckable(True)
-            snap_action.setChecked(self._snap_to_edge_enabled)
-            snap_action.setData(("snap_to_edge_enabled", None))
-            snap_action.triggered.connect(
-                lambda checked=False, selected_action=snap_action: self._handle_settings_action(selected_action)
-            )
-
-            visibility_action = settings_menu.addAction("Запускать скрытым")
-            visibility_action.setCheckable(True)
-            visibility_action.setChecked(self._start_hidden)
-            visibility_action.setData(("start_hidden", None))
-            visibility_action.triggered.connect(
-                lambda checked=False, selected_action=visibility_action: self._handle_settings_action(selected_action)
-            )
-
-            opacity_menu = settings_menu.addMenu("Прозрачность Васи")
-            self._opacity_action_group = QActionGroup(self)
-            self._opacity_action_group.setExclusive(True)
-            for label, value in (("100%", 1.0), ("85%", 0.85), ("70%", 0.70)):
-                action = opacity_menu.addAction(label)
-                action.setCheckable(True)
-                action.setChecked(abs(self._avatar_opacity - value) < 0.01)
-                action.setData(("avatar_opacity", value))
-                action.triggered.connect(
-                    lambda checked=False, selected_action=action: self._handle_settings_action(selected_action)
-                )
-                self._opacity_action_group.addAction(action)
-
-            set_hotkey_action = settings_menu.addAction("Изменить горячую клавишу...")
-            set_hotkey_action.setData(("set_hotkey", None))
-            set_hotkey_action.triggered.connect(
-                lambda checked=False, selected_action=set_hotkey_action: self._handle_settings_action(selected_action)
-            )
-
-            reset_position_action = settings_menu.addAction("Сбросить позицию")
-            reset_position_action.setData(("reset_position", None))
-            reset_position_action.triggered.connect(
-                lambda checked=False, selected_action=reset_position_action: self._handle_settings_action(selected_action)
-            )
-            return settings_menu
-
-        def _handle_settings_action(self, action: QAction) -> None:
-            data = action.data()
-            if not isinstance(data, tuple) or len(data) != 2:
-                return
-
-            key, value = data
-            if key == "size" and isinstance(value, int):
-                self._set_avatar_size(value)
-            elif key == "tray_click_action" and isinstance(value, str):
-                self._tray_click_action = value
-                self._save_position()
-            elif key == "show_response_bubble":
-                self._show_response_bubble = action.isChecked()
-                if not self._show_response_bubble:
-                    self._bubble.hide()
-                else:
-                    self._update_bubble()
-                self._save_position()
-            elif key == "idle_motion_enabled":
-                self._idle_motion_enabled = action.isChecked()
-                self.update()
-                self._save_position()
-            elif key == "snap_to_edge_enabled":
-                self._snap_to_edge_enabled = action.isChecked()
-                if self._snap_to_edge_enabled:
-                    self.move(_snap_to_nearest_edge(self.pos(), self.width(), self.height()))
-                    self._update_bubble_position()
-                self._save_position()
-            elif key == "start_hidden":
-                self._start_hidden = action.isChecked()
-                self._save_position()
-            elif key == "avatar_opacity" and isinstance(value, float):
-                self._avatar_opacity = value
-                self.update()
-                self._save_position()
-            elif key == "set_hotkey":
-                self._prompt_hotkey()
-            elif key == "reset_position":
-                self.move(_default_position(self.width(), self.height()))
-                self._update_bubble_position()
-                self._save_position()
+        def _open_settings_dialog(self) -> None:
+            dialog = SettingsDialog(self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                try:
+                    dialog.apply()
+                except Exception as exc:
+                    log(f"Failed to apply settings: {exc}")
 
         def _set_avatar_size(self, size: int) -> None:
             self._avatar_size = size
@@ -897,6 +1115,23 @@ def main() -> None:
                 self._activation_hotkey = old_hotkey
                 self._start_hotkey_listener()
                 return
+
+            self._save_position()
+
+        def _apply_hotkey(self, hotkey_text: str) -> None:
+            new_hotkey = normalize_hotkey_combination(hotkey_text)
+            old_hotkey = self._activation_hotkey
+            self._activation_hotkey = new_hotkey
+
+            if self._hotkey_listener is not None:
+                self._hotkey_listener.stop()
+                self._hotkey_listener = None
+
+            self._start_hotkey_listener()
+            if self._hotkey_listener is None:
+                self._activation_hotkey = old_hotkey
+                self._start_hotkey_listener()
+                raise RuntimeError("Не удалось применить горячую клавишу.")
 
             self._save_position()
 

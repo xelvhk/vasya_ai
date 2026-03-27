@@ -218,6 +218,7 @@ Notes:
 - global hotkey also works inside the widget process
 - drag moves the avatar on screen
 - tray click toggles avatar visibility
+- launch at login on macOS can be enabled from Vasya's menu or via `python scripts/autostart_macos.py install`
 - tray menu can start listening or quit Vasya
 - tray and avatar menu now also expose size, position, hotkey, and tray-click settings
 - Vasya now uses a built-in procedural live avatar by default

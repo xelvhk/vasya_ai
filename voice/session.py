@@ -21,6 +21,7 @@ from voice.recorder import record_audio
 from voice.models import TranscriptionResult
 from voice.stt import transcribe
 from voice.tts import speak
+from utils.intent_fastpaths import detect_fast_intent
 
 
 def run_voice_interaction() -> AssistantControlAction:
@@ -50,7 +51,7 @@ def run_voice_interaction() -> AssistantControlAction:
             return assistant_control.consume_action()
 
         print(f"Ты сказал: {user_text}")
-        assistant_state.set(AssistantStateName.THINKING)
+        assistant_state.set(AssistantStateName.THINKING, _thinking_message_for(user_text))
         result = process_text_detailed(user_text)
         response = result.response
         if response:
@@ -142,6 +143,13 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
     ):
         return True
     return False
+
+
+def _thinking_message_for(user_text: str) -> str:
+    fast_intent = detect_fast_intent(user_text)
+    if fast_intent is not None and fast_intent.intent == "chat":
+        return "Формулирую ответ..."
+    return "Понимаю запрос..."
 
 
 def _confirm_transcription(candidate_text: str) -> str | None:

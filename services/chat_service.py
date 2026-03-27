@@ -3,26 +3,35 @@ from __future__ import annotations
 import re
 
 from assistant.conversation import conversation_memory
+from assistant.state import AssistantStateName, assistant_state
 from config.settings import (
-    OLLAMA_CHAT_MODEL,
+    OLLAMA_CHAT_STREAM,
     OLLAMA_CHAT_NUM_PREDICT,
     OLLAMA_CHAT_TEMPERATURE,
     OLLAMA_CHAT_THINK,
 )
-from services.ollama_client import generate
+from services.ollama_client import generate, generate_stream, resolve_chat_model
 
 
 def generate_chat_reply(user_text: str) -> str:
     allow_greeting = _should_greet(user_text)
     prompt = _build_chat_prompt(user_text, allow_greeting=allow_greeting)
-    reply = generate(
-        prompt,
-        model=OLLAMA_CHAT_MODEL,
-        think=OLLAMA_CHAT_THINK,
-        temperature=OLLAMA_CHAT_TEMPERATURE,
-        num_predict=OLLAMA_CHAT_NUM_PREDICT,
-    )
-    reply = _postprocess_chat_reply(reply, allow_greeting=allow_greeting)
+    model = resolve_chat_model()
+    if OLLAMA_CHAT_STREAM:
+        reply = _generate_chat_reply_streaming(
+            prompt,
+            model=model,
+            allow_greeting=allow_greeting,
+        )
+    else:
+        reply = generate(
+            prompt,
+            model=model,
+            think=OLLAMA_CHAT_THINK,
+            temperature=OLLAMA_CHAT_TEMPERATURE,
+            num_predict=OLLAMA_CHAT_NUM_PREDICT,
+        )
+        reply = _postprocess_chat_reply(reply, allow_greeting=allow_greeting)
     conversation_memory.add_user(user_text)
     conversation_memory.add_assistant(reply)
     return reply
@@ -114,3 +123,38 @@ def _soften_formality(text: str) -> str:
     softened = re.sub(r"\bРады слышать\b", "Рад это слышать", softened)
     softened = re.sub(r"\bКакой планы\b", "Какие планы", softened)
     return softened.strip()
+
+
+def _generate_chat_reply_streaming(
+    prompt: str,
+    *,
+    model: str,
+    allow_greeting: bool,
+) -> str:
+    chunks: list[str] = []
+    last_preview = ""
+    for chunk in generate_stream(
+        prompt,
+        model=model,
+        think=OLLAMA_CHAT_THINK,
+        temperature=OLLAMA_CHAT_TEMPERATURE,
+        num_predict=OLLAMA_CHAT_NUM_PREDICT,
+    ):
+        chunks.append(chunk)
+        preview = _build_stream_preview("".join(chunks))
+        if preview and preview != last_preview:
+            assistant_state.set(AssistantStateName.THINKING, preview)
+            last_preview = preview
+
+    full_reply = "".join(chunks).strip()
+    return _postprocess_chat_reply(full_reply, allow_greeting=allow_greeting)
+
+
+def _build_stream_preview(text: str) -> str:
+    cleaned = " ".join(text.split())
+    if not cleaned:
+        return "Формулирую ответ..."
+    preview = cleaned[:120].rstrip()
+    if len(cleaned) > 120:
+        preview += "..."
+    return preview

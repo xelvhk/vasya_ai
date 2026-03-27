@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.4.0`
+Current version: `0.4.1`
 
 ## Overview
 
@@ -23,6 +23,7 @@ Vasya already supports:
 - background hotkey voice activation
 - first floating desktop avatar widget MVP
 - tray or menu bar style control for the desktop shell
+- more natural conversational UX with follow-up turns and a faster chat path
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -42,6 +43,8 @@ Current capabilities:
 - run in desktop background and start voice capture by hotkey
 - show a floating avatar widget with click-to-talk states
 - control the desktop shell through a tray icon
+- show more natural intermediate response states
+- delete all tasks with voice confirmation
 
 Example commands:
 - `Add a task to buy a lamp`
@@ -338,6 +341,7 @@ This is still an MVP, so current limits include:
 
 - `v0.3.x`: core voice MVP, local storage, calendar/tasks, Google Calendar, hotkey mode
 - `v0.4.0`: first desktop widget MVP with assistant state layer and click-to-talk avatar
+- `v0.4.1`: improved conversational UX, voice confirmations, faster chat path, safer bulk task deletion
 - `v0.4.x`: installation polish, voice understanding improvements, better desktop UX
 - `v0.5.x`: fuller desktop shell with tray or menu bar app and richer avatar behavior
 - `v0.6.x`: Obsidian integration

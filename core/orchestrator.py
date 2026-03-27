@@ -1,3 +1,5 @@
+from assistant.confirmations import classify_confirmation_reply, confirmation_store
+from agents.task_agent import confirm_delete_all_tasks
 from core.intent_parser import parse_intent
 from core.router import route_intent
 from services.ollama_client import OllamaClientError
@@ -16,6 +18,10 @@ def process_text(user_text: str) -> str:
 
 
 def process_text_detailed(user_text: str) -> ProcessResult:
+    confirmation_result = _handle_pending_confirmation(user_text)
+    if confirmation_result is not None:
+        return confirmation_result
+
     try:
         intent_result = parse_intent(user_text)
     except OllamaClientError:
@@ -53,3 +59,24 @@ def process_text_detailed(user_text: str) -> ProcessResult:
         },
     )
     return ProcessResult(intent=intent_result.intent, response=response)
+
+
+def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
+    pending = confirmation_store.get()
+    if pending is None:
+        return None
+
+    decision = classify_confirmation_reply(user_text)
+    if decision is None:
+        response = "Нужно коротко подтвердить: скажи да или нет."
+        return ProcessResult(intent="unknown", response=response)
+
+    confirmation_store.clear()
+    if decision == "cancel":
+        return ProcessResult(intent="unknown", response="Хорошо, не удаляю.")
+
+    if pending.kind == "delete_all_tasks":
+        response = confirm_delete_all_tasks()
+        return ProcessResult(intent="delete_tasks", response=response)
+
+    return ProcessResult(intent="unknown", response="Подтверждение сброшено.")

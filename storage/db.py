@@ -42,6 +42,14 @@ def initialize_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
         _ensure_column(connection, "tasks", "datetime", "TEXT")
 
     _migrate_legacy_json_if_needed()
@@ -49,6 +57,16 @@ def initialize_database() -> None:
 
 def _migrate_legacy_json_if_needed() -> None:
     with get_connection() as connection:
+        migration_flag = connection.execute(
+            """
+            SELECT value
+            FROM app_meta
+            WHERE key = 'legacy_json_migrated'
+            """
+        ).fetchone()
+        if migration_flag and migration_flag["value"] == "1":
+            return
+
         tasks_count = connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
         events_count = connection.execute("SELECT COUNT(*) FROM events").fetchone()[0]
 
@@ -77,6 +95,14 @@ def _migrate_legacy_json_if_needed() -> None:
                     """,
                     (title, item.get("datetime"), _current_timestamp()),
                 )
+
+        connection.execute(
+            """
+            INSERT INTO app_meta (key, value)
+            VALUES ('legacy_json_migrated', '1')
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """
+        )
 
 
 def _load_legacy_items(file_path: str) -> list[dict]:

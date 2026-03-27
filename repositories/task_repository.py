@@ -100,3 +100,30 @@ class TaskRepository:
             )
 
         return cursor.rowcount
+
+    def count_open(self) -> int:
+        initialize_database()
+
+        with get_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS task_count
+                FROM tasks
+                WHERE status = 'open'
+                """
+            ).fetchone()
+
+        return int(row["task_count"]) if row else 0
+
+    def delete_all_open(self) -> int:
+        initialize_database()
+
+        with get_connection() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM tasks
+                WHERE status = 'open'
+                """
+            )
+
+        return cursor.rowcount

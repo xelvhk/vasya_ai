@@ -40,6 +40,7 @@ INTENT_PROMPT_TEMPLATE = """
 8. Для delete_tasks:
    - datetime: только исходную фразу пользователя про дату или время, если пользователь просит удалить все задачи на дату
    - all: true, если пользователь явно просит удалить все задачи
+   - если пользователь говорит просто "удали все задачи", тоже ставь all: true
 9. Для delete_event:
    - target: исходный текст события или номер из списка, как сказал пользователь
 10. Для stop_speaking:
@@ -86,6 +87,13 @@ INTENT_PROMPT_TEMPLATE = """
   "intent": "delete_tasks",
   "data": {{
     "datetime": "на 30 марта",
+    "all": true
+  }}
+}}
+
+{{
+  "intent": "delete_tasks",
+  "data": {{
     "all": true
   }}
 }}

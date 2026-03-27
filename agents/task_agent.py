@@ -1,7 +1,10 @@
+from assistant.confirmations import confirmation_store
 from core.models import IntentResult
 from services.task_service import (
+    count_open_tasks,
     complete_task,
     create_task,
+    delete_all_tasks,
     delete_task,
     delete_tasks_by_date,
     get_tasks,
@@ -83,6 +86,16 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         return f"Удалил задачу: {resolved['task']}."
 
     if intent_result.intent == "delete_tasks":
+        if intent_result.data.get("all") is True:
+            open_count = count_open_tasks()
+            if open_count == 0:
+                return "Открытых задач сейчас нет."
+            confirmation_store.set("delete_all_tasks", {"count": open_count})
+            return (
+                f"Это удалит все открытые задачи, их сейчас {open_count}. "
+                "Подтверди: скажи да или нет."
+            )
+
         filter_date, date_context, error = _extract_date_filter(intent_result.data.get("datetime"))
         if error:
             return error
@@ -100,6 +113,15 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         )
 
     return "Не удалось обработать команду по задачам."
+
+
+def confirm_delete_all_tasks() -> str:
+    deleted_count = delete_all_tasks()
+    if deleted_count == 0:
+        return "Открытых задач для удаления не осталось."
+    if deleted_count == 1:
+        return "Удалил 1 задачу."
+    return f"Удалил {_format_task_count(deleted_count)}."
 
 
 def _resolve_task_target(tasks: list[dict], target: str) -> dict | None:

@@ -23,3 +23,11 @@ def delete_task(task_id: int) -> bool:
 
 def delete_tasks_by_date(filter_date: str) -> int:
     return _task_repository.delete_by_date(filter_date)
+
+
+def count_open_tasks() -> int:
+    return _task_repository.count_open()
+
+
+def delete_all_tasks() -> int:
+    return _task_repository.delete_all_open()

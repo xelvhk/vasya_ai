@@ -148,8 +148,8 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
 def _thinking_message_for(user_text: str) -> str:
     fast_intent = detect_fast_intent(user_text)
     if fast_intent is not None and fast_intent.intent == "chat":
-        return "Формулирую ответ..."
-    return "Понимаю запрос..."
+        return "Секунду, подбираю ответ..."
+    return "Секунду, разбираюсь..."
 
 
 def _confirm_transcription(candidate_text: str) -> str | None:

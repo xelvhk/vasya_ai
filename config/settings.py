@@ -9,6 +9,11 @@ _BASE_DIR = Path(__file__).resolve().parent.parent
 APP_VERSION = os.getenv("APP_VERSION", "0.4.0")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
+OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", OLLAMA_MODEL)
+OLLAMA_FAST_THINK = os.getenv("OLLAMA_FAST_THINK", "false").lower() == "true"
+OLLAMA_FAST_TEMPERATURE = float(os.getenv("OLLAMA_FAST_TEMPERATURE", "0.1"))
+OLLAMA_FAST_NUM_PREDICT = int(os.getenv("OLLAMA_FAST_NUM_PREDICT", "256"))
 AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")
 RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "5"))
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")

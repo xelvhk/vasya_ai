@@ -34,6 +34,11 @@ if [ ! -f ".env" ]; then
   echo "Creating .env with default values..."
   cat > .env <<'EOF'
 OLLAMA_MODEL=llama3
+OLLAMA_FAST_MODEL=llama3
+OLLAMA_REASONING_MODEL=llama3
+OLLAMA_FAST_THINK=false
+OLLAMA_FAST_TEMPERATURE=0.1
+OLLAMA_FAST_NUM_PREDICT=256
 WHISPER_MODEL=base
 RECORD_SECONDS=5
 TTS_VOICE=Milena

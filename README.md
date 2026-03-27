@@ -239,6 +239,11 @@ Example values:
 ```env
 OLLAMA_URL=http://localhost:11434/api/generate
 OLLAMA_MODEL=llama3
+OLLAMA_FAST_MODEL=llama3
+OLLAMA_REASONING_MODEL=llama3
+OLLAMA_FAST_THINK=false
+OLLAMA_FAST_TEMPERATURE=0.1
+OLLAMA_FAST_NUM_PREDICT=256
 AUDIO_FILENAME=input.wav
 RECORD_SECONDS=5
 WHISPER_MODEL=base
@@ -270,6 +275,11 @@ GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
 GOOGLE_CALENDAR_SYNC_ON_READ=true
 GOOGLE_CALENDAR_READ_MAX_RESULTS=20
 ```
+
+For faster intent parsing:
+- `OLLAMA_FAST_MODEL` is used for short assistant commands
+- `OLLAMA_FAST_THINK=false` disables reasoning on the fast path
+- keep `OLLAMA_FAST_NUM_PREDICT` small, for example `128` or `256`
 
 Voice selection:
 

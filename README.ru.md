@@ -239,6 +239,11 @@ python scripts/avatar_widget.py
 ```env
 OLLAMA_URL=http://localhost:11434/api/generate
 OLLAMA_MODEL=llama3
+OLLAMA_FAST_MODEL=llama3
+OLLAMA_REASONING_MODEL=llama3
+OLLAMA_FAST_THINK=false
+OLLAMA_FAST_TEMPERATURE=0.1
+OLLAMA_FAST_NUM_PREDICT=256
 AUDIO_FILENAME=input.wav
 RECORD_SECONDS=5
 WHISPER_MODEL=base
@@ -270,6 +275,11 @@ GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
 GOOGLE_CALENDAR_SYNC_ON_READ=true
 GOOGLE_CALENDAR_READ_MAX_RESULTS=20
 ```
+
+Для более быстрого intent parsing:
+- `OLLAMA_FAST_MODEL` используется для коротких команд
+- `OLLAMA_FAST_THINK=false` отключает reasoning на fast-path
+- `OLLAMA_FAST_NUM_PREDICT` стоит держать небольшим, например `128` или `256`
 
 Выбор голоса:
 

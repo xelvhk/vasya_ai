@@ -3,7 +3,7 @@ import time
 from urllib.parse import urlparse
 
 import requests
-from config.settings import OLLAMA_URL, OLLAMA_MODEL
+from config.settings import OLLAMA_MODEL, OLLAMA_URL
 
 
 class OllamaClientError(Exception):
@@ -46,15 +46,34 @@ def is_ollama_available() -> bool:
     return True
 
 
-def generate(prompt: str) -> str:
+def generate(
+    prompt: str,
+    *,
+    model: str | None = None,
+    think: bool | str | None = None,
+    temperature: float | None = None,
+    num_predict: int | None = None,
+) -> str:
+    payload: dict = {
+        "model": model or OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+    }
+    if think is not None:
+        payload["think"] = think
+
+    options: dict = {}
+    if temperature is not None:
+        options["temperature"] = temperature
+    if num_predict is not None:
+        options["num_predict"] = num_predict
+    if options:
+        payload["options"] = options
+
     try:
         response = requests.post(
             OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False,
-            },
+            json=payload,
             timeout=120,
         )
         response.raise_for_status()

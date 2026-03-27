@@ -26,14 +26,26 @@ def main() -> None:
             if assistant_state.get().name == AssistantStateName.SPEAKING:
                 log_voice_event("hotkey_interrupt_speaking")
                 stop_speaking()
+                queue_followup_interaction()
                 return
             else:
                 log_voice_event("hotkey_ignored reason=interaction_in_progress")
                 return
 
+        start_interaction_thread("hotkey_activated")
+
+    def queue_followup_interaction() -> None:
+        def delayed_worker() -> None:
+            with interaction_lock:
+                pass
+            start_interaction_thread("hotkey_followup_activated")
+
+        threading.Thread(target=delayed_worker, daemon=True).start()
+
+    def start_interaction_thread(log_event: str) -> None:
         def worker() -> None:
             with interaction_lock:
-                log_voice_event("hotkey_activated")
+                log_voice_event(log_event)
                 action = run_voice_interaction()
                 if action == AssistantControlAction.EXIT:
                     on_exit()

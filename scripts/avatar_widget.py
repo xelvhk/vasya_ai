@@ -249,14 +249,26 @@ def main() -> None:
                 if assistant_state.get().name == AssistantStateName.SPEAKING:
                     log_voice_event("widget_activation_interrupt_speaking")
                     stop_speaking()
+                    self._queue_followup_interaction()
                     return
                 else:
                     log_voice_event("widget_activation_ignored reason=interaction_in_progress")
                     return
 
+            self._start_interaction_thread("widget_activation_started")
+
+        def _queue_followup_interaction(self) -> None:
+            def delayed_worker() -> None:
+                with self._interaction_lock:
+                    pass
+                self._start_interaction_thread("widget_activation_followup_started")
+
+            threading.Thread(target=delayed_worker, daemon=True).start()
+
+        def _start_interaction_thread(self, log_event: str) -> None:
             def worker() -> None:
                 with self._interaction_lock:
-                    log_voice_event("widget_activation_started")
+                    log_voice_event(log_event)
                     action = run_voice_interaction()
                     if action == AssistantControlAction.EXIT:
                         self._bridge.exit_requested.emit()

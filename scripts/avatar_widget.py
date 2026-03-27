@@ -96,6 +96,12 @@ def main() -> None:
             self._tray_click_action = str(
                 self._widget_state.get("tray_click_action", "toggle")
             )
+            self._show_response_bubble = bool(
+                self._widget_state.get("show_response_bubble", True)
+            )
+            self._idle_motion_enabled = bool(
+                self._widget_state.get("idle_motion_enabled", True)
+            )
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
             )
@@ -176,9 +182,13 @@ def main() -> None:
             self.update()
 
         def _tick(self) -> None:
-            speed = _animation_speed(self._state.name)
-            self._pulse = (self._pulse + speed) % 6.28
-            self._bob = (self._bob + speed * 0.7) % 6.28
+            if self._state.name == AssistantStateName.IDLE and not self._idle_motion_enabled:
+                self._pulse = 0.0
+                self._bob = 0.0
+            else:
+                speed = _animation_speed(self._state.name)
+                self._pulse = (self._pulse + speed) % 6.28
+                self._bob = (self._bob + speed * 0.7) % 6.28
             self.update()
             self._update_bubble_position()
 
@@ -231,6 +241,7 @@ def main() -> None:
                 if assistant_state.get().name == AssistantStateName.SPEAKING:
                     log_voice_event("widget_activation_interrupt_speaking")
                     stop_speaking()
+                    return
                 else:
                     log_voice_event("widget_activation_ignored reason=interaction_in_progress")
                     return
@@ -552,7 +563,12 @@ def main() -> None:
 
         def _update_bubble(self) -> None:
             text = self._bubble_text()
-            if not text or self._state.name == AssistantStateName.IDLE or not self.isVisible():
+            if (
+                not self._show_response_bubble
+                or not text
+                or self._state.name == AssistantStateName.IDLE
+                or not self.isVisible()
+            ):
                 self._bubble.hide()
                 return
 
@@ -585,6 +601,8 @@ def main() -> None:
                     "size": self._avatar_size,
                     "tray_click_action": self._tray_click_action,
                     "hotkey_combination": self._activation_hotkey,
+                    "show_response_bubble": self._show_response_bubble,
+                    "idle_motion_enabled": self._idle_motion_enabled,
                 }
             )
 
@@ -716,6 +734,22 @@ def main() -> None:
                 )
                 self._tray_action_group.addAction(action)
 
+            show_bubble_action = settings_menu.addAction("Show Response Bubble")
+            show_bubble_action.setCheckable(True)
+            show_bubble_action.setChecked(self._show_response_bubble)
+            show_bubble_action.setData(("show_response_bubble", None))
+            show_bubble_action.triggered.connect(
+                lambda checked=False, selected_action=show_bubble_action: self._handle_settings_action(selected_action)
+            )
+
+            idle_motion_action = settings_menu.addAction("Gentle Idle Motion")
+            idle_motion_action.setCheckable(True)
+            idle_motion_action.setChecked(self._idle_motion_enabled)
+            idle_motion_action.setData(("idle_motion_enabled", None))
+            idle_motion_action.triggered.connect(
+                lambda checked=False, selected_action=idle_motion_action: self._handle_settings_action(selected_action)
+            )
+
             set_hotkey_action = settings_menu.addAction("Set Listening Hotkey...")
             set_hotkey_action.setData(("set_hotkey", None))
             set_hotkey_action.triggered.connect(
@@ -739,6 +773,17 @@ def main() -> None:
                 self._set_avatar_size(value)
             elif key == "tray_click_action" and isinstance(value, str):
                 self._tray_click_action = value
+                self._save_position()
+            elif key == "show_response_bubble":
+                self._show_response_bubble = action.isChecked()
+                if not self._show_response_bubble:
+                    self._bubble.hide()
+                else:
+                    self._update_bubble()
+                self._save_position()
+            elif key == "idle_motion_enabled":
+                self._idle_motion_enabled = action.isChecked()
+                self.update()
                 self._save_position()
             elif key == "set_hotkey":
                 self._prompt_hotkey()
@@ -797,46 +842,46 @@ def main() -> None:
 
     def _animation_speed(state_name: AssistantStateName) -> float:
         if state_name == AssistantStateName.LISTENING:
-            return 0.14
+            return 0.12
         if state_name == AssistantStateName.THINKING:
-            return 0.09
+            return 0.08
         if state_name == AssistantStateName.SPEAKING:
-            return 0.18
+            return 0.20
         if state_name == AssistantStateName.ERROR:
             return 0.22
-        return 0.06
+        return 0.05
 
     def _animated_glow(state_name: AssistantStateName, pulse: float) -> QColor:
         base = QColor(_glow_color(state_name))
         if state_name == AssistantStateName.LISTENING:
-            alpha = 120 + int(55 * abs(math.sin(pulse)))
+            alpha = 125 + int(42 * (0.55 + 0.45 * math.sin(pulse * 1.15)))
         elif state_name == AssistantStateName.THINKING:
-            alpha = 105 + int(32 * (0.5 + 0.5 * math.sin(pulse)))
+            alpha = 104 + int(24 * (0.5 + 0.5 * math.sin(pulse * 0.72)))
         elif state_name == AssistantStateName.SPEAKING:
-            alpha = 125 + int(65 * abs(math.sin(pulse * 1.5)))
+            alpha = 128 + int(72 * abs(math.sin(pulse * 1.85)))
         elif state_name == AssistantStateName.ERROR:
             alpha = 120 + int(80 * abs(math.sin(pulse * 2.0)))
         else:
-            alpha = 95 + int(18 * abs(math.sin(pulse)))
+            alpha = 90 + int(12 * (0.5 + 0.5 * math.sin(pulse * 0.55)))
         base.setAlpha(alpha)
         return base
 
     def _avatar_bob_offset(state_name: AssistantStateName, bob: float) -> float:
         if state_name == AssistantStateName.LISTENING:
-            return -2.5 * abs(math.sin(bob))
+            return -1.8 * abs(math.sin(bob * 0.9))
         if state_name == AssistantStateName.THINKING:
-            return -1.4 * math.sin(bob)
+            return -1.0 * math.sin(bob * 0.8)
         if state_name == AssistantStateName.SPEAKING:
-            return -3.2 * abs(math.sin(bob * 1.2))
+            return -3.8 * abs(math.sin(bob * 1.35))
         if state_name == AssistantStateName.ERROR:
             return 1.2 * math.sin(bob * 2.4)
-        return -0.6 * math.sin(bob)
+        return -0.45 * math.sin(bob * 0.7)
 
     def _shadow_width_delta(state_name: AssistantStateName, pulse: float) -> float:
         if state_name == AssistantStateName.SPEAKING:
-            return -6 * abs(math.sin(pulse * 1.4))
+            return -7 * abs(math.sin(pulse * 1.6))
         if state_name == AssistantStateName.LISTENING:
-            return -4 * abs(math.sin(pulse))
+            return -3 * abs(math.sin(pulse * 0.9))
         return -2 * abs(math.sin(pulse))
 
     def _highlight_color(state_name: AssistantStateName, pulse: float) -> QColor:
@@ -846,9 +891,15 @@ def main() -> None:
 
     def _blink_scale(state_name: AssistantStateName, pulse: float) -> float:
         if state_name == AssistantStateName.THINKING:
-            return 0.78 + 0.22 * abs(math.sin(pulse * 0.8))
+            return 0.90 + 0.10 * abs(math.sin(pulse * 0.55))
         if state_name == AssistantStateName.ERROR:
             return 0.88 + 0.12 * abs(math.sin(pulse * 1.6))
+
+        blink_wave = max(0.0, math.sin(pulse * 0.62))
+        if blink_wave > 0.985:
+            return 0.22
+        if blink_wave > 0.95:
+            return 0.55
         return 1.0
 
     def _load_widget_state() -> dict:

@@ -26,6 +26,7 @@ def main() -> None:
             if assistant_state.get().name == AssistantStateName.SPEAKING:
                 log_voice_event("hotkey_interrupt_speaking")
                 stop_speaking()
+                return
             else:
                 log_voice_event("hotkey_ignored reason=interaction_in_progress")
                 return

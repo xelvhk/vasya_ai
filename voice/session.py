@@ -5,6 +5,7 @@ import time
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
+from assistant.tone import conversation_tone
 from config.settings import (
     AUDIO_FILENAME,
     CHAT_FOLLOWUP_MAX_TURNS,
@@ -192,6 +193,7 @@ def _thinking_message_for(user_text: str) -> str:
     if generate_local_chat_reply(
         user_text,
         history_size=len(conversation_memory.recent()),
+        tone=conversation_tone.current(),
     ) is not None:
         return "Сейчас отвечу..."
     fast_intent = detect_fast_intent(user_text)

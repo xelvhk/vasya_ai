@@ -4,6 +4,7 @@ import re
 
 from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
+from assistant.tone import conversation_tone
 from config.settings import (
     OLLAMA_CHAT_STREAM,
     OLLAMA_CHAT_NUM_PREDICT,
@@ -16,9 +17,11 @@ from utils.chat_fast_replies import generate_local_chat_reply
 
 def generate_chat_reply(user_text: str) -> str:
     history_size = len(conversation_memory.recent())
+    tone = conversation_tone.observe_user_text(user_text)
     local_reply = generate_local_chat_reply(
         user_text,
         history_size=history_size,
+        tone=tone,
     )
     if local_reply is not None:
         conversation_memory.add_user(user_text)
@@ -26,7 +29,7 @@ def generate_chat_reply(user_text: str) -> str:
         return local_reply
 
     allow_greeting = _should_greet(user_text)
-    prompt = _build_chat_prompt(user_text, allow_greeting=allow_greeting)
+    prompt = _build_chat_prompt(user_text, allow_greeting=allow_greeting, tone=tone)
     model = resolve_chat_model()
     if OLLAMA_CHAT_STREAM:
         reply = _generate_chat_reply_streaming(
@@ -48,7 +51,7 @@ def generate_chat_reply(user_text: str) -> str:
     return reply
 
 
-def _build_chat_prompt(user_text: str, *, allow_greeting: bool) -> str:
+def _build_chat_prompt(user_text: str, *, allow_greeting: bool, tone: str) -> str:
     history_lines = []
     for message in conversation_memory.recent():
         role_label = "Пользователь" if message.role == "user" else "Вася"
@@ -60,6 +63,7 @@ def _build_chat_prompt(user_text: str, *, allow_greeting: bool) -> str:
         if allow_greeting
         else "Не начинай ответ с приветствия, если диалог уже идет."
     )
+    tone_rule = _tone_rule(tone)
 
     return f"""
 Ты Вася, дружелюбный локальный AI-помощник.
@@ -75,12 +79,14 @@ def _build_chat_prompt(user_text: str, *, allow_greeting: bool) -> str:
 - Не повторяй дословно фразу пользователя без необходимости
 - Не говори как справочник или техподдержка, говори как живой помощник
 - Если пользователь отвечает коротко, например "угу", "да", "не знаю", "может быть", поддержи разговор естественно и помоги двинуться дальше
+- Если пользователь делится усталостью, грустью, тревогой или раздражением, сначала отреагируй по-человечески и только потом предлагай следующий шаг
 - Можно поддерживать обычную беседу, объяснять, обсуждать идеи
 - Не выдумывай доступ к внешним данным, файлам или действиям, если их не было
 - Не оформляй ответ как JSON
 - Не перечисляй длинные пункты без необходимости
 - Не здоровайся в каждой реплике
 - {greeting_rule}
+- {tone_rule}
 
 Недавняя история:
 {history_block}
@@ -97,6 +103,16 @@ def _should_greet(user_text: str) -> bool:
         return False
     normalized = user_text.strip().lower()
     return normalized.startswith(("привет", "здравствуй", "доброе утро", "добрый день", "добрый вечер"))
+
+
+def _tone_rule(tone: str) -> str:
+    if tone == "supportive":
+        return "Сохраняй мягкий, поддерживающий и спокойный тон несколько реплик подряд, не становись резко сухим."
+    if tone == "playful":
+        return "Сохраняй легкий, живой и чуть более игровой тон, но не скатывайся в клоунаду."
+    if tone == "warm":
+        return "Сохраняй теплый, дружелюбный и неформальный тон несколько реплик подряд."
+    return "Держи спокойный дружелюбный нейтральный тон."
 
 
 def _postprocess_chat_reply(reply: str, *, allow_greeting: bool) -> str:

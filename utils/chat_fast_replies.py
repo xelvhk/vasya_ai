@@ -3,17 +3,35 @@ from __future__ import annotations
 import re
 
 
-def generate_local_chat_reply(user_text: str, *, history_size: int) -> str | None:
+def generate_local_chat_reply(
+    user_text: str,
+    *,
+    history_size: int,
+    tone: str = "neutral",
+) -> str | None:
     normalized = " ".join(user_text.lower().strip().split())
     if not normalized:
         return None
 
     if re.match(r"^(привет|здравствуй|хай)\b", normalized):
         return _pick_variant(
-            history_size,
-            "Привет. Я рядом, что хочешь?",
-            "Привет. Слушаю тебя.",
-            "Привет. Чем займемся?",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=(
+                    "Привет. Я рядом, что хочешь?",
+                    "Привет. Слушаю тебя.",
+                    "Привет. Чем займемся?",
+                ),
+                warm=(
+                    "Привет. Я рядом. Что у тебя?",
+                    "Привет. Слушаю тебя.",
+                ),
+                playful=(
+                    "Привет. Чем займемся?",
+                    "Привет. Давай что-нибудь придумаем.",
+                ),
+            ),
         )
 
     if re.match(r"^(доброе утро|добрый день|добрый вечер)\b", normalized):
@@ -25,10 +43,13 @@ def generate_local_chat_reply(user_text: str, *, history_size: int) -> str | Non
 
     if re.match(r"^спасибо\b", normalized):
         return _pick_variant(
-            history_size,
-            "Пожалуйста.",
-            "Да не за что.",
-            "Всегда пожалуйста.",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Пожалуйста.", "Да не за что.", "Всегда пожалуйста."),
+                supportive=("Пожалуйста. Я рядом.", "Да не за что. Держимся."),
+                warm=("Пожалуйста.", "Всегда пожалуйста."),
+            ),
         )
 
     if re.match(r"^(как тебя зовут|тебя как зовут|как зовут тебя)\b", normalized):
@@ -46,10 +67,23 @@ def generate_local_chat_reply(user_text: str, *, history_size: int) -> str | Non
 
     if re.match(r"^(как дела|как настроение|как жизнь)\b", normalized):
         return _pick_variant(
-            history_size,
-            "У меня все ровно. Я здесь и готов помочь. Что у тебя?",
-            "Все хорошо. Я на связи. А у тебя как?",
-            "Нормально. Готов помочь. Что у тебя?",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=(
+                    "У меня все ровно. Я здесь и готов помочь. Что у тебя?",
+                    "Все хорошо. Я на связи. А у тебя как?",
+                    "Нормально. Готов помочь. Что у тебя?",
+                ),
+                supportive=(
+                    "Я рядом и в порядке. А ты как сейчас?",
+                    "У меня все спокойно. Что у тебя на душе?",
+                ),
+                warm=(
+                    "Все хорошо. Я на связи. А у тебя как?",
+                    "Нормально. Что у тебя?",
+                ),
+            ),
         )
 
     if re.match(r"^кто ты\b", normalized):
@@ -96,39 +130,96 @@ def generate_local_chat_reply(user_text: str, *, history_size: int) -> str | Non
 
     if re.match(r"^(хорошо|ладно|понятно|ясно)\b", normalized) and history_size > 0:
         return _pick_variant(
-            history_size,
-            "Хорошо. Что дальше?",
-            "Ладно. Идем дальше?",
-            "Понял. Что теперь?",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Хорошо. Что дальше?", "Ладно. Идем дальше?", "Понял. Что теперь?"),
+                supportive=("Хорошо. Давай спокойно дальше.", "Понял. Я рядом, идем дальше."),
+                playful=("Хорошо. Что дальше, командир?", "Ладно. Чем займемся теперь?"),
+            ),
         )
 
     if re.match(r"^(да\b|угу\b|ага\b|ну да\b)", normalized) and history_size > 0:
         return _pick_variant(
-            history_size,
-            "Угу. Продолжай.",
-            "Да, слушаю дальше.",
-            "Понял. Давай дальше.",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Угу. Продолжай.", "Да, слушаю дальше.", "Понял. Давай дальше."),
+                supportive=("Угу. Я с тобой, продолжай.", "Да. Спокойно, рассказывай дальше."),
+                warm=("Да, слушаю дальше.", "Угу. Продолжай."),
+            ),
         )
 
     if re.match(r"^(нет\b|неа\b|не совсем\b)", normalized) and history_size > 0:
         return _pick_variant(
-            history_size,
-            "Окей. Тогда давай по-другому.",
-            "Хорошо, тогда попробуем иначе.",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Окей. Тогда давай по-другому.", "Хорошо, тогда попробуем иначе."),
+                supportive=("Хорошо. Тогда давай мягче и по-другому.", "Понял. Попробуем иначе, без спешки."),
+            ),
         )
 
     if re.match(r"^(не знаю|не уверен|может быть)\b", normalized) and history_size > 0:
         return _pick_variant(
-            history_size,
-            "Ничего, можем разобраться вместе.",
-            "Нормально. Давай подумаем вместе.",
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Ничего, можем разобраться вместе.", "Нормально. Давай подумаем вместе."),
+                supportive=("Ничего страшного. Разберемся вместе.", "Это нормально. Давай спокойно подумаем вместе."),
+            ),
         )
 
     if re.match(r"^(можешь помочь|поможешь)\b", normalized):
         return _pick_variant(
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Да, конечно. С чем помочь?", "Да, помогу. Что нужно?"),
+                supportive=("Да, конечно. Я рядом. Что сейчас важнее всего?",),
+            ),
+        )
+
+    if re.match(r"^(мне грустно|грустно|печально)\b", normalized):
+        return _pick_variant(
             history_size,
-            "Да, конечно. С чем помочь?",
-            "Да, помогу. Что нужно?",
+            "Мне жаль, что тебе сейчас грустно. Хочешь, побуду рядом и поговорим?",
+            "Понимаю. Если хочешь, можем просто немного поболтать.",
+        )
+
+    if re.match(r"^(мне скучно|скучно)\b", normalized):
+        return _pick_variant(
+            history_size,
+            "Тогда давай что-нибудь придумаем. Можем поболтать или поиграть.",
+            "Не беда. Хочешь, сыграем во что-нибудь или просто поговорим?",
+        )
+
+    if re.match(r"^(я устал|я устала|устал|устала)\b", normalized):
+        return _pick_variant(
+            history_size,
+            "Похоже, ты вымотался. Давай без перегруза, спокойно.",
+            "Тогда лучше чуть замедлиться. Если хочешь, можем сделать все по шагам.",
+        )
+
+    if re.match(r"^(поддержи меня|мне нужна поддержка)\b", normalized):
+        return _pick_variant(
+            history_size,
+            "Я рядом. Давай разберемся вместе, что тебя сейчас больше всего давит.",
+            "Конечно. Я с тобой. Расскажи, что сейчас самое тяжелое.",
+        )
+
+    if re.match(r"^(мне страшно|страшно)\b", normalized):
+        return _pick_variant(
+            history_size,
+            "Понимаю. Давай спокойно. Можешь рассказать, что именно пугает?",
+            "Я рядом. Давай по чуть-чуть, без спешки.",
+        )
+
+    if re.match(r"^(я злюсь|я злая|я злой|злюсь)\b", normalized):
+        return _pick_variant(
+            history_size,
+            "Понял. Похоже, тебя это правда задело. Хочешь выговориться?",
+            "Вижу, тебя это злит. Можем спокойно разобрать, что случилось.",
         )
 
     return None
@@ -138,3 +229,29 @@ def _pick_variant(history_size: int, *options: str) -> str:
     if not options:
         return ""
     return options[history_size % len(options)]
+
+
+def _tone_options(
+    tone: str,
+    *,
+    default: tuple[str, ...],
+    warm: tuple[str, ...] | None = None,
+    supportive: tuple[str, ...] | None = None,
+    playful: tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    mapping = {
+        "warm": warm,
+        "supportive": supportive,
+        "playful": playful,
+    }
+    return mapping.get(tone) or default
+
+
+def _tone_offset(tone: str) -> int:
+    if tone == "warm":
+        return 1
+    if tone == "supportive":
+        return 2
+    if tone == "playful":
+        return 3
+    return 0

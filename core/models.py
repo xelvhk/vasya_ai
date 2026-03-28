@@ -13,6 +13,7 @@ class IntentResult(BaseModel):
         "complete_task",
         "delete_task",
         "delete_tasks",
+        "play_game",
         "stop_speaking",
         "exit_assistant",
         "chat",

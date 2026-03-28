@@ -50,6 +50,21 @@ _CHAT_PATTERNS = (
     r"^мне кажется\b",
 )
 
+_GAME_PATTERNS = (
+    (r"игра(?:ть)? в слова", "words"),
+    (r"поигра(?:ем|ть)? в слова", "words"),
+    (r"игра(?:ть)? в прятки", "hide_and_seek"),
+    (r"поигра(?:ем|ть)? в прятки", "hide_and_seek"),
+    (r"игра(?:ть)? в загадки", "riddle"),
+    (r"поигра(?:ем|ть)? в загадки", "riddle"),
+    (r"угадай животное", "guess_animal"),
+    (r"игра(?:ть)? в угадай животное", "guess_animal"),
+    (r"поигра(?:ем|ть)? в угадай животное", "guess_animal"),
+    (r"повтори за мной", "repeat_after_me"),
+    (r"игра(?:ть)? в повтори за мной", "repeat_after_me"),
+    (r"давай поиграем", None),
+)
+
 
 def detect_fast_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
@@ -58,6 +73,11 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
 
     if any(marker in normalized for marker in _COMMAND_MARKERS):
         return None
+
+    for pattern, game_name in _GAME_PATTERNS:
+        if re.search(pattern, normalized):
+            data = {"game": game_name} if game_name else {}
+            return IntentResult(intent="play_game", data=data)
 
     if normalized.endswith("?"):
         return IntentResult(intent="chat", data={})

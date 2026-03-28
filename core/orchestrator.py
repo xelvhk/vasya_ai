@@ -1,5 +1,7 @@
 from assistant.confirmations import classify_confirmation_reply, confirmation_store
+from assistant.games import game_store
 from agents.task_agent import confirm_delete_all_tasks
+from services.game_service import handle_active_game_turn
 from core.intent_parser import parse_intent
 from core.router import route_intent
 from services.ollama_client import OllamaClientError
@@ -21,6 +23,10 @@ def process_text_detailed(user_text: str) -> ProcessResult:
     confirmation_result = _handle_pending_confirmation(user_text)
     if confirmation_result is not None:
         return confirmation_result
+
+    game_result = _handle_active_game(user_text)
+    if game_result is not None:
+        return game_result
 
     try:
         intent_result = parse_intent(user_text)
@@ -80,3 +86,13 @@ def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
         return ProcessResult(intent="delete_tasks", response=response)
 
     return ProcessResult(intent="unknown", response="Подтверждение сброшено.")
+
+
+def _handle_active_game(user_text: str) -> ProcessResult | None:
+    if game_store.get() is None:
+        return None
+
+    response = handle_active_game_turn(user_text)
+    if response is None:
+        return None
+    return ProcessResult(intent="play_game", response=response)

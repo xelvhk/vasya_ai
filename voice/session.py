@@ -70,7 +70,7 @@ def run_voice_interaction() -> AssistantControlAction:
 
 
 def _should_keep_conversation_open(intent: str, response: str) -> bool:
-    if intent in {"chat", "unknown"}:
+    if intent in {"chat", "unknown", "play_game"}:
         return True
     return response.strip().endswith("?")
 

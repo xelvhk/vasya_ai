@@ -1,5 +1,6 @@
 from assistant.control import assistant_control
 from agents.chat_agent import handle_chat_intent
+from agents.game_agent import handle_game_intent
 from core.models import IntentResult
 from agents.calendar_agent import handle_calendar_intent
 from agents.task_agent import handle_task_intent
@@ -17,6 +18,9 @@ def route_intent(intent_result: IntentResult, user_text: str) -> str:
         "delete_tasks",
     ):
         return handle_task_intent(intent_result)
+
+    if intent_result.intent == "play_game":
+        return handle_game_intent(intent_result)
 
     if intent_result.intent == "stop_speaking":
         stop_speaking()

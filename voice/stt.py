@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from faster_whisper import WhisperModel
 
-from config.settings import STT_BEAM_SIZE, STT_LANGUAGE, WHISPER_MODEL
+from config.settings import STT_BEAM_SIZE, STT_LANGUAGE, STT_PARTIAL_MAX_WORDS, WHISPER_MODEL
 from voice.models import TranscriptionResult
 
 _model = WhisperModel(WHISPER_MODEL)
@@ -30,3 +30,17 @@ def transcribe(audio_path: str) -> TranscriptionResult:
         avg_logprob=avg_logprob,
         no_speech_prob=no_speech_prob,
     )
+
+
+def transcribe_partial(audio_path: str) -> str:
+    segments, _ = _model.transcribe(
+        audio_path,
+        beam_size=1,
+        language=STT_LANGUAGE,
+        vad_filter=True,
+    )
+    text = " ".join(segment.text.strip() for segment in segments).strip()
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(words[:STT_PARTIAL_MAX_WORDS]).strip()

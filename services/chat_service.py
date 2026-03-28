@@ -11,9 +11,19 @@ from config.settings import (
     OLLAMA_CHAT_THINK,
 )
 from services.ollama_client import generate, generate_stream, resolve_chat_model
+from utils.chat_fast_replies import generate_local_chat_reply
 
 
 def generate_chat_reply(user_text: str) -> str:
+    local_reply = generate_local_chat_reply(
+        user_text,
+        has_history=bool(conversation_memory.recent()),
+    )
+    if local_reply is not None:
+        conversation_memory.add_user(user_text)
+        conversation_memory.add_assistant(local_reply)
+        return local_reply
+
     allow_greeting = _should_greet(user_text)
     prompt = _build_chat_prompt(user_text, allow_greeting=allow_greeting)
     model = resolve_chat_model()

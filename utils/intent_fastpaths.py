@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from core.models import IntentResult
+from utils.system_intents import detect_system_intent
 
 
 _COMMAND_MARKERS = (
@@ -65,11 +66,71 @@ _GAME_PATTERNS = (
     (r"давай поиграем", None),
 )
 
+_DATE_TAIL_PATTERN = re.compile(
+    r"(?P<dt>(?:на\s+)?(?:сегодня|завтра|послезавтра)\b.*|"
+    r"(?:на\s+)?через\s+\d+\s+д(?:ень|ня|ней)\b.*|"
+    r"(?:на\s+)?\d{1,2}\s+"
+    r"(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\b.*|"
+    r"(?:на\s+)?в\s+"
+    r"(?:понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)\b.*)$"
+)
+
 
 def detect_fast_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
     if not normalized:
         return None
+
+    create_task_prefixes = (
+        "добавь задачу ",
+        "создай задачу ",
+        "запиши задачу ",
+    )
+    for prefix in create_task_prefixes:
+        if normalized.startswith(prefix):
+            remainder = normalized[len(prefix):].strip()
+            task_text, dt_text = _split_text_and_datetime_tail(remainder)
+            if task_text:
+                data = {"task": task_text}
+                if dt_text:
+                    data["datetime"] = dt_text
+                return IntentResult(intent="create_task", data=data)
+
+    list_tasks_patterns = (
+        r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",
+    )
+    for pattern in list_tasks_patterns:
+        match = re.search(pattern, normalized)
+        if match:
+            remainder = normalized[match.end():].strip()
+            dt_text = _extract_datetime_phrase(remainder)
+            data = {"datetime": dt_text} if dt_text else {}
+            return IntentResult(intent="get_tasks", data=data)
+
+    list_events_patterns = (
+        r"^(какие у меня дела|какие дела|какие события|покажи события|что в календаре|что у меня в календаре)\b",
+    )
+    for pattern in list_events_patterns:
+        match = re.search(pattern, normalized)
+        if match:
+            remainder = normalized[match.end():].strip()
+            dt_text = _extract_datetime_phrase(remainder)
+            data = {"datetime": dt_text} if dt_text else {}
+            return IntentResult(intent="get_events", data=data)
+
+    if normalized in {"удали все задачи", "удали задачи", "очисти задачи"}:
+        return IntentResult(intent="delete_tasks", data={"all": True})
+
+    delete_task_prefixes = (
+        "удали все задачи ",
+        "очисти задачи ",
+    )
+    for prefix in delete_task_prefixes:
+        if normalized.startswith(prefix):
+            remainder = normalized[len(prefix):].strip()
+            dt_text = _extract_datetime_phrase(remainder)
+            if dt_text:
+                return IntentResult(intent="delete_tasks", data={"all": True, "datetime": dt_text})
 
     if any(marker in normalized for marker in _COMMAND_MARKERS):
         return None
@@ -86,3 +147,91 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         return IntentResult(intent="chat", data={})
 
     return None
+
+
+def detect_early_fast_intent(user_text: str) -> IntentResult | None:
+    normalized = " ".join(user_text.lower().strip().split())
+    if not normalized:
+        return None
+
+    system_intent = detect_system_intent(normalized)
+    if system_intent is not None:
+        return system_intent
+
+    if _looks_incomplete(normalized):
+        return None
+
+    fast_intent = detect_fast_intent(normalized)
+    if fast_intent is None:
+        return None
+
+    if fast_intent.intent in {"get_tasks", "get_events", "delete_tasks", "play_game"}:
+        return fast_intent
+
+    return None
+
+
+def _extract_datetime_phrase(text: str) -> str | None:
+    if not text:
+        return None
+    match = _DATE_TAIL_PATTERN.search(text)
+    if not match:
+        return None
+    return match.group("dt").strip()
+
+
+def _split_text_and_datetime_tail(text: str) -> tuple[str, str | None]:
+    dt_text = _extract_datetime_phrase(text)
+    if not dt_text:
+        return text.strip(), None
+
+    dt_start = text.rfind(dt_text)
+    if dt_start <= 0:
+        return text.strip(), dt_text
+
+    task_text = text[:dt_start].strip(" ,.-")
+    return task_text, dt_text
+
+
+def _looks_incomplete(text: str) -> bool:
+    trailing_tokens = {
+        "на",
+        "в",
+        "во",
+        "к",
+        "ко",
+        "с",
+        "со",
+        "через",
+        "и",
+        "или",
+        "все",
+        "мне",
+        "у",
+    }
+    if text.endswith(("...", ",", ".", ":", ";", "-", "—")):
+        return True
+
+    words = text.split()
+    if not words:
+        return True
+
+    if words[-1] in trailing_tokens:
+        return True
+
+    if text.startswith(("добавь задачу", "создай задачу", "запиши задачу")):
+        return True
+
+    if text in {
+        "какие",
+        "какие задачи",
+        "какие дела",
+        "покажи",
+        "покажи задачи",
+        "покажи события",
+        "удали",
+        "удали все",
+    }:
+        return True
+
+    return False

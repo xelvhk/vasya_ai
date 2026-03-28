@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from assistant.control import AssistantControlAction, assistant_control
+from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
 from config.settings import (
     AUDIO_FILENAME,
@@ -14,14 +15,16 @@ from config.settings import (
     STT_CONFIRMATION_LOGPROB_THRESHOLD,
     STT_CONFIRMATION_NO_SPEECH_THRESHOLD,
 )
+from core.models import IntentResult
 from core.orchestrator import process_text_detailed
 from services.ollama_client import OllamaClientError, ensure_ollama_running
+from utils.chat_fast_replies import generate_local_chat_reply
 from utils.logger import log_voice_event
 from voice.recorder import record_audio
 from voice.models import TranscriptionResult
 from voice.stt import transcribe
 from voice.tts import speak
-from utils.intent_fastpaths import detect_fast_intent
+from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 
 
 def run_voice_interaction() -> AssistantControlAction:
@@ -39,7 +42,7 @@ def run_voice_interaction() -> AssistantControlAction:
     keep_conversation_open = False
 
     while True:
-        assistant_state.set(AssistantStateName.LISTENING)
+        assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
         user_text = _capture_user_text()
         if not user_text:
             if keep_conversation_open:
@@ -78,7 +81,13 @@ def _should_keep_conversation_open(intent: str, response: str) -> bool:
 def _capture_user_text() -> str | None:
     for attempt in range(1, MAX_VOICE_RETRIES + 1):
         log_voice_event(f"capture_attempt={attempt}/{MAX_VOICE_RETRIES}")
-        recording = record_audio(AUDIO_FILENAME, RECORD_SECONDS)
+        recording = record_audio(
+            AUDIO_FILENAME,
+            RECORD_SECONDS,
+            status_callback=_update_listening_status,
+            partial_text_callback=_update_partial_transcript,
+            early_stop_callback=_build_early_stop_callback(),
+        )
         log_voice_event(f"recording_rms={recording.rms:.2f}")
 
         if recording.rms < MIN_AUDIO_RMS:
@@ -134,6 +143,40 @@ def _capture_user_text() -> str | None:
     return None
 
 
+def _update_listening_status(message: str) -> None:
+    assistant_state.set(AssistantStateName.LISTENING, message)
+
+
+def _update_partial_transcript(text: str) -> None:
+    assistant_state.set(AssistantStateName.LISTENING, f"Похоже, ты сказал: {text}...")
+
+
+def _build_early_stop_callback():
+    last_intent_key: str | None = None
+
+    def should_stop(partial_text: str) -> bool:
+        nonlocal last_intent_key
+
+        intent = detect_early_fast_intent(partial_text)
+        if intent is None:
+            last_intent_key = None
+            return False
+
+        intent_key = _intent_key(intent)
+        if intent.intent in {"stop_speaking", "exit_assistant"}:
+            assistant_state.set(AssistantStateName.LISTENING, "Понял, этого уже достаточно.")
+            return True
+
+        if intent_key == last_intent_key:
+            assistant_state.set(AssistantStateName.LISTENING, "Понял запрос, можно отвечать.")
+            return True
+
+        last_intent_key = intent_key
+        return False
+
+    return should_stop
+
+
 def _needs_confirmation(transcription: TranscriptionResult) -> bool:
     if transcription.avg_logprob is not None and transcription.avg_logprob < STT_CONFIRMATION_LOGPROB_THRESHOLD:
         return True
@@ -146,10 +189,20 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
 
 
 def _thinking_message_for(user_text: str) -> str:
+    if generate_local_chat_reply(
+        user_text,
+        has_history=bool(conversation_memory.recent()),
+    ) is not None:
+        return "Сейчас отвечу..."
     fast_intent = detect_fast_intent(user_text)
     if fast_intent is not None and fast_intent.intent == "chat":
         return "Секунду, подбираю ответ..."
     return "Секунду, разбираюсь..."
+
+
+def _intent_key(intent: IntentResult) -> str:
+    data_items = tuple(sorted((key, str(value)) for key, value in intent.data.items()))
+    return f"{intent.intent}:{data_items}"
 
 
 def _confirm_transcription(candidate_text: str) -> str | None:

@@ -8,6 +8,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from queue import Queue, Empty
+from typing import Callable
 
 import numpy as np
 import sounddevice as sd
@@ -15,6 +17,7 @@ from scipy.io.wavfile import read as read_wav
 from scipy.io.wavfile import write
 
 from config.settings import (
+    MIN_AUDIO_RMS,
     PIPER_COMMAND,
     PIPER_LENGTH_SCALE,
     PIPER_MODEL_PATH,
@@ -22,6 +25,13 @@ from config.settings import (
     TTS_BACKEND,
     TTS_RATE,
     TTS_VOICE,
+    VOICE_EARLY_FAST_INTENT_ENABLED,
+    VOICE_EARLY_FAST_INTENT_MIN_REPEATS,
+    VOICE_MIN_SPEECH_SECONDS,
+    VOICE_PARTIAL_STT_ENABLED,
+    VOICE_PARTIAL_STT_INTERVAL_SECONDS,
+    VOICE_SILENCE_DURATION_SECONDS,
+    VOICE_SILENCE_RMS,
     VOICE_INPUT_BACKEND,
 )
 from utils.platform_runtime import get_platform_name
@@ -294,25 +304,141 @@ _VOICE_PROFILE_IDS = {profile.profile_id for profile in list_voice_profiles()}
 
 
 class BaseVoiceInputBackend:
-    def record(self, filename: str, duration: int, samplerate: int = 44100) -> RecordingResult:
+    def record(
+        self,
+        filename: str,
+        duration: int,
+        samplerate: int = 44100,
+        status_callback: Callable[[str], None] | None = None,
+        partial_text_callback: Callable[[str], None] | None = None,
+        early_stop_callback: Callable[[str], bool] | None = None,
+    ) -> RecordingResult:
         raise NotImplementedError
 
 
 class SoundDeviceVoiceInputBackend(BaseVoiceInputBackend):
-    def record(self, filename: str, duration: int, samplerate: int = 44100) -> RecordingResult:
+    def record(
+        self,
+        filename: str,
+        duration: int,
+        samplerate: int = 44100,
+        status_callback: Callable[[str], None] | None = None,
+        partial_text_callback: Callable[[str], None] | None = None,
+        early_stop_callback: Callable[[str], bool] | None = None,
+    ) -> RecordingResult:
         print("Слушаю...")
-        recording = sd.rec(
-            int(duration * samplerate),
+        block_duration = 0.1
+        blocksize = int(samplerate * block_duration)
+        max_blocks = max(1, int(duration / block_duration))
+        silence_blocks_to_stop = max(1, int(VOICE_SILENCE_DURATION_SECONDS / block_duration))
+        min_speech_blocks = max(1, int(VOICE_MIN_SPEECH_SECONDS / block_duration))
+        partial_interval_blocks = max(1, int(VOICE_PARTIAL_STT_INTERVAL_SECONDS / block_duration))
+
+        audio_queue: Queue[np.ndarray | None] = Queue()
+        collected_blocks: list[np.ndarray] = []
+        silence_blocks = 0
+        speech_blocks = 0
+        speech_started = False
+        last_partial_block = 0
+        last_partial_text = ""
+        stable_partial_repeats = 0
+
+        def callback(indata, frames, time_info, status) -> None:
+            _ = frames, time_info, status
+            audio_queue.put(indata.copy())
+
+        with sd.InputStream(
             samplerate=samplerate,
             channels=1,
             dtype="int16",
-        )
-        sd.wait()
+            blocksize=blocksize,
+            callback=callback,
+        ):
+            for _ in range(max_blocks):
+                try:
+                    block = audio_queue.get(timeout=1.0)
+                except Empty:
+                    break
+
+                if block is None:
+                    break
+
+                collected_blocks.append(block)
+                float_block = block.astype("float32")
+                block_rms = float(np.sqrt(np.mean(np.square(float_block))))
+
+                if block_rms >= VOICE_SILENCE_RMS:
+                    if not speech_started and status_callback is not None:
+                        status_callback("Слышу тебя, договаривай...")
+                    speech_started = True
+                    speech_blocks += 1
+                    silence_blocks = 0
+                    if (
+                        partial_text_callback is not None
+                        and VOICE_PARTIAL_STT_ENABLED
+                        and speech_blocks >= min_speech_blocks
+                        and speech_blocks - last_partial_block >= partial_interval_blocks
+                    ):
+                        partial_text = self._build_partial_transcript(
+                            collected_blocks,
+                            samplerate,
+                        )
+                        last_partial_block = speech_blocks
+                        if partial_text and partial_text != last_partial_text:
+                            partial_text_callback(partial_text)
+                            last_partial_text = partial_text
+                            stable_partial_repeats = 1
+                        elif partial_text and partial_text == last_partial_text:
+                            stable_partial_repeats += 1
+
+                        if (
+                            partial_text
+                            and VOICE_EARLY_FAST_INTENT_ENABLED
+                            and early_stop_callback is not None
+                            and stable_partial_repeats >= VOICE_EARLY_FAST_INTENT_MIN_REPEATS
+                            and early_stop_callback(partial_text)
+                        ):
+                            break
+                elif speech_started:
+                    silence_blocks += 1
+                    if speech_blocks >= min_speech_blocks and silence_blocks >= silence_blocks_to_stop:
+                        break
+
+        if collected_blocks:
+            recording = np.concatenate(collected_blocks, axis=0)
+        else:
+            recording = np.zeros((0, 1), dtype="int16")
+
         write(filename, samplerate, recording)
 
-        float_audio = recording.astype("float32")
-        rms = float(np.sqrt(np.mean(np.square(float_audio))))
+        float_audio = recording.astype("float32") if recording.size else np.zeros((0, 1), dtype="float32")
+        rms = (
+            float(np.sqrt(np.mean(np.square(float_audio))))
+            if float_audio.size
+            else 0.0
+        )
         return RecordingResult(filename=filename, rms=rms)
+
+    def _build_partial_transcript(
+        self,
+        collected_blocks: list[np.ndarray],
+        samplerate: int,
+    ) -> str:
+        if not collected_blocks:
+            return ""
+
+        from voice.stt import transcribe_partial
+
+        recording = np.concatenate(collected_blocks, axis=0)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            temp_path = Path(temp_file.name)
+        try:
+            write(str(temp_path), samplerate, recording)
+            return transcribe_partial(str(temp_path))
+        except Exception:
+            return ""
+        finally:
+            temp_path.unlink(missing_ok=True)
 
 
 def get_tts_backend() -> BaseTTSBackend:

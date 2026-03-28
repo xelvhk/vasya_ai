@@ -15,9 +15,10 @@ from utils.chat_fast_replies import generate_local_chat_reply
 
 
 def generate_chat_reply(user_text: str) -> str:
+    history_size = len(conversation_memory.recent())
     local_reply = generate_local_chat_reply(
         user_text,
-        has_history=bool(conversation_memory.recent()),
+        history_size=history_size,
     )
     if local_reply is not None:
         conversation_memory.add_user(user_text)
@@ -69,6 +70,11 @@ def _build_chat_prompt(user_text: str, *, allow_greeting: bool) -> str:
 - Обращайся к пользователю на "ты", а не на "вы"
 - Тон дружелюбный, живой и неформальный, но без фамильярности
 - Избегай канцелярита и слишком официальных формулировок
+- Для обычной беседы чаще отвечай 1-3 короткими фразами, а не длинным монологом
+- Если уместно, можно мягко задать один простой встречный вопрос, чтобы продолжить разговор
+- Не повторяй дословно фразу пользователя без необходимости
+- Не говори как справочник или техподдержка, говори как живой помощник
+- Если пользователь отвечает коротко, например "угу", "да", "не знаю", "может быть", поддержи разговор естественно и помоги двинуться дальше
 - Можно поддерживать обычную беседу, объяснять, обсуждать идеи
 - Не выдумывай доступ к внешним данным, файлам или действиям, если их не было
 - Не оформляй ответ как JSON
@@ -96,6 +102,7 @@ def _should_greet(user_text: str) -> bool:
 def _postprocess_chat_reply(reply: str, *, allow_greeting: bool) -> str:
     cleaned = reply.strip()
     cleaned = _soften_formality(cleaned)
+    cleaned = _soften_robotic_openings(cleaned)
     if allow_greeting:
         return cleaned
 
@@ -133,6 +140,26 @@ def _soften_formality(text: str) -> str:
     softened = re.sub(r"\bРады слышать\b", "Рад это слышать", softened)
     softened = re.sub(r"\bКакой планы\b", "Какие планы", softened)
     return softened.strip()
+
+
+def _soften_robotic_openings(text: str) -> str:
+    softened = text.strip()
+    softened = re.sub(r"^Конечно[!,.\s-]+", "", softened, flags=re.IGNORECASE).strip()
+    softened = re.sub(r"^Разумеется[!,.\s-]+", "", softened, flags=re.IGNORECASE).strip()
+    softened = re.sub(r"^Безусловно[!,.\s-]+", "", softened, flags=re.IGNORECASE).strip()
+    softened = re.sub(
+        r"^Я могу помочь тебе с этим[!.]?\s*",
+        "Да, помогу. ",
+        softened,
+        flags=re.IGNORECASE,
+    ).strip()
+    softened = re.sub(
+        r"^С удовольствием[!,.\s-]+",
+        "",
+        softened,
+        flags=re.IGNORECASE,
+    ).strip()
+    return softened or text.strip()
 
 
 def _generate_chat_reply_streaming(

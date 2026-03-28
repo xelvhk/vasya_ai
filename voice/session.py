@@ -191,7 +191,7 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
 def _thinking_message_for(user_text: str) -> str:
     if generate_local_chat_reply(
         user_text,
-        has_history=bool(conversation_memory.recent()),
+        history_size=len(conversation_memory.recent()),
     ) is not None:
         return "Сейчас отвечу..."
     fast_intent = detect_fast_intent(user_text)

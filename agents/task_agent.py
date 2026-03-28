@@ -11,6 +11,7 @@ from services.task_service import (
 )
 from utils.datetime_parser import parse_datetime
 from utils.humanize import humanize_event_datetime
+from utils.response_style import join_spoken_list, pick_variant, pluralize_tasks
 
 
 def handle_task_intent(intent_result: IntentResult) -> str:
@@ -28,8 +29,20 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         task = create_task(task_text, dt=normalized_dt)
         if task.get("datetime"):
             spoken_datetime = humanize_event_datetime(task["datetime"]) or task["datetime"]
-            return f"Добавил в задачи: {task['task']} на {spoken_datetime}."
-        return f"Добавил в задачи: {task['task']}."
+            prefix = pick_variant(
+                task["task"],
+                "Готово. Добавил задачу:",
+                "Сделано. Добавил задачу:",
+                "Хорошо. Добавил задачу:",
+            )
+            return f"{prefix} {task['task']} на {spoken_datetime}."
+        prefix = pick_variant(
+            task["task"],
+            "Готово. Добавил задачу:",
+            "Сделано. Добавил задачу:",
+            "Хорошо. Добавил задачу:",
+        )
+        return f"{prefix} {task['task']}."
 
     if intent_result.intent == "get_tasks":
         filter_date, date_context, error = _extract_date_filter(intent_result.data.get("datetime"))
@@ -39,27 +52,34 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         tasks = get_tasks(filter_date=filter_date)
         if not tasks:
             if date_context:
-                return f"На {date_context} задач нет."
-            return "Задач пока нет."
+                return f"На {date_context} у тебя задач нет."
+            return "Пока задач нет."
 
-        lines = []
-        for idx, item in enumerate(tasks, start=1):
+        spoken_items = []
+        for item in tasks:
             if item.get("datetime"):
                 spoken_datetime = humanize_event_datetime(item["datetime"]) or item["datetime"]
-                lines.append(f"{idx}. {item['task']} — {spoken_datetime}")
+                spoken_items.append(f"{item['task']} на {spoken_datetime}")
             else:
-                lines.append(f"{idx}. {item['task']}")
+                spoken_items.append(item["task"])
 
         count = len(tasks)
         if date_context:
-            prefix = f"Вот задачи на {date_context}:"
-        elif count == 1:
-            prefix = "Сейчас у тебя 1 задача:"
-        elif 2 <= count <= 4:
-            prefix = f"Сейчас у тебя {count} задачи:"
+            if count == 1:
+                return f"На {date_context} у тебя одна задача: {spoken_items[0]}."
+            return f"На {date_context} у тебя {pluralize_tasks(count)}: {join_spoken_list(spoken_items)}."
+        if count == 1:
+            return f"Сейчас у тебя одна задача: {spoken_items[0]}."
+        if count <= 4:
+            return f"Сейчас у тебя {pluralize_tasks(count)}: {join_spoken_list(spoken_items)}."
+        if count <= 8:
+            return f"Сейчас у тебя {pluralize_tasks(count)}. Вот что есть: {join_spoken_list(spoken_items)}."
         else:
-            prefix = f"Сейчас у тебя {count} задач:"
-        return prefix + "\n" + "\n".join(lines)
+            preview = join_spoken_list(spoken_items[:5])
+            return (
+                f"Сейчас у тебя {pluralize_tasks(count)}. "
+                f"Из ближайшего: {preview}."
+            )
 
     if intent_result.intent == "complete_task":
         target = intent_result.data.get("target", "")
@@ -71,7 +91,13 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         task = complete_task(resolved["id"])
         if not task:
             return "Не удалось отметить задачу выполненной."
-        return f"Отметил как выполненную: {task['task']}."
+        prefix = pick_variant(
+            task["task"],
+            "Отлично. Отметил как выполненную:",
+            "Готово. Отметил как выполненную:",
+            "Хорошо. Отметил как выполненную:",
+        )
+        return f"{prefix} {task['task']}."
 
     if intent_result.intent == "delete_task":
         target = intent_result.data.get("target", "")
@@ -83,7 +109,13 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         deleted = delete_task(resolved["id"])
         if not deleted:
             return "Не удалось удалить задачу."
-        return f"Удалил задачу: {resolved['task']}."
+        prefix = pick_variant(
+            resolved["task"],
+            "Хорошо. Удалил задачу:",
+            "Готово. Удалил задачу:",
+            "Сделано. Удалил задачу:",
+        )
+        return f"{prefix} {resolved['task']}."
 
     if intent_result.intent == "delete_tasks":
         if intent_result.data.get("all") is True:
@@ -92,7 +124,7 @@ def handle_task_intent(intent_result: IntentResult) -> str:
                 return "Открытых задач сейчас нет."
             confirmation_store.set("delete_all_tasks", {"count": open_count})
             return (
-                f"Это удалит все открытые задачи, их сейчас {open_count}. "
+                f"Это удалит все открытые задачи, сейчас их {open_count}. "
                 "Подтверди: скажи да или нет."
             )
 
@@ -106,9 +138,15 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         if deleted_count == 0:
             return f"На {date_context or filter_date} задач для удаления нет."
         if deleted_count == 1:
-            return f"Удалил 1 задачу на {date_context or filter_date}."
+            prefix = pick_variant(
+                f"{date_context or filter_date}:1",
+                "Хорошо. Удалил одну задачу",
+                "Готово. Удалил одну задачу",
+            )
+            return f"{prefix} на {date_context or filter_date}."
         return (
-            f"Удалил {_format_task_count(deleted_count)} "
+            f"{pick_variant(f'{date_context or filter_date}:{deleted_count}', 'Хорошо. Удалил', 'Готово. Удалил')} "
+            f"{_format_task_count(deleted_count)} "
             f"на {date_context or filter_date}."
         )
 
@@ -120,8 +158,17 @@ def confirm_delete_all_tasks() -> str:
     if deleted_count == 0:
         return "Открытых задач для удаления не осталось."
     if deleted_count == 1:
-        return "Удалил 1 задачу."
-    return f"Удалил {_format_task_count(deleted_count)}."
+        return pick_variant(
+            "confirm_delete_all_tasks:1",
+            "Хорошо. Удалил одну задачу.",
+            "Готово. Удалил одну задачу.",
+        )
+    prefix = pick_variant(
+        f"confirm_delete_all_tasks:{deleted_count}",
+        "Хорошо. Удалил",
+        "Готово. Удалил",
+    )
+    return f"{prefix} {_format_task_count(deleted_count)}."
 
 
 def _resolve_task_target(tasks: list[dict], target: str) -> dict | None:

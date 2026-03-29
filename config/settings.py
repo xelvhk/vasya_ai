@@ -73,6 +73,7 @@ TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
 TTS_PROFILE = os.getenv("TTS_PROFILE", "ruslan_direct")
 TTS_STATE_FILE = os.getenv("TTS_STATE_FILE", "storage/tts_settings.json")
+CHILD_MODE_STATE_FILE = os.getenv("CHILD_MODE_STATE_FILE", "storage/child_mode.json")
 PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
 PIPER_MODEL_PATH = os.getenv(
     "PIPER_MODEL_PATH",

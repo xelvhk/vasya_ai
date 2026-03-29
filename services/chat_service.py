@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from assistant.child_mode import child_mode_store
 from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
@@ -18,10 +19,19 @@ from utils.chat_fast_replies import generate_local_chat_reply
 def generate_chat_reply(user_text: str) -> str:
     history_size = len(conversation_memory.recent())
     tone = conversation_tone.observe_user_text(user_text)
+    child_mode = child_mode_store.is_enabled()
+    if child_mode:
+        safe_reply = _generate_child_safe_redirect(user_text)
+        if safe_reply is not None:
+            conversation_memory.add_user(user_text)
+            conversation_memory.add_assistant(safe_reply)
+            return safe_reply
+
     local_reply = generate_local_chat_reply(
         user_text,
         history_size=history_size,
-        tone=tone,
+        tone="child" if child_mode else tone,
+        child_mode=child_mode,
     )
     if local_reply is not None:
         conversation_memory.add_user(user_text)
@@ -29,7 +39,12 @@ def generate_chat_reply(user_text: str) -> str:
         return local_reply
 
     allow_greeting = _should_greet(user_text)
-    prompt = _build_chat_prompt(user_text, allow_greeting=allow_greeting, tone=tone)
+    prompt = _build_chat_prompt(
+        user_text,
+        allow_greeting=allow_greeting,
+        tone="child" if child_mode else tone,
+        child_mode=child_mode,
+    )
     model = resolve_chat_model()
     if OLLAMA_CHAT_STREAM:
         reply = _generate_chat_reply_streaming(
@@ -51,7 +66,13 @@ def generate_chat_reply(user_text: str) -> str:
     return reply
 
 
-def _build_chat_prompt(user_text: str, *, allow_greeting: bool, tone: str) -> str:
+def _build_chat_prompt(
+    user_text: str,
+    *,
+    allow_greeting: bool,
+    tone: str,
+    child_mode: bool,
+) -> str:
     history_lines = []
     for message in conversation_memory.recent():
         role_label = "Пользователь" if message.role == "user" else "Вася"
@@ -64,6 +85,11 @@ def _build_chat_prompt(user_text: str, *, allow_greeting: bool, tone: str) -> st
         else "Не начинай ответ с приветствия, если диалог уже идет."
     )
     tone_rule = _tone_rule(tone)
+    child_rule = (
+        "Детский режим включен: говори очень простыми словами, дружелюбно, безопасно, без 18+ тем, жестокости, наркотиков, сексуального контента и мрачных подробностей. Если пользователь спрашивает о таком, мягко откажись и предложи безопасную тему."
+        if child_mode
+        else "Ориентируйся на обычный дружелюбный режим."
+    )
 
     return f"""
 Ты Вася, дружелюбный локальный AI-помощник.
@@ -87,6 +113,7 @@ def _build_chat_prompt(user_text: str, *, allow_greeting: bool, tone: str) -> st
 - Не здоровайся в каждой реплике
 - {greeting_rule}
 - {tone_rule}
+- {child_rule}
 
 Недавняя история:
 {history_block}
@@ -112,6 +139,8 @@ def _tone_rule(tone: str) -> str:
         return "Сохраняй легкий, живой и чуть более игровой тон, но не скатывайся в клоунаду."
     if tone == "warm":
         return "Сохраняй теплый, дружелюбный и неформальный тон несколько реплик подряд."
+    if tone == "child":
+        return "Сохраняй спокойный, добрый и детский тон, как у дружелюбного помощника для ребенка."
     return "Держи спокойный дружелюбный нейтральный тон."
 
 
@@ -211,3 +240,28 @@ def _build_stream_preview(text: str) -> str:
     if len(cleaned) > 120:
         preview += "..."
     return preview
+
+
+def _generate_child_safe_redirect(user_text: str) -> str | None:
+    normalized = " ".join(user_text.lower().strip().split())
+    if not normalized:
+        return None
+
+    unsafe_patterns = (
+        r"\bсекс\b",
+        r"\bэрот",
+        r"\b18\+\b",
+        r"\bпорно\b",
+        r"\bнаркот",
+        r"\bубить\b",
+        r"\bубий",
+        r"\bсуиц",
+        r"\bкров",
+        r"\bжесток",
+    )
+    if any(re.search(pattern, normalized) for pattern in unsafe_patterns):
+        return (
+            "Давай лучше не будем про такие темы. "
+            "Можем поговорить о животных, играх, космосе или придумать загадку."
+        )
+    return None

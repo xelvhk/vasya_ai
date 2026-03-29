@@ -7,6 +7,7 @@ import threading
 import time
 from pathlib import Path
 
+from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction
 from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
@@ -282,6 +283,10 @@ def main() -> None:
             self._show_bubble_checkbox.setChecked(widget._show_response_bubble)
             form.addRow(self._show_bubble_checkbox)
 
+            self._child_mode_checkbox = QCheckBox("Детский режим", self)
+            self._child_mode_checkbox.setChecked(child_mode_store.is_enabled())
+            form.addRow(self._child_mode_checkbox)
+
             self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)
             self._idle_motion_checkbox.setChecked(widget._idle_motion_enabled)
             self._idle_motion_checkbox.toggled.connect(self._sync_preview)
@@ -325,6 +330,11 @@ def main() -> None:
             self._widget._tray_click_action = str(self._tray_click_combo.currentData())
             self._widget._avatar_opacity = self._opacity_slider.value() / 100.0
             self._widget._show_response_bubble = self._show_bubble_checkbox.isChecked()
+            desired_child_mode = self._child_mode_checkbox.isChecked()
+            if desired_child_mode:
+                child_mode_store.enable()
+            else:
+                child_mode_store.disable()
             self._widget._idle_motion_enabled = self._idle_motion_checkbox.isChecked()
             self._widget._snap_to_edge_enabled = self._snap_checkbox.isChecked()
             self._widget._start_hidden = self._start_hidden_checkbox.isChecked()

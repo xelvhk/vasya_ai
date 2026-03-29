@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 
+from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
@@ -193,7 +194,8 @@ def _thinking_message_for(user_text: str) -> str:
     if generate_local_chat_reply(
         user_text,
         history_size=len(conversation_memory.recent()),
-        tone=conversation_tone.current(),
+        tone="child" if child_mode_store.is_enabled() else conversation_tone.current(),
+        child_mode=child_mode_store.is_enabled(),
     ) is not None:
         return "Сейчас отвечу..."
     fast_intent = detect_fast_intent(user_text)

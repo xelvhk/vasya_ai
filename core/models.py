@@ -15,6 +15,8 @@ class IntentResult(BaseModel):
         "delete_tasks",
         "play_game",
         "stop_speaking",
+        "enable_child_mode",
+        "disable_child_mode",
         "exit_assistant",
         "chat",
         "unknown",

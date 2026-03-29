@@ -1,3 +1,4 @@
+from assistant.child_mode import child_mode_store
 from assistant.control import assistant_control
 from agents.chat_agent import handle_chat_intent
 from agents.game_agent import handle_game_intent
@@ -25,6 +26,17 @@ def route_intent(intent_result: IntentResult, user_text: str) -> str:
     if intent_result.intent == "stop_speaking":
         stop_speaking()
         return ""
+
+    if intent_result.intent == "enable_child_mode":
+        child_mode_store.enable()
+        return (
+            "Хорошо. Включил детский режим. "
+            "Теперь я буду говорить проще, мягче и без взрослых тем."
+        )
+
+    if intent_result.intent == "disable_child_mode":
+        child_mode_store.disable()
+        return "Хорошо. Выключил детский режим."
 
     if intent_result.intent == "exit_assistant":
         stop_speaking()

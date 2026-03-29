@@ -26,6 +26,20 @@ EXIT_ASSISTANT_PHRASES = (
     "спокойной ночи",
 )
 
+ENABLE_CHILD_MODE_PHRASES = (
+    "включи детский режим",
+    "детский режим",
+    "режим для ребенка",
+    "режим для детей",
+)
+
+DISABLE_CHILD_MODE_PHRASES = (
+    "выключи детский режим",
+    "отключи детский режим",
+    "обычный режим",
+    "выйди из детского режима",
+)
+
 
 def detect_system_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
@@ -34,6 +48,12 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
 
     if normalized in STOP_SPEAKING_PHRASES:
         return IntentResult(intent="stop_speaking", data={})
+
+    if normalized in ENABLE_CHILD_MODE_PHRASES:
+        return IntentResult(intent="enable_child_mode", data={})
+
+    if normalized in DISABLE_CHILD_MODE_PHRASES:
+        return IntentResult(intent="disable_child_mode", data={})
 
     if normalized in EXIT_ASSISTANT_PHRASES:
         return IntentResult(intent="exit_assistant", data={})

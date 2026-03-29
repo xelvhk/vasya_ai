@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from assistant.child_mode import child_mode_store
 from config.settings import PIPER_MODEL_PATH, TTS_PROFILE, TTS_STATE_FILE
 
 
@@ -31,6 +32,17 @@ VOICE_PROFILES: tuple[VoiceProfile, ...] = (
         piper_length_scale=0.76,
         say_voice="Milena",
         say_rate=220,
+    ),
+    VoiceProfile(
+        profile_id="ruslan_child",
+        label="Руслан — мягкий детский режим",
+        backend="piper",
+        gender="мужской",
+        character="мягкий, спокойный, дружелюбный",
+        piper_model_name="ru_RU-ruslan-medium.onnx",
+        piper_length_scale=0.88,
+        say_voice="Milena",
+        say_rate=205,
     ),
 )
 
@@ -60,7 +72,10 @@ def get_active_voice_profile_id() -> str:
 
 
 def get_active_voice_profile() -> VoiceProfile:
-    return get_voice_profile(get_active_voice_profile_id())
+    profile = get_voice_profile(get_active_voice_profile_id())
+    if child_mode_store.is_enabled() and profile.profile_id == "ruslan_direct":
+        return get_voice_profile("ruslan_child")
+    return profile
 
 
 def set_active_voice_profile(profile_id: str) -> VoiceProfile:

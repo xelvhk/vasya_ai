@@ -15,6 +15,7 @@ class IntentResult(BaseModel):
         "delete_tasks",
         "create_note",
         "get_notes",
+        "export_notes",
         "play_game",
         "stop_speaking",
         "enable_child_mode",

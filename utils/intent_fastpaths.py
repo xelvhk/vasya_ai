@@ -23,6 +23,9 @@ _COMMAND_MARKERS = (
     "запомни",
     "заметк",
     "помнишь",
+    "обсидиан",
+    "выгрузи",
+    "экспорт",
     "список",
     "отметь",
     "выполн",
@@ -141,6 +144,15 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         "заметки",
     }:
         return IntentResult(intent="get_notes", data={})
+
+    if normalized in {
+        "выгрузи заметки в обсидиан",
+        "экспортируй заметки в обсидиан",
+        "сохрани заметки в обсидиан",
+        "выгрузи в обсидиан",
+        "экспорт в обсидиан",
+    }:
+        return IntentResult(intent="export_notes", data={})
 
     list_tasks_patterns = (
         r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",

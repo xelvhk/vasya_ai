@@ -1,5 +1,5 @@
 from core.models import IntentResult
-from services.note_service import create_note, get_notes
+from services.note_service import create_note, export_notes, get_notes
 from utils.response_style import join_spoken_list
 
 
@@ -25,5 +25,15 @@ def handle_note_intent(intent_result: IntentResult) -> str:
             return f"Вот что я помню: {join_spoken_list(note_texts)}."
         preview = join_spoken_list(note_texts[:5])
         return f"Сейчас у меня записано {count} заметок. Из последних: {preview}."
+
+    if intent_result.intent == "export_notes":
+        result = export_notes()
+        if not result.get("ok"):
+            return str(result.get("error") or "Не удалось выгрузить заметки в Obsidian.")
+        count = int(result.get("count", 0))
+        path = str(result.get("path", ""))
+        if count == 0:
+            return f"Выгрузил пустой файл заметок в Obsidian: {path}."
+        return f"Готово. Выгрузил {count} заметок в Obsidian: {path}."
 
     return "Не удалось обработать команду по заметкам."

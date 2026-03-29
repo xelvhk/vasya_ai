@@ -21,7 +21,7 @@ def route_intent(intent_result: IntentResult, user_text: str) -> str:
     ):
         return handle_task_intent(intent_result)
 
-    if intent_result.intent in ("create_note", "get_notes"):
+    if intent_result.intent in ("create_note", "get_notes", "export_notes"):
         return handle_note_intent(intent_result)
 
     if intent_result.intent == "play_game":

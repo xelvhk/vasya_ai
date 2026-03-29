@@ -13,6 +13,8 @@ class IntentResult(BaseModel):
         "complete_task",
         "delete_task",
         "delete_tasks",
+        "create_note",
+        "get_notes",
         "play_game",
         "stop_speaking",
         "enable_child_mode",
@@ -40,4 +42,11 @@ class TaskItem(BaseModel):
     status: str = "open"
     source: str = "local"
     external_id: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class NoteItem(BaseModel):
+    id: Optional[int] = None
+    content: str
+    source: str = "local"
     created_at: Optional[str] = None

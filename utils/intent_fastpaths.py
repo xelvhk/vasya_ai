@@ -20,6 +20,9 @@ _COMMAND_MARKERS = (
     "создай",
     "удали",
     "покажи",
+    "запомни",
+    "заметк",
+    "помнишь",
     "список",
     "отметь",
     "выполн",
@@ -116,6 +119,28 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
                 if dt_text:
                     data["datetime"] = dt_text
                 return IntentResult(intent="create_task", data=data)
+
+    create_note_prefixes = (
+        "запомни ",
+        "добавь заметку ",
+        "запиши заметку ",
+        "сохрани заметку ",
+    )
+    for prefix in create_note_prefixes:
+        if normalized.startswith(prefix):
+            content = normalized[len(prefix):].strip(" .,:;!-")
+            if content:
+                return IntentResult(intent="create_note", data={"content": content})
+
+    if normalized in {
+        "что ты помнишь",
+        "что у тебя в заметках",
+        "покажи заметки",
+        "какие у тебя заметки",
+        "мои заметки",
+        "заметки",
+    }:
+        return IntentResult(intent="get_notes", data={})
 
     list_tasks_patterns = (
         r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",

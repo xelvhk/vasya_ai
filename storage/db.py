@@ -50,6 +50,16 @@ def initialize_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'local',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         _ensure_column(connection, "tasks", "datetime", "TEXT")
 
     _migrate_legacy_json_if_needed()

@@ -6,6 +6,7 @@ from core.intent_parser import parse_intent
 from core.router import route_intent
 from services.ollama_client import OllamaClientError
 from utils.logger import log_interaction_event
+from utils.system_intents import detect_system_intent
 from dataclasses import dataclass
 
 
@@ -20,6 +21,10 @@ def process_text(user_text: str) -> str:
 
 
 def process_text_detailed(user_text: str) -> ProcessResult:
+    system_result = _handle_system_intent(user_text)
+    if system_result is not None:
+        return system_result
+
     confirmation_result = _handle_pending_confirmation(user_text)
     if confirmation_result is not None:
         return confirmation_result
@@ -65,6 +70,24 @@ def process_text_detailed(user_text: str) -> ProcessResult:
         },
     )
     return ProcessResult(intent=intent_result.intent, response=response)
+
+
+def _handle_system_intent(user_text: str) -> ProcessResult | None:
+    system_intent = detect_system_intent(user_text)
+    if system_intent is None:
+        return None
+
+    response = route_intent(system_intent, user_text)
+    log_interaction_event(
+        "interaction",
+        {
+            "user_text": user_text,
+            "intent": system_intent.intent,
+            "intent_data": system_intent.data,
+            "response": response,
+        },
+    )
+    return ProcessResult(intent=system_intent.intent, response=response)
 
 
 def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:

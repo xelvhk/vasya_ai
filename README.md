@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.4.2`
+Current version: `0.4.5`
 
 ## Overview
 
@@ -25,6 +25,9 @@ Vasya already supports:
 - tray or menu bar style control for the desktop shell
 - more natural conversational UX with follow-up turns and a faster chat path
 - a child-friendly voice game mode through a dedicated game agent
+- local notes memory with Obsidian export
+- a faster two-stage STT pipeline
+- STT quality profiles and smarter recovery UX
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -345,9 +348,11 @@ This is still an MVP, so current limits include:
 - speech understanding still needs improvement in noisy or imperfect conditions
 - the desktop avatar is still a first lightweight widget, not a full desktop app
 - no menu bar app yet
-- no Obsidian integration yet
-- no long-term memory yet
+- no Notion integration yet
+- Obsidian is still export-focused, not a full sync layer
 - no specialized code or writing agents yet
+- no simple Windows or Linux installation path yet
+- no skin system for Vasya yet
 
 ## Version Path
 
@@ -355,19 +360,35 @@ This is still an MVP, so current limits include:
 - `v0.4.0`: first desktop widget MVP with assistant state layer and click-to-talk avatar
 - `v0.4.1`: improved conversational UX, voice confirmations, faster chat path, safer bulk task deletion
 - `v0.4.2`: child game mode and a dedicated game agent
-- `v0.4.x`: installation polish, voice understanding improvements, better desktop UX
-- `v0.5.x`: fuller desktop shell with tray or menu bar app and richer avatar behavior
-- `v0.6.x`: Obsidian integration
-- `v0.7.x`: code agent and writing/research agent
+- `v0.4.3`: notes, local memory, and Obsidian export
+- `v0.4.4`: voice responsiveness, child-safe UX, and improved game flow
+- `v0.4.5`: two-stage STT, STT quality profiles, smarter follow-up recovery, and clearer task/calendar clarifications
+- `v0.5.x`: a more cohesive desktop shell, alternate Vasya skins, and richer avatar behavior
+- `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
+- `v0.7.x`: Notion adapter plus deeper Obsidian workflows
+- `v0.8.x`: code agent and writing/research agent
+- `v1.0`: cross-platform Vasya with easy installation, skins, Obsidian + Notion, stable voice UX, and multi-agent workflows
 
 ## Planned Direction
 
 Near-term goals:
-- better phrase understanding and retry UX
-- simpler installation and onboarding
-- better desktop shell around the current widget MVP
-- Obsidian integration
-- specialized code and writing agents
+- a more polished desktop shell around the current widget MVP
+- a skin system for Vasya
+- continued improvements to voice understanding and recovery UX
+- easier installation, starting with a Windows setup path
+- Notion as a second adapter on top of the local-first core
+
+## What 1.0 Means
+
+For Vasya, `1.0` should mean a real product, not just another MVP:
+- macOS, Windows, and Linux work at a practical level
+- installation is close to “download and run”
+- the desktop shell feels stable and intentional
+- voice UX is fast and predictable
+- Vasya can be personalized through skins
+- the local core remains the source of truth
+- Obsidian and Notion work as external adapters and views
+- multiple specialized agents are available instead of only one general assistant
 
 Full long-term plan:
 - see [ROADMAP.md](ROADMAP.md)

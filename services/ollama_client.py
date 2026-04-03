@@ -64,6 +64,7 @@ def generate(
     temperature: float | None = None,
     num_predict: int | None = None,
 ) -> str:
+    ensure_ollama_running()
     payload: dict = {
         "model": model or OLLAMA_MODEL,
         "prompt": prompt,
@@ -112,6 +113,7 @@ def generate_stream(
     temperature: float | None = None,
     num_predict: int | None = None,
 ):
+    ensure_ollama_running()
     payload: dict = {
         "model": model or OLLAMA_MODEL,
         "prompt": prompt,
@@ -181,6 +183,12 @@ def get_installed_models(cache_ttl_seconds: float = 30.0) -> list[str]:
         cached_at, cached_models = _MODEL_CACHE
         if now - cached_at < cache_ttl_seconds:
             return list(cached_models)
+
+    if not is_ollama_available():
+        try:
+            ensure_ollama_running()
+        except OllamaClientError:
+            return []
 
     try:
         response = requests.get(_healthcheck_url(), timeout=2)

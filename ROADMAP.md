@@ -73,12 +73,16 @@ Current status:
 - tray-controlled desktop shell groundwork is in progress in `v0.4.x`
 - conversational UX, confirmations, and faster chat flow are now in `v0.4.1`
 - child game mode and a dedicated game agent are now in `v0.4.2`
+- notes memory and Obsidian export landed in `v0.4.3`
+- voice responsiveness and child-safe/game UX improved in `v0.4.4`
+- two-stage STT, STT quality profiles, smarter recovery, and better clarifications landed in `v0.4.5`
 
 Targets:
 - menu bar app or lightweight desktop shell
 - global hotkey
 - floating widget or avatar
 - visible states: listening, thinking, speaking, error
+- alternate avatar skins and character presentation presets
 
 Recommended order:
 1. hotkey
@@ -86,6 +90,7 @@ Recommended order:
 3. menu bar app
 4. richer avatar and animation
 5. compact response bubble and settings
+6. skin system and avatar personalization
 
 Why this matters:
 - a desktop assistant should feel immediately available, not hidden behind terminal commands
@@ -97,7 +102,8 @@ Focus:
 
 Targets:
 - deeper Google Calendar sync
-- Obsidian export and note workflows
+- deeper Obsidian workflows beyond export
+- Notion adapter for workspace-style use
 - optional integrations with tools like Todoist or Google Tasks
 
 Recommended architecture:
@@ -167,18 +173,33 @@ Good future exports:
 - `v0.4.0`: assistant state layer and first floating desktop avatar widget
 - `v0.4.1`: conversational UX improvements, confirmation flows, faster chat path
 - `v0.4.2`: child game mode and dedicated game agent
-- `v0.4.x`: installation polish, diagnostics, better voice recovery, tray and widget UX
-- `v0.5.x`: fuller desktop shell with menu bar or tray integration
-- `v0.6.x`: Obsidian integration
-- `v0.7.x`: code agent and writing/research agent
-- `v0.8+`: richer multi-agent and desktop workflows
+- `v0.4.3`: local notes memory and Obsidian export
+- `v0.4.4`: voice responsiveness, child-safe UX, and game interaction polish
+- `v0.4.5`: two-stage STT, STT quality profiles, smarter recovery, and clearer task/calendar clarifications
+- `v0.5.x`: fuller desktop shell, alternate Vasya skins, and richer avatar behavior
+- `v0.6.x`: easier installation, starting with Windows, then Linux
+- `v0.7.x`: deeper Obsidian workflow and Notion adapter
+- `v0.8.x`: code agent and writing/research agent
+- `v1.0`: cross-platform Vasya with simple installation, skins, Obsidian + Notion, stable voice UX, and multi-agent workflows
 
 ## Near-term recommendation
 
 If choosing one practical path from here, the best next order is:
 
-1. Finish the first desktop widget MVP
-2. Improve speech understanding and recovery UX
-3. Simplify setup and first-run experience
-4. Add Obsidian integration
-5. Add code and writing agents
+1. Make the desktop shell feel more product-like
+2. Add a skin system for Vasya
+3. Continue improving speech understanding and recovery UX
+4. Simplify setup and first-run experience, starting with Windows setup
+5. Deepen adapters such as Obsidian and later Notion
+
+## What 1.0 Means
+
+For Vasya, `1.0` should mean:
+- macOS, Windows, and Linux support at a practical level
+- installation that feels close to download-and-run
+- a polished desktop shell with character presence
+- stable and fast voice-first UX
+- alternate Vasya skins and personalization
+- local-first core remains the source of truth
+- Obsidian and Notion available as adapters and external views
+- multiple specialized agents for different workflows

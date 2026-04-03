@@ -6,8 +6,13 @@ from utils.response_style import join_spoken_list, pick_variant, pluralize_event
 
 def handle_calendar_intent(intent_result: IntentResult) -> str:
     if intent_result.intent == "create_event":
-        title = intent_result.data.get("title", "Без названия")
+        title = str(intent_result.data.get("title", "")).strip()
         raw_dt = intent_result.data.get("datetime")
+        if not title:
+            return (
+                "Не расслышала, как назвать событие. "
+                "Скажи, например: добавь событие созвон с командой завтра в 15:00."
+            )
         spoken_dt = raw_dt.strip() if isinstance(raw_dt, str) else None
         parse_result = parse_datetime(raw_dt)
         event = create_event(title=title, dt=parse_result.normalized)
@@ -85,6 +90,11 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
                     "Нужно уточнить, на какую дату показать события. "
                     f"{parse_result.message}"
                 )
+            if not parse_result.normalized:
+                return (
+                    "Не удалось распознать дату для событий. "
+                    "Попробуй сказать, например: на завтра или на 25 марта."
+                )
             if parse_result.normalized:
                 filter_date = parse_result.normalized.split(" ")[0]
                 date_context = raw_dt.strip()
@@ -157,9 +167,11 @@ def handle_calendar_intent(intent_result: IntentResult) -> str:
         result = get_events()
         events = result["events"]
         target = intent_result.data.get("target", "")
+        if not str(target).strip():
+            return "Скажи, какое событие удалить. Можно по названию или по номеру из списка."
         resolved = _resolve_event_target(events, target)
         if not resolved:
-            return "Не нашел такое событие для удаления."
+            return "Не нашла такое событие для удаления. Скажи название точнее или номер из списка."
 
         deleted = delete_event(resolved["id"])
         if not deleted:

@@ -19,7 +19,10 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         task_text = intent_result.data.get("task", "").strip()
         raw_dt = intent_result.data.get("datetime")
         if not task_text:
-            return "Я не расслышал текст задачи."
+            return (
+                "Не расслышала, что именно добавить в задачи. "
+                "Скажи, например: добавь задачу купить молоко."
+            )
 
         normalized_dt = None
         if isinstance(raw_dt, str) and raw_dt.strip():
@@ -83,10 +86,12 @@ def handle_task_intent(intent_result: IntentResult) -> str:
 
     if intent_result.intent == "complete_task":
         target = intent_result.data.get("target", "")
+        if not str(target).strip():
+            return "Скажи, какую задачу отметить выполненной. Можно по названию или по номеру из списка."
         tasks = get_tasks()
         resolved = _resolve_task_target(tasks, target)
         if not resolved:
-            return "Не нашел такую задачу, чтобы отметить выполненной."
+            return "Не нашла такую задачу. Скажи название точнее или номер из списка."
 
         task = complete_task(resolved["id"])
         if not task:
@@ -101,10 +106,12 @@ def handle_task_intent(intent_result: IntentResult) -> str:
 
     if intent_result.intent == "delete_task":
         target = intent_result.data.get("target", "")
+        if not str(target).strip():
+            return "Скажи, какую задачу удалить. Можно по названию или по номеру из списка."
         tasks = get_tasks()
         resolved = _resolve_task_target(tasks, target)
         if not resolved:
-            return "Не нашел такую задачу для удаления."
+            return "Не нашла такую задачу для удаления. Скажи название точнее или номер из списка."
 
         deleted = delete_task(resolved["id"])
         if not deleted:
@@ -132,7 +139,10 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         if error:
             return error
         if not filter_date:
-            return "Нужно уточнить дату, для которой удалить задачи."
+            return (
+                "Нужно уточнить дату, для которой удалить задачи. "
+                "Например: удали все задачи на завтра."
+            )
 
         deleted_count = delete_tasks_by_date(filter_date)
         if deleted_count == 0:
@@ -207,7 +217,7 @@ def _extract_date_filter(raw_dt: object) -> tuple[str | None, str | None, str | 
             f"{parse_result.message}"
         )
     if not parse_result.normalized:
-        return None, None, "Не удалось распознать дату для задач."
+        return None, None, "Не удалось распознать дату для задач. Попробуй сказать, например: на завтра или на 25 марта."
 
     date_context = raw_dt.strip()
     if date_context.lower().startswith("на "):

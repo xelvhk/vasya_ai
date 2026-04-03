@@ -12,6 +12,7 @@ from assistant.control import AssistantControlAction
 from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
     AVATAR_IMAGE_PATH,
+    AVATAR_SKIN,
     AVATAR_SIZE,
     AVATAR_STATE_FILE,
     HOTKEY_COMBINATION,
@@ -66,6 +67,136 @@ def main() -> None:
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
+
+    AVATAR_SKINS = {
+        "classic": {
+            "label": "Классический",
+            "body_top": "#4f86ff",
+            "body_mid": "#224eb6",
+            "body_bottom": "#08153b",
+            "rim": "#6fe3ff",
+            "face_center": "#ffffff",
+            "face_edge": "#cad8f2",
+            "eye_top": "#2c56be",
+            "eye_mid": "#122869",
+            "eye_bottom": "#071131",
+            "mouth": "#1e2c63",
+            "tuft": "#2e5fe0",
+            "cheek": "#7ad6ff",
+            "glow_idle": "#4f8fff",
+            "glow_listening": "#3ec8ff",
+            "glow_thinking": "#6fa8ff",
+            "glow_speaking": "#5b7cff",
+            "glow_error": "#ff6b6b",
+        },
+        "soft": {
+            "label": "Мягкий",
+            "body_top": "#71b4ff",
+            "body_mid": "#3f78d8",
+            "body_bottom": "#13285f",
+            "rim": "#a8ecff",
+            "face_center": "#fffdfd",
+            "face_edge": "#dbe6fb",
+            "eye_top": "#4f7be3",
+            "eye_mid": "#274391",
+            "eye_bottom": "#10214f",
+            "mouth": "#29407d",
+            "tuft": "#5b8ef2",
+            "cheek": "#a4e4ff",
+            "glow_idle": "#74b8ff",
+            "glow_listening": "#69dcff",
+            "glow_thinking": "#8dbbff",
+            "glow_speaking": "#7d96ff",
+            "glow_error": "#ff8f95",
+        },
+        "sunset": {
+            "label": "Теплый",
+            "body_top": "#ff9f6e",
+            "body_mid": "#d95f64",
+            "body_bottom": "#4b2048",
+            "rim": "#ffd0a3",
+            "face_center": "#fff8f3",
+            "face_edge": "#f2d9d3",
+            "eye_top": "#8447d0",
+            "eye_mid": "#4b2f7f",
+            "eye_bottom": "#24163d",
+            "mouth": "#5b2a52",
+            "tuft": "#ff9e88",
+            "cheek": "#ffc1c2",
+            "glow_idle": "#ff9c75",
+            "glow_listening": "#ffb87f",
+            "glow_thinking": "#caa1ff",
+            "glow_speaking": "#ff7a90",
+            "glow_error": "#ff5f76",
+        },
+        "mint": {
+            "label": "Свежий",
+            "body_top": "#73f0d0",
+            "body_mid": "#28a9a5",
+            "body_bottom": "#103a52",
+            "rim": "#c1fff0",
+            "face_center": "#fbfffd",
+            "face_edge": "#d9f3ea",
+            "eye_top": "#2f7ca5",
+            "eye_mid": "#16456f",
+            "eye_bottom": "#0b2339",
+            "mouth": "#1f5571",
+            "tuft": "#48d2ba",
+            "cheek": "#aff7ef",
+            "glow_idle": "#64e9cf",
+            "glow_listening": "#7af8e2",
+            "glow_thinking": "#93dfff",
+            "glow_speaking": "#5fc8ff",
+            "glow_error": "#ff7d88",
+        },
+        "child": {
+            "label": "Детский",
+            "body_top": "#8ec5ff",
+            "body_mid": "#6d7cff",
+            "body_bottom": "#362f7c",
+            "rim": "#ffe28f",
+            "face_center": "#fffdf8",
+            "face_edge": "#f6e8ff",
+            "eye_top": "#6a4fe3",
+            "eye_mid": "#3b2c98",
+            "eye_bottom": "#1f1951",
+            "mouth": "#5a3fa5",
+            "tuft": "#ffb86b",
+            "cheek": "#ffc2d8",
+            "glow_idle": "#8dbdff",
+            "glow_listening": "#7de6ff",
+            "glow_thinking": "#b1a7ff",
+            "glow_speaking": "#ffb3d5",
+            "glow_error": "#ff7f9c",
+        },
+        "minimal": {
+            "label": "Минималистичный",
+            "body_top": "#dce7ff",
+            "body_mid": "#95acd8",
+            "body_bottom": "#3e5177",
+            "rim": "#f7fbff",
+            "face_center": "#ffffff",
+            "face_edge": "#edf3ff",
+            "eye_top": "#566783",
+            "eye_mid": "#334056",
+            "eye_bottom": "#182131",
+            "mouth": "#4a5873",
+            "tuft": "#8b9cbc",
+            "cheek": "#dbe6ff",
+            "glow_idle": "#b7c8ea",
+            "glow_listening": "#d5e6ff",
+            "glow_thinking": "#c7d2e8",
+            "glow_speaking": "#a8c0e8",
+            "glow_error": "#f0a5ae",
+        },
+    }
+
+    def _avatar_skin_spec(skin_id: str | None) -> dict:
+        default_skin = AVATAR_SKINS[AVATAR_SKIN] if AVATAR_SKIN in AVATAR_SKINS else AVATAR_SKINS["classic"]
+        return AVATAR_SKINS.get(skin_id or "", default_skin)
+
+    def _avatar_skin_ids() -> list[str]:
+        return list(AVATAR_SKINS.keys())
 
     if get_platform_name() == "macos":
         from scripts.autostart_macos import install_autostart, is_autostart_enabled, uninstall_autostart
@@ -248,6 +379,13 @@ def main() -> None:
             self._size_combo.currentIndexChanged.connect(self._sync_preview)
             form.addRow("Размер Васи", self._size_combo)
 
+            self._skin_combo = QComboBox(self)
+            for skin_id in _avatar_skin_ids():
+                self._skin_combo.addItem(_avatar_skin_spec(skin_id)["label"], skin_id)
+            self._select_combo_value(self._skin_combo, widget._avatar_skin)
+            self._skin_combo.currentIndexChanged.connect(self._sync_preview)
+            form.addRow("Скин Васи", self._skin_combo)
+
             self._voice_profile_combo = QComboBox(self)
             active_profile = get_active_voice_profile()
             for profile in list_voice_profiles():
@@ -324,13 +462,18 @@ def main() -> None:
 
         def apply(self) -> None:
             self._widget._set_avatar_size(int(self._size_combo.currentData()))
+            selected_skin = str(self._skin_combo.currentData())
+            desired_child_mode = self._child_mode_checkbox.isChecked()
+            self._widget._avatar_skin = selected_skin
+            self._widget._auto_child_skin = not (
+                desired_child_mode and selected_skin != "child"
+            )
             selected_profile_id = str(self._voice_profile_combo.currentData())
             if selected_profile_id != get_active_voice_profile().profile_id:
                 set_voice_profile(selected_profile_id)
             self._widget._tray_click_action = str(self._tray_click_combo.currentData())
             self._widget._avatar_opacity = self._opacity_slider.value() / 100.0
             self._widget._show_response_bubble = self._show_bubble_checkbox.isChecked()
-            desired_child_mode = self._child_mode_checkbox.isChecked()
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -367,6 +510,10 @@ def main() -> None:
                 )
                 self._widget._update_bubble_position()
 
+            self._widget._last_effective_skin = self._widget._effective_avatar_skin()
+            self._widget._tray_icon_pixmap = self._widget._build_tray_pixmap()
+            if self._widget._tray is not None:
+                self._widget._tray.setIcon(QIcon(self._widget._tray_icon_pixmap))
             self._widget.update()
             self._widget._save_position()
 
@@ -378,8 +525,14 @@ def main() -> None:
                     return
 
         def _sync_preview(self) -> None:
+            selected_skin = str(self._skin_combo.currentData())
+            child_mode_enabled = self._child_mode_checkbox.isChecked()
+            auto_child_skin = not (child_mode_enabled and selected_skin != "child")
             self._preview.update_preview(
                 size=int(self._size_combo.currentData()),
+                skin_id=selected_skin,
+                child_mode_enabled=child_mode_enabled,
+                auto_child_skin=auto_child_skin,
                 opacity=self._opacity_slider.value() / 100.0,
                 idle_motion=self._idle_motion_checkbox.isChecked(),
             )
@@ -389,6 +542,9 @@ def main() -> None:
             super().__init__(parent)
             self._widget = widget
             self._preview_size = widget._avatar_size
+            self._preview_skin_id = widget._avatar_skin
+            self._preview_child_mode_enabled = child_mode_store.is_enabled()
+            self._preview_auto_child_skin = widget._auto_child_skin
             self._preview_opacity = widget._avatar_opacity
             self._idle_motion = widget._idle_motion_enabled
             self._pulse = 0.0
@@ -399,8 +555,20 @@ def main() -> None:
             self._timer.timeout.connect(self._tick)
             self._timer.start(60)
 
-        def update_preview(self, *, size: int, opacity: float, idle_motion: bool) -> None:
+        def update_preview(
+            self,
+            *,
+            size: int,
+            skin_id: str,
+            child_mode_enabled: bool,
+            auto_child_skin: bool,
+            opacity: float,
+            idle_motion: bool,
+        ) -> None:
             self._preview_size = size
+            self._preview_skin_id = skin_id
+            self._preview_child_mode_enabled = child_mode_enabled
+            self._preview_auto_child_skin = auto_child_skin
             self._preview_opacity = opacity
             self._idle_motion = idle_motion
             self.update()
@@ -425,6 +593,11 @@ def main() -> None:
                 pulse=self._pulse,
                 bob=self._bob,
                 scale=max(0.82, min(1.18, self._preview_size / 210.0)),
+                skin_id=(
+                    "child"
+                    if self._preview_child_mode_enabled and self._preview_auto_child_skin
+                    else self._preview_skin_id
+                ),
             )
 
     class AvatarWidget(QWidget):
@@ -438,6 +611,8 @@ def main() -> None:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             self._widget_state = _load_widget_state()
             self._avatar_size = int(self._widget_state.get("size", AVATAR_SIZE))
+            self._avatar_skin = str(self._widget_state.get("avatar_skin", AVATAR_SKIN))
+            self._auto_child_skin = bool(self._widget_state.get("auto_child_skin", True))
             self._tray_click_action = str(
                 self._widget_state.get("tray_click_action", "toggle")
             )
@@ -475,6 +650,7 @@ def main() -> None:
             self._hotkey_listener = None
             self._tray = None
             self._allow_close = False
+            self._last_effective_skin = self._effective_avatar_skin()
 
             self._bridge.state_changed.connect(self._apply_state)
             self._bridge.exit_requested.connect(self.quit_application)
@@ -510,14 +686,15 @@ def main() -> None:
             if self._avatar:
                 return self._prepare_avatar_pixmap(32, 32)
 
+            skin = _avatar_skin_spec(self._effective_avatar_skin())
             pixmap = QPixmap(32, 32)
             pixmap.fill(Qt.GlobalColor.transparent)
             painter = QPainter(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setBrush(QColor("#1d4ed8"))
-            painter.setPen(QPen(QColor("#8fd0ff"), 2))
+            painter.setBrush(QColor(skin["body_mid"]))
+            painter.setPen(QPen(QColor(skin["rim"]), 2))
             painter.drawEllipse(QRectF(3, 3, 26, 26))
-            painter.setBrush(QColor("#f7f9ff"))
+            painter.setBrush(QColor(skin["face_center"]))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QRectF(8, 8, 16, 16))
             painter.end()
@@ -540,6 +717,12 @@ def main() -> None:
                 speed = _animation_speed(self._state.name)
                 self._pulse = (self._pulse + speed) % 6.28
                 self._bob = (self._bob + speed * 0.7) % 6.28
+            effective_skin = self._effective_avatar_skin()
+            if effective_skin != self._last_effective_skin:
+                self._last_effective_skin = effective_skin
+                self._tray_icon_pixmap = self._build_tray_pixmap()
+                if self._tray is not None:
+                    self._tray.setIcon(QIcon(self._tray_icon_pixmap))
             self.update()
             self._update_bubble_position()
 
@@ -649,7 +832,11 @@ def main() -> None:
                 self._paint_character(painter)
 
         def _paint_ambient_glow(self, painter: QPainter) -> None:
-            glow = _animated_glow(self._state.name, self._pulse)
+            glow = _animated_glow(
+                self._state.name,
+                self._pulse,
+                self._effective_avatar_skin(),
+            )
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
 
@@ -687,7 +874,16 @@ def main() -> None:
 
             highlight_path = QPainterPath()
             highlight_path.addEllipse(QRectF(18, 20 + bob_offset, self.width() - 36, self.height() - 44))
-            painter.setPen(QPen(_highlight_color(self._state.name, self._pulse), 2))
+            painter.setPen(
+                QPen(
+                    _highlight_color(
+                        self._state.name,
+                        self._pulse,
+                        self._effective_avatar_skin(),
+                    ),
+                    2,
+                )
+            )
             painter.drawPath(highlight_path)
             painter.restore()
 
@@ -744,6 +940,7 @@ def main() -> None:
                 pulse=self._pulse,
                 bob=self._bob,
                 scale=1.0,
+                skin_id=self._effective_avatar_skin(),
             )
 
         def _paint_preview_character(
@@ -754,6 +951,7 @@ def main() -> None:
             pulse: float,
             bob: float,
             scale: float,
+            skin_id: str | None = None,
         ) -> None:
             painter.save()
             painter.translate(bounds.left(), bounds.top())
@@ -764,8 +962,9 @@ def main() -> None:
             self._pulse = pulse
             self._bob = bob
 
+            skin = _avatar_skin_spec(skin_id or self._avatar_skin)
             bob_offset = _avatar_bob_offset(self._state.name, self._bob)
-            glow = _animated_glow(self._state.name, self._pulse)
+            glow = _animated_glow(self._state.name, self._pulse, skin_id or self._avatar_skin)
 
             painter.setPen(Qt.PenStyle.NoPen)
 
@@ -788,25 +987,27 @@ def main() -> None:
 
             body_rect = QRectF(self.width() * 0.10, self.height() * 0.18 + bob_offset, self.width() * 0.80, self.height() * 0.74)
             body_gradient = QLinearGradient(body_rect.left(), body_rect.top(), body_rect.right(), body_rect.bottom())
-            body_gradient.setColorAt(0.0, QColor("#4f86ff"))
-            body_gradient.setColorAt(0.32, QColor("#224eb6"))
-            body_gradient.setColorAt(0.75, QColor("#0f245f"))
-            body_gradient.setColorAt(1.0, QColor("#08153b"))
+            body_gradient.setColorAt(0.0, QColor(skin["body_top"]))
+            body_gradient.setColorAt(0.32, QColor(skin["body_mid"]))
+            body_gradient.setColorAt(0.75, QColor(skin["body_mid"]).darker(145))
+            body_gradient.setColorAt(1.0, QColor(skin["body_bottom"]))
 
             painter.setBrush(body_gradient)
-            painter.setPen(QPen(QColor("#6fe3ff"), 3))
+            painter.setPen(QPen(QColor(skin["rim"]), 3))
             painter.drawEllipse(body_rect)
 
             rim_path = QPainterPath()
             rim_path.addEllipse(body_rect.adjusted(4, 4, -4, -4))
-            painter.setPen(QPen(QColor(120, 222, 255, 95 + int(30 * abs(math.sin(self._pulse)))), 2))
+            rim_color = QColor(skin["rim"])
+            rim_color.setAlpha(95 + int(30 * abs(math.sin(self._pulse))))
+            painter.setPen(QPen(rim_color, 2))
             painter.drawPath(rim_path)
 
             face_rect = QRectF(self.width() * 0.20, self.height() * 0.23 + bob_offset, self.width() * 0.60, self.height() * 0.48)
             face_gradient = QRadialGradient(face_rect.center().x(), face_rect.center().y(), face_rect.width() * 0.72)
-            face_gradient.setColorAt(0.0, QColor("#ffffff"))
-            face_gradient.setColorAt(0.72, QColor("#eef3ff"))
-            face_gradient.setColorAt(1.0, QColor("#cad8f2"))
+            face_gradient.setColorAt(0.0, QColor(skin["face_center"]))
+            face_gradient.setColorAt(0.72, QColor(skin["face_center"]).darker(104))
+            face_gradient.setColorAt(1.0, QColor(skin["face_edge"]))
             painter.setBrush(face_gradient)
             painter.setPen(QPen(QColor("#d9e6ff"), 1))
             painter.drawEllipse(face_rect)
@@ -836,11 +1037,11 @@ def main() -> None:
                     adjusted_rect.top() + adjusted_rect.height() * 0.34,
                     adjusted_rect.width() * 0.88,
                 )
-                eye_gradient.setColorAt(0.0, QColor("#2c56be"))
-                eye_gradient.setColorAt(0.35, QColor("#122869"))
-                eye_gradient.setColorAt(1.0, QColor("#071131"))
+                eye_gradient.setColorAt(0.0, QColor(skin["eye_top"]))
+                eye_gradient.setColorAt(0.35, QColor(skin["eye_mid"]))
+                eye_gradient.setColorAt(1.0, QColor(skin["eye_bottom"]))
                 painter.setBrush(eye_gradient)
-                painter.setPen(QPen(QColor("#456ee0"), 1))
+                painter.setPen(QPen(QColor(skin["eye_top"]).lighter(122), 1))
                 painter.drawRoundedRect(
                     adjusted_rect,
                     adjusted_rect.width() * 0.48,
@@ -893,7 +1094,7 @@ def main() -> None:
             draw_eye(left_eye)
             draw_eye(right_eye)
 
-            mouth_pen = QPen(QColor("#1e2c63"), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            mouth_pen = QPen(QColor(skin["mouth"]), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
             painter.setPen(mouth_pen)
             mouth_rect = QRectF(self.width() * 0.41, self.height() * 0.58 + bob_offset, self.width() * 0.18, self.height() * 0.10)
             painter.drawArc(mouth_rect, 205 * 16, 130 * 16)
@@ -903,8 +1104,12 @@ def main() -> None:
                 self.height() * 0.58 + bob_offset,
                 self.width() * 0.10,
             )
-            cheek_glow.setColorAt(0.0, QColor(122, 214, 255, 58))
-            cheek_glow.setColorAt(1.0, QColor(122, 214, 255, 0))
+            cheek_core = QColor(skin["cheek"])
+            cheek_core.setAlpha(58)
+            cheek_edge = QColor(skin["cheek"])
+            cheek_edge.setAlpha(0)
+            cheek_glow.setColorAt(0.0, cheek_core)
+            cheek_glow.setColorAt(1.0, cheek_edge)
             painter.setBrush(cheek_glow)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(
@@ -916,7 +1121,7 @@ def main() -> None:
                 )
             )
 
-            tuft_pen = QPen(QColor("#2e5fe0"), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            tuft_pen = QPen(QColor(skin["tuft"]), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
             painter.setPen(tuft_pen)
             tuft_path = QPainterPath()
             tuft_path.moveTo(self.width() * 0.48, self.height() * 0.17 + bob_offset)
@@ -1005,9 +1210,16 @@ def main() -> None:
                     "idle_motion_enabled": self._idle_motion_enabled,
                     "snap_to_edge_enabled": self._snap_to_edge_enabled,
                     "avatar_opacity": self._avatar_opacity,
+                    "avatar_skin": self._avatar_skin,
+                    "auto_child_skin": self._auto_child_skin,
                     "start_hidden": not self.isVisible(),
                 }
             )
+
+        def _effective_avatar_skin(self) -> str:
+            if child_mode_store.is_enabled() and self._auto_child_skin:
+                return "child"
+            return self._avatar_skin
 
         def _start_hotkey_listener(self) -> None:
             try:
@@ -1171,16 +1383,17 @@ def main() -> None:
 
             self._save_position()
 
-    def _glow_color(state_name: AssistantStateName) -> str:
+    def _glow_color(state_name: AssistantStateName, skin_id: str | None = None) -> str:
+        skin = _avatar_skin_spec(skin_id)
         if state_name == AssistantStateName.LISTENING:
-            return "#3ec8ff"
+            return skin["glow_listening"]
         if state_name == AssistantStateName.THINKING:
-            return "#6fa8ff"
+            return skin["glow_thinking"]
         if state_name == AssistantStateName.SPEAKING:
-            return "#5b7cff"
+            return skin["glow_speaking"]
         if state_name == AssistantStateName.ERROR:
-            return "#ff6b6b"
-        return "#4f8fff"
+            return skin["glow_error"]
+        return skin["glow_idle"]
 
     def _animation_speed(state_name: AssistantStateName) -> float:
         if state_name == AssistantStateName.LISTENING:
@@ -1193,8 +1406,8 @@ def main() -> None:
             return 0.22
         return 0.05
 
-    def _animated_glow(state_name: AssistantStateName, pulse: float) -> QColor:
-        base = QColor(_glow_color(state_name))
+    def _animated_glow(state_name: AssistantStateName, pulse: float, skin_id: str | None = None) -> QColor:
+        base = QColor(_glow_color(state_name, skin_id))
         if state_name == AssistantStateName.LISTENING:
             alpha = 125 + int(42 * (0.55 + 0.45 * math.sin(pulse * 1.15)))
         elif state_name == AssistantStateName.THINKING:
@@ -1226,8 +1439,8 @@ def main() -> None:
             return -3 * abs(math.sin(pulse * 0.9))
         return -2 * abs(math.sin(pulse))
 
-    def _highlight_color(state_name: AssistantStateName, pulse: float) -> QColor:
-        color = QColor(_glow_color(state_name))
+    def _highlight_color(state_name: AssistantStateName, pulse: float, skin_id: str | None = None) -> QColor:
+        color = QColor(_glow_color(state_name, skin_id))
         color.setAlpha(105 + int(35 * abs(math.sin(pulse))))
         return color
 

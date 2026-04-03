@@ -811,6 +811,7 @@ def main() -> None:
                     bob=self._bob,
                     scale=max(0.82, min(1.18, self._preview_size / 210.0)),
                     skin_id=effective_skin,
+                    smile_bounce=0.0,
                 )
 
     class AvatarWidget(QWidget):
@@ -854,6 +855,7 @@ def main() -> None:
             self._state = assistant_state.get()
             self._pulse = 0.0
             self._bob = 0.0
+            self._smile_bounce = 0.0
             self._avatar_path = self._resolve_avatar_path()
             self._avatar = self._load_avatar()
             self._avatar_is_svg = (
@@ -924,7 +926,10 @@ def main() -> None:
             self._bridge.state_changed.emit(state)
 
         def _apply_state(self, state: AssistantState) -> None:
+            previous_state = self._state.name
             self._state = state
+            if previous_state == AssistantStateName.SPEAKING and state.name == AssistantStateName.IDLE:
+                self._smile_bounce = 1.0
             self._update_bubble()
             self._update_tray_tooltip()
             self.update()
@@ -937,6 +942,7 @@ def main() -> None:
                 speed = _animation_speed(self._state.name, self._effective_avatar_skin())
                 self._pulse = (self._pulse + speed) % 6.28
                 self._bob = (self._bob + speed * 0.7) % 6.28
+            self._smile_bounce = max(0.0, self._smile_bounce - 0.07)
             effective_skin = self._effective_avatar_skin()
             if effective_skin != self._last_effective_skin:
                 self._last_effective_skin = effective_skin
@@ -1240,6 +1246,7 @@ def main() -> None:
                 bob=self._bob,
                 scale=1.0,
                 skin_id=self._effective_avatar_skin(),
+                smile_bounce=self._smile_bounce,
             )
 
         def _paint_preview_character(
@@ -1251,6 +1258,7 @@ def main() -> None:
             bob: float,
             scale: float,
             skin_id: str | None = None,
+            smile_bounce: float = 0.0,
         ) -> None:
             painter.save()
             painter.translate(bounds.left(), bounds.top())
@@ -1306,7 +1314,13 @@ def main() -> None:
             painter.setPen(QPen(rim_color, 2))
             painter.drawPath(rim_path)
 
-            face_rect = QRectF(self.width() * 0.20, self.height() * 0.23 + bob_offset, self.width() * 0.60, self.height() * 0.48)
+            listening_lift = _listening_face_lift(self._state.name, self._pulse)
+            face_rect = QRectF(
+                self.width() * 0.20,
+                self.height() * 0.23 + bob_offset + listening_lift,
+                self.width() * 0.60,
+                self.height() * 0.48,
+            )
             face_gradient = QRadialGradient(face_rect.center().x(), face_rect.center().y(), face_rect.width() * 0.72)
             face_gradient.setColorAt(0.0, QColor(skin["face_center"]))
             face_gradient.setColorAt(0.72, QColor(skin["face_center"]).darker(104))
@@ -1321,12 +1335,15 @@ def main() -> None:
 
             eye_w = self.width() * 0.17
             eye_h = self.height() * 0.21
-            eye_y = self.height() * 0.38 + bob_offset
+            eye_y = self.height() * 0.38 + bob_offset + listening_lift * 0.55
             left_eye = QRectF(self.width() * 0.28, eye_y, eye_w, eye_h)
             right_eye = QRectF(self.width() * 0.55, eye_y, eye_w, eye_h)
             blink = _blink_scale(self._state.name, self._pulse)
             visible_eye_height = max(eye_h * (0.18 + blink * 0.82), eye_h * 0.18)
             eye_vertical_shift = (eye_h - visible_eye_height) * 0.48
+            gaze_x, gaze_y = _eye_gaze_offset(self._state.name, self._pulse)
+            speaking_squint = _speaking_eye_squint(self._state.name, self._pulse)
+            visible_eye_height *= speaking_squint
 
             def draw_eye(rect: QRectF) -> None:
                 adjusted_rect = QRectF(
@@ -1349,6 +1366,26 @@ def main() -> None:
                     adjusted_rect,
                     adjusted_rect.width() * 0.48,
                     adjusted_rect.height() * 0.48,
+                )
+
+                inner_shadow = QRadialGradient(
+                    adjusted_rect.center().x() + adjusted_rect.width() * 0.08,
+                    adjusted_rect.center().y() + adjusted_rect.height() * 0.1,
+                    adjusted_rect.width() * 0.62,
+                )
+                inner_shadow.setColorAt(0.0, QColor(255, 255, 255, 22))
+                inner_shadow.setColorAt(1.0, QColor(255, 255, 255, 0))
+                painter.setBrush(inner_shadow)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawRoundedRect(
+                    adjusted_rect.adjusted(
+                        adjusted_rect.width() * 0.08,
+                        adjusted_rect.height() * 0.1,
+                        -adjusted_rect.width() * 0.08,
+                        -adjusted_rect.height() * 0.12,
+                    ),
+                    adjusted_rect.width() * 0.36,
+                    adjusted_rect.height() * 0.36,
                 )
 
                 painter.setPen(Qt.PenStyle.NoPen)
@@ -1393,14 +1430,44 @@ def main() -> None:
                             highlight_size,
                         )
                     )
+                else:
+                    pupil_size = min(adjusted_rect.width(), adjusted_rect.height()) * 0.22
+                    pupil_rect = QRectF(
+                        adjusted_rect.center().x() - pupil_size * 0.5 + adjusted_rect.width() * gaze_x,
+                        adjusted_rect.center().y() - pupil_size * 0.46 + adjusted_rect.height() * gaze_y,
+                        pupil_size,
+                        pupil_size,
+                    )
+                    painter.setBrush(QColor(255, 255, 255, 72))
+                    painter.drawEllipse(
+                        QRectF(
+                            pupil_rect.left() + pupil_size * 0.18,
+                            pupil_rect.top() + pupil_size * 0.1,
+                            pupil_size * 0.42,
+                            pupil_size * 0.42,
+                        )
+                    )
 
             draw_eye(left_eye)
             draw_eye(right_eye)
 
             mouth_pen = QPen(QColor(skin["mouth"]), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
             painter.setPen(mouth_pen)
-            mouth_rect = QRectF(self.width() * 0.41, self.height() * 0.58 + bob_offset, self.width() * 0.18, self.height() * 0.10)
-            painter.drawArc(mouth_rect, 205 * 16, 130 * 16)
+            mouth_rect = QRectF(
+                self.width() * 0.41,
+                self.height() * 0.58 + bob_offset,
+                self.width() * 0.18,
+                self.height() * 0.10,
+            )
+            mouth_start, mouth_span, mouth_y_shift, mouth_width_scale = _mouth_expression(
+                self._state.name,
+                self._pulse,
+                smile_bounce,
+            )
+            mouth_rect.moveTop(mouth_rect.top() + mouth_y_shift)
+            mouth_rect.setWidth(mouth_rect.width() * mouth_width_scale)
+            mouth_rect.moveLeft(self.width() * 0.5 - mouth_rect.width() * 0.5)
+            painter.drawArc(mouth_rect, mouth_start * 16, mouth_span * 16)
 
             cheek_glow = QRadialGradient(
                 self.width() * 0.72,
@@ -1408,7 +1475,7 @@ def main() -> None:
                 self.width() * 0.10,
             )
             cheek_core = QColor(skin["cheek"])
-            cheek_core.setAlpha(58)
+            cheek_core.setAlpha(min(120, 58 + int(30 * smile_bounce)))
             cheek_edge = QColor(skin["cheek"])
             cheek_edge.setAlpha(0)
             cheek_glow.setColorAt(0.0, cheek_core)
@@ -1764,6 +1831,54 @@ def main() -> None:
         color = QColor(_glow_color(state_name, skin_id))
         color.setAlpha(105 + int(35 * abs(math.sin(pulse))))
         return color
+
+    def _eye_gaze_offset(state_name: AssistantStateName, pulse: float) -> tuple[float, float]:
+        if state_name == AssistantStateName.LISTENING:
+            return (0.04 * math.sin(pulse * 0.8), -0.03)
+        if state_name == AssistantStateName.THINKING:
+            return (0.07 * math.sin(pulse * 0.45), -0.05)
+        if state_name == AssistantStateName.SPEAKING:
+            return (0.03 * math.sin(pulse * 1.4), 0.01)
+        if state_name == AssistantStateName.ERROR:
+            return (0.08 * math.sin(pulse * 2.0), -0.02)
+        return (0.025 * math.sin(pulse * 0.5), 0.0)
+
+    def _speaking_eye_squint(state_name: AssistantStateName, pulse: float) -> float:
+        if state_name == AssistantStateName.SPEAKING:
+            return 0.9 + 0.1 * abs(math.sin(pulse * 1.6))
+        if state_name == AssistantStateName.LISTENING:
+            return 1.02
+        return 1.0
+
+    def _listening_face_lift(state_name: AssistantStateName, pulse: float) -> float:
+        if state_name == AssistantStateName.LISTENING:
+            return -1.4 - 0.6 * abs(math.sin(pulse * 0.95))
+        return 0.0
+
+    def _mouth_expression(
+        state_name: AssistantStateName,
+        pulse: float,
+        smile_bounce: float = 0.0,
+    ) -> tuple[float, float, float, float]:
+        if state_name == AssistantStateName.LISTENING:
+            return (202, 134, -1.1, 1.04)
+        if state_name == AssistantStateName.THINKING:
+            return (215, 112, 0.5 * math.sin(pulse * 0.7), 0.96)
+        if state_name == AssistantStateName.SPEAKING:
+            return (
+                198,
+                145 + 18 * abs(math.sin(pulse * 1.9)),
+                -1.2 * abs(math.sin(pulse * 1.5)),
+                1.05,
+            )
+        if state_name == AssistantStateName.ERROR:
+            return (225, 86, 1.6 * abs(math.sin(pulse * 1.8)), 0.9)
+        return (
+            205 - int(6 * smile_bounce),
+            130 + int(26 * smile_bounce),
+            -1.8 * smile_bounce,
+            1.0 + 0.08 * smile_bounce,
+        )
 
     def _state_label(state_name: AssistantStateName) -> str:
         if state_name == AssistantStateName.LISTENING:

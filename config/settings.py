@@ -6,7 +6,7 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.4.5")
+APP_VERSION = os.getenv("APP_VERSION", "0.4.6")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
@@ -109,6 +109,10 @@ AVATAR_IMAGE_PATH = os.getenv("AVATAR_IMAGE_PATH", "").strip()
 AVATAR_SKIN = os.getenv("AVATAR_SKIN", "classic").strip()
 AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "210"))
 AVATAR_STATE_FILE = os.getenv("AVATAR_STATE_FILE", "storage/avatar_widget.json")
+AVATAR_CUSTOM_SKIN_FILE = os.getenv(
+    "AVATAR_CUSTOM_SKIN_FILE",
+    "storage/avatar_custom_skin.json",
+).strip()
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
 TTS_PROFILE = os.getenv("TTS_PROFILE", "ruslan_direct")

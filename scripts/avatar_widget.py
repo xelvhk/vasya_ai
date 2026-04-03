@@ -11,6 +11,7 @@ from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction
 from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
+    AVATAR_CUSTOM_SKIN_FILE,
     AVATAR_IMAGE_PATH,
     AVATAR_SKIN,
     AVATAR_SIZE,
@@ -52,12 +53,14 @@ def main() -> None:
             QComboBox,
             QDialog,
             QDialogButtonBox,
+            QFileDialog,
             QFormLayout,
             QHBoxLayout,
             QInputDialog,
             QLabel,
             QLineEdit,
             QMenu,
+            QPushButton,
             QSlider,
             QSystemTrayIcon,
             QVBoxLayout,
@@ -71,6 +74,9 @@ def main() -> None:
     AVATAR_SKINS = {
         "classic": {
             "label": "Классический",
+            "motion_speed": 1.0,
+            "motion_bob": 1.0,
+            "glow_alpha": 1.0,
             "body_top": "#4f86ff",
             "body_mid": "#224eb6",
             "body_bottom": "#08153b",
@@ -91,6 +97,9 @@ def main() -> None:
         },
         "soft": {
             "label": "Мягкий",
+            "motion_speed": 0.92,
+            "motion_bob": 0.88,
+            "glow_alpha": 0.92,
             "body_top": "#71b4ff",
             "body_mid": "#3f78d8",
             "body_bottom": "#13285f",
@@ -111,6 +120,9 @@ def main() -> None:
         },
         "sunset": {
             "label": "Теплый",
+            "motion_speed": 0.96,
+            "motion_bob": 0.95,
+            "glow_alpha": 1.08,
             "body_top": "#ff9f6e",
             "body_mid": "#d95f64",
             "body_bottom": "#4b2048",
@@ -131,6 +143,9 @@ def main() -> None:
         },
         "mint": {
             "label": "Свежий",
+            "motion_speed": 1.08,
+            "motion_bob": 1.04,
+            "glow_alpha": 1.02,
             "body_top": "#73f0d0",
             "body_mid": "#28a9a5",
             "body_bottom": "#103a52",
@@ -151,6 +166,9 @@ def main() -> None:
         },
         "child": {
             "label": "Детский",
+            "motion_speed": 1.18,
+            "motion_bob": 1.22,
+            "glow_alpha": 1.12,
             "body_top": "#8ec5ff",
             "body_mid": "#6d7cff",
             "body_bottom": "#362f7c",
@@ -171,6 +189,9 @@ def main() -> None:
         },
         "minimal": {
             "label": "Минималистичный",
+            "motion_speed": 0.82,
+            "motion_bob": 0.7,
+            "glow_alpha": 0.8,
             "body_top": "#dce7ff",
             "body_mid": "#95acd8",
             "body_bottom": "#3e5177",
@@ -192,11 +213,87 @@ def main() -> None:
     }
 
     def _avatar_skin_spec(skin_id: str | None) -> dict:
-        default_skin = AVATAR_SKINS[AVATAR_SKIN] if AVATAR_SKIN in AVATAR_SKINS else AVATAR_SKINS["classic"]
-        return AVATAR_SKINS.get(skin_id or "", default_skin)
+        default_skin = _avatar_skins()[AVATAR_SKIN] if AVATAR_SKIN in _avatar_skins() else _avatar_skins()["classic"]
+        return _avatar_skins().get(skin_id or "", default_skin)
 
     def _avatar_skin_ids() -> list[str]:
-        return list(AVATAR_SKINS.keys())
+        return list(_avatar_skins().keys())
+
+    def _avatar_skins() -> dict[str, dict]:
+        skins = dict(AVATAR_SKINS)
+        custom_skin = _load_custom_skin_spec()
+        if custom_skin is not None:
+            skins["custom"] = custom_skin
+        return skins
+
+    def _custom_skin_path() -> Path:
+        return Path(AVATAR_CUSTOM_SKIN_FILE)
+
+    def _normalize_custom_skin_spec(payload: dict) -> dict:
+        base = dict(AVATAR_SKINS["classic"])
+        label = str(payload.get("label", "Пользовательский")).strip() or "Пользовательский"
+        base["label"] = label
+
+        for key in (
+            "body_top",
+            "body_mid",
+            "body_bottom",
+            "rim",
+            "face_center",
+            "face_edge",
+            "eye_top",
+            "eye_mid",
+            "eye_bottom",
+            "mouth",
+            "tuft",
+            "cheek",
+            "glow_idle",
+            "glow_listening",
+            "glow_thinking",
+            "glow_speaking",
+            "glow_error",
+        ):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                base[key] = value.strip()
+
+        for key in ("motion_speed", "motion_bob", "glow_alpha"):
+            value = payload.get(key)
+            if isinstance(value, (int, float)):
+                base[key] = float(value)
+
+        return base
+
+    def _load_custom_skin_spec() -> dict | None:
+        path = _custom_skin_path()
+        if not path.exists():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        return _normalize_custom_skin_spec(payload)
+
+    def _save_custom_skin_spec(payload: dict) -> None:
+        path = _custom_skin_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        normalized = _normalize_custom_skin_spec(payload)
+        path.write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _delete_custom_skin_spec() -> None:
+        path = _custom_skin_path()
+        if path.exists():
+            path.unlink()
+
+    def _exportable_skin_spec(skin_id: str | None) -> dict:
+        skin = dict(_avatar_skin_spec(skin_id))
+        skin.setdefault("label", "Пользовательский")
+        return skin
 
     if get_platform_name() == "macos":
         from scripts.autostart_macos import install_autostart, is_autostart_enabled, uninstall_autostart
@@ -380,11 +477,36 @@ def main() -> None:
             form.addRow("Размер Васи", self._size_combo)
 
             self._skin_combo = QComboBox(self)
-            for skin_id in _avatar_skin_ids():
-                self._skin_combo.addItem(_avatar_skin_spec(skin_id)["label"], skin_id)
-            self._select_combo_value(self._skin_combo, widget._avatar_skin)
             self._skin_combo.currentIndexChanged.connect(self._sync_preview)
-            form.addRow("Скин Васи", self._skin_combo)
+            self._reload_skin_choices(widget._avatar_skin)
+
+            skin_actions = QHBoxLayout()
+            import_skin_button = QPushButton("Импорт палитры...", self)
+            import_skin_button.clicked.connect(self._import_custom_skin)
+            skin_actions.addWidget(import_skin_button)
+            export_skin_button = QPushButton("Экспорт палитры...", self)
+            export_skin_button.clicked.connect(self._export_current_skin)
+            skin_actions.addWidget(export_skin_button)
+            reset_skin_button = QPushButton("Сбросить свою", self)
+            reset_skin_button.clicked.connect(self._reset_custom_skin)
+            skin_actions.addWidget(reset_skin_button)
+            skin_actions.addStretch(1)
+
+            skin_row = QVBoxLayout()
+            skin_row.setSpacing(8)
+            skin_row.addWidget(self._skin_combo)
+            skin_row.addLayout(skin_actions)
+            form.addRow("Скин Васи", skin_row)
+
+            image_actions = QHBoxLayout()
+            choose_image_button = QPushButton("Выбрать изображение...", self)
+            choose_image_button.clicked.connect(self._choose_avatar_image)
+            image_actions.addWidget(choose_image_button)
+            reset_image_button = QPushButton("Вернуть встроенный", self)
+            reset_image_button.clicked.connect(self._reset_avatar_image)
+            image_actions.addWidget(reset_image_button)
+            image_actions.addStretch(1)
+            form.addRow("Картинка Васи", image_actions)
 
             self._voice_profile_combo = QComboBox(self)
             active_profile = get_active_voice_profile()
@@ -524,6 +646,86 @@ def main() -> None:
                     combo.setCurrentIndex(index)
                     return
 
+        def _reload_skin_choices(self, selected_skin: str | None = None) -> None:
+            current_signal_state = self._skin_combo.blockSignals(True)
+            self._skin_combo.clear()
+            for skin_id in _avatar_skin_ids():
+                self._skin_combo.addItem(_avatar_skin_spec(skin_id)["label"], skin_id)
+            self._skin_combo.blockSignals(current_signal_state)
+            resolved_skin = selected_skin if selected_skin in _avatar_skin_ids() else AVATAR_SKIN
+            self._select_combo_value(self._skin_combo, resolved_skin)
+
+        def _import_custom_skin(self) -> None:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Выбери JSON-палитру",
+                str(Path.cwd()),
+                "JSON Files (*.json)",
+            )
+            if not file_path:
+                return
+            try:
+                payload = json.loads(Path(file_path).read_text(encoding="utf-8"))
+                if not isinstance(payload, dict):
+                    raise ValueError("JSON должен содержать объект с цветами палитры.")
+                _save_custom_skin_spec(payload)
+            except Exception as exc:
+                log(f"Не удалось импортировать палитру: {exc}")
+                return
+            self._reload_skin_choices("custom")
+            self._sync_preview()
+
+        def _reset_custom_skin(self) -> None:
+            _delete_custom_skin_spec()
+            current_skin = str(self._skin_combo.currentData())
+            self._reload_skin_choices(
+                AVATAR_SKIN if current_skin == "custom" else current_skin
+            )
+            self._sync_preview()
+
+        def _export_current_skin(self) -> None:
+            current_skin = str(self._skin_combo.currentData())
+            suggested_name = f"vasya_{current_skin or 'skin'}.json"
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Сохранить палитру Васи",
+                str(Path.cwd() / suggested_name),
+                "JSON Files (*.json)",
+            )
+            if not file_path:
+                return
+            try:
+                Path(file_path).write_text(
+                    json.dumps(
+                        _exportable_skin_spec(current_skin),
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+            except OSError as exc:
+                log(f"Не удалось сохранить палитру: {exc}")
+
+        def _choose_avatar_image(self) -> None:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Выбери изображение Васи",
+                str(Path.cwd()),
+                "Images (*.png *.svg *.jpg *.jpeg *.webp)",
+            )
+            if not file_path:
+                return
+            chosen = Path(file_path).expanduser()
+            if not chosen.exists():
+                log(f"Не удалось выбрать изображение: файл не найден {chosen}")
+                return
+            self._widget._set_avatar_image_path(chosen)
+            self._sync_preview()
+
+        def _reset_avatar_image(self) -> None:
+            self._widget._set_avatar_image_path(None)
+            self._sync_preview()
+
         def _sync_preview(self) -> None:
             selected_skin = str(self._skin_combo.currentData())
             child_mode_enabled = self._child_mode_checkbox.isChecked()
@@ -587,18 +789,29 @@ def main() -> None:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setOpacity(max(0.45, min(1.0, self._preview_opacity)))
-            self._widget._paint_preview_character(
-                painter,
-                QRectF(10, 10, self.width() - 20, self.height() - 20),
-                pulse=self._pulse,
-                bob=self._bob,
-                scale=max(0.82, min(1.18, self._preview_size / 210.0)),
-                skin_id=(
-                    "child"
-                    if self._preview_child_mode_enabled and self._preview_auto_child_skin
-                    else self._preview_skin_id
-                ),
+            preview_bounds = QRectF(10, 10, self.width() - 20, self.height() - 20)
+            effective_skin = (
+                "child"
+                if self._preview_child_mode_enabled and self._preview_auto_child_skin
+                else self._preview_skin_id
             )
+            if self._widget._avatar:
+                self._widget._paint_preview_image_avatar(
+                    painter,
+                    preview_bounds,
+                    pulse=self._pulse,
+                    bob=self._bob,
+                    skin_id=effective_skin,
+                )
+            else:
+                self._widget._paint_preview_character(
+                    painter,
+                    preview_bounds,
+                    pulse=self._pulse,
+                    bob=self._bob,
+                    scale=max(0.82, min(1.18, self._preview_size / 210.0)),
+                    skin_id=effective_skin,
+                )
 
     class AvatarWidget(QWidget):
         def __init__(self) -> None:
@@ -612,6 +825,8 @@ def main() -> None:
             self._widget_state = _load_widget_state()
             self._avatar_size = int(self._widget_state.get("size", AVATAR_SIZE))
             self._avatar_skin = str(self._widget_state.get("avatar_skin", AVATAR_SKIN))
+            if self._avatar_skin not in _avatar_skin_ids():
+                self._avatar_skin = AVATAR_SKIN if AVATAR_SKIN in _avatar_skin_ids() else "classic"
             self._auto_child_skin = bool(self._widget_state.get("auto_child_skin", True))
             self._tray_click_action = str(
                 self._widget_state.get("tray_click_action", "toggle")
@@ -666,6 +881,11 @@ def main() -> None:
             self._setup_tray()
 
         def _resolve_avatar_path(self) -> Path | None:
+            override_path = str(self._widget_state.get("avatar_image_path", "")).strip()
+            if override_path:
+                path = Path(override_path).expanduser()
+                if path.exists():
+                    return path
             if not AVATAR_IMAGE_PATH:
                 return None
             path = Path(AVATAR_IMAGE_PATH).expanduser()
@@ -714,7 +934,7 @@ def main() -> None:
                 self._pulse = 0.0
                 self._bob = 0.0
             else:
-                speed = _animation_speed(self._state.name)
+                speed = _animation_speed(self._state.name, self._effective_avatar_skin())
                 self._pulse = (self._pulse + speed) % 6.28
                 self._bob = (self._bob + speed * 0.7) % 6.28
             effective_skin = self._effective_avatar_skin()
@@ -852,14 +1072,74 @@ def main() -> None:
             painter.drawEllipse(QRectF(0, 0, self.width(), self.height()))
             painter.restore()
 
+        def _paint_preview_image_avatar(
+            self,
+            painter: QPainter,
+            bounds: QRectF,
+            *,
+            pulse: float,
+            bob: float,
+            skin_id: str,
+        ) -> None:
+            painter.save()
+            scale_x = bounds.width() / self.width()
+            scale_y = bounds.height() / self.height()
+            painter.translate(bounds.left(), bounds.top())
+            painter.scale(scale_x, scale_y)
+
+            glow = _animated_glow(self._state.name, pulse, skin_id)
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            outer_glow = QRadialGradient(
+                self.width() * 0.5,
+                self.height() * 0.48,
+                self.width() * 0.48,
+            )
+            outer_glow.setColorAt(0.0, glow)
+            fade = QColor(glow)
+            fade.setAlpha(max(0, glow.alpha() - 90))
+            outer_glow.setColorAt(0.55, fade)
+            transparent = QColor(glow)
+            transparent.setAlpha(0)
+            outer_glow.setColorAt(1.0, transparent)
+            painter.setBrush(outer_glow)
+            painter.drawEllipse(QRectF(0, 0, self.width(), self.height()))
+
+            bob_offset = _avatar_bob_offset(self._state.name, bob, skin_id)
+            shadow_alpha = 65 + int(20 * abs(math.sin(bob)))
+            painter.setBrush(QColor(11, 23, 66, shadow_alpha))
+            shadow_width = self.width() - 36 + _shadow_width_delta(self._state.name, pulse, skin_id)
+            shadow_x = (self.width() - shadow_width) / 2
+            painter.drawEllipse(QRectF(shadow_x, self.height() - 26, shadow_width, 14))
+
+            avatar_pixmap = self._prepare_avatar_pixmap(self.width() + 12, self.height() + 16)
+            if not avatar_pixmap.isNull():
+                draw_x = int((self.width() - avatar_pixmap.width()) / 2)
+                draw_y = int((self.height() - avatar_pixmap.height()) / 2) - 2 + int(bob_offset)
+                painter.drawPixmap(draw_x, draw_y, avatar_pixmap)
+
+            highlight_path = QPainterPath()
+            highlight_path.addEllipse(QRectF(18, 20 + bob_offset, self.width() - 36, self.height() - 44))
+            painter.setPen(QPen(_highlight_color(self._state.name, pulse, skin_id), 2))
+            painter.drawPath(highlight_path)
+            painter.restore()
+
         def _paint_avatar(self, painter: QPainter) -> None:
-            bob_offset = _avatar_bob_offset(self._state.name, self._bob)
+            bob_offset = _avatar_bob_offset(
+                self._state.name,
+                self._bob,
+                self._effective_avatar_skin(),
+            )
             avatar_rect = QRectF(-6, -12 + bob_offset, self.width() + 12, self.height() + 16)
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             shadow_alpha = 65 + int(20 * abs(math.sin(self._bob)))
             painter.setBrush(QColor(11, 23, 66, shadow_alpha))
-            shadow_width = self.width() - 36 + _shadow_width_delta(self._state.name, self._pulse)
+            shadow_width = self.width() - 36 + _shadow_width_delta(
+                self._state.name,
+                self._pulse,
+                self._effective_avatar_skin(),
+            )
             shadow_x = (self.width() - shadow_width) / 2
             painter.drawEllipse(QRectF(shadow_x, self.height() - 26, shadow_width, 14))
 
@@ -886,6 +1166,25 @@ def main() -> None:
             )
             painter.drawPath(highlight_path)
             painter.restore()
+
+        def _set_avatar_image_path(self, path: Path | None) -> None:
+            if path is None:
+                self._widget_state.pop("avatar_image_path", None)
+                self._avatar_path = self._resolve_avatar_path()
+            else:
+                resolved = Path(path).expanduser()
+                self._widget_state["avatar_image_path"] = str(resolved)
+                self._avatar_path = resolved
+
+            self._avatar = self._load_avatar()
+            self._avatar_is_svg = (
+                self._avatar_path is not None and self._avatar_path.suffix.lower() == ".svg"
+            )
+            self._tray_icon_pixmap = self._build_tray_pixmap()
+            if self._tray is not None:
+                self._tray.setIcon(QIcon(self._tray_icon_pixmap))
+            self.update()
+            self._save_position()
 
         def _prepare_avatar_pixmap(self, width: int, height: int) -> QPixmap:
             if self._avatar_path is None:
@@ -963,7 +1262,7 @@ def main() -> None:
             self._bob = bob
 
             skin = _avatar_skin_spec(skin_id or self._avatar_skin)
-            bob_offset = _avatar_bob_offset(self._state.name, self._bob)
+            bob_offset = _avatar_bob_offset(self._state.name, self._bob, skin_id or self._avatar_skin)
             glow = _animated_glow(self._state.name, self._pulse, skin_id or self._avatar_skin)
 
             painter.setPen(Qt.PenStyle.NoPen)
@@ -980,7 +1279,11 @@ def main() -> None:
             painter.drawEllipse(QRectF(-8, -6, self.width() + 16, self.height() + 12))
 
             shadow_alpha = 70 + int(18 * abs(math.sin(self._bob)))
-            shadow_width = self.width() * (0.54 * scale) + _shadow_width_delta(self._state.name, self._pulse)
+            shadow_width = self.width() * (0.54 * scale) + _shadow_width_delta(
+                self._state.name,
+                self._pulse,
+                skin_id or self._avatar_skin,
+            )
             shadow_x = (self.width() - shadow_width) / 2
             painter.setBrush(QColor(9, 18, 54, shadow_alpha))
             painter.drawEllipse(QRectF(shadow_x, self.height() - 30, shadow_width, 16))
@@ -1395,18 +1698,22 @@ def main() -> None:
             return skin["glow_error"]
         return skin["glow_idle"]
 
-    def _animation_speed(state_name: AssistantStateName) -> float:
+    def _animation_speed(state_name: AssistantStateName, skin_id: str | None = None) -> float:
+        skin = _avatar_skin_spec(skin_id)
         if state_name == AssistantStateName.LISTENING:
-            return 0.12
-        if state_name == AssistantStateName.THINKING:
-            return 0.08
-        if state_name == AssistantStateName.SPEAKING:
-            return 0.20
-        if state_name == AssistantStateName.ERROR:
-            return 0.22
-        return 0.05
+            speed = 0.12
+        elif state_name == AssistantStateName.THINKING:
+            speed = 0.08
+        elif state_name == AssistantStateName.SPEAKING:
+            speed = 0.20
+        elif state_name == AssistantStateName.ERROR:
+            speed = 0.22
+        else:
+            speed = 0.05
+        return speed * float(skin.get("motion_speed", 1.0))
 
     def _animated_glow(state_name: AssistantStateName, pulse: float, skin_id: str | None = None) -> QColor:
+        skin = _avatar_skin_spec(skin_id)
         base = QColor(_glow_color(state_name, skin_id))
         if state_name == AssistantStateName.LISTENING:
             alpha = 125 + int(42 * (0.55 + 0.45 * math.sin(pulse * 1.15)))
@@ -1418,26 +1725,40 @@ def main() -> None:
             alpha = 120 + int(80 * abs(math.sin(pulse * 2.0)))
         else:
             alpha = 90 + int(12 * (0.5 + 0.5 * math.sin(pulse * 0.55)))
-        base.setAlpha(alpha)
+        base.setAlpha(int(alpha * float(skin.get("glow_alpha", 1.0))))
         return base
 
-    def _avatar_bob_offset(state_name: AssistantStateName, bob: float) -> float:
+    def _avatar_bob_offset(
+        state_name: AssistantStateName,
+        bob: float,
+        skin_id: str | None = None,
+    ) -> float:
+        skin = _avatar_skin_spec(skin_id)
         if state_name == AssistantStateName.LISTENING:
-            return -1.8 * abs(math.sin(bob * 0.9))
-        if state_name == AssistantStateName.THINKING:
-            return -1.0 * math.sin(bob * 0.8)
-        if state_name == AssistantStateName.SPEAKING:
-            return -3.8 * abs(math.sin(bob * 1.35))
-        if state_name == AssistantStateName.ERROR:
-            return 1.2 * math.sin(bob * 2.4)
-        return -0.45 * math.sin(bob * 0.7)
+            value = -1.8 * abs(math.sin(bob * 0.9))
+        elif state_name == AssistantStateName.THINKING:
+            value = -1.0 * math.sin(bob * 0.8)
+        elif state_name == AssistantStateName.SPEAKING:
+            value = -3.8 * abs(math.sin(bob * 1.35))
+        elif state_name == AssistantStateName.ERROR:
+            value = 1.2 * math.sin(bob * 2.4)
+        else:
+            value = -0.45 * math.sin(bob * 0.7)
+        return value * float(skin.get("motion_bob", 1.0))
 
-    def _shadow_width_delta(state_name: AssistantStateName, pulse: float) -> float:
+    def _shadow_width_delta(
+        state_name: AssistantStateName,
+        pulse: float,
+        skin_id: str | None = None,
+    ) -> float:
+        skin = _avatar_skin_spec(skin_id)
         if state_name == AssistantStateName.SPEAKING:
-            return -7 * abs(math.sin(pulse * 1.6))
-        if state_name == AssistantStateName.LISTENING:
-            return -3 * abs(math.sin(pulse * 0.9))
-        return -2 * abs(math.sin(pulse))
+            value = -7 * abs(math.sin(pulse * 1.6))
+        elif state_name == AssistantStateName.LISTENING:
+            value = -3 * abs(math.sin(pulse * 0.9))
+        else:
+            value = -2 * abs(math.sin(pulse))
+        return value * float(skin.get("motion_bob", 1.0))
 
     def _highlight_color(state_name: AssistantStateName, pulse: float, skin_id: str | None = None) -> QColor:
         color = QColor(_glow_color(state_name, skin_id))

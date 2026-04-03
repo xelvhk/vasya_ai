@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.4.5`
+Current version: `0.4.6`
 
 ## Overview
 
@@ -28,6 +28,7 @@ Vasya already supports:
 - local notes memory with Obsidian export
 - a faster two-stage STT pipeline
 - STT quality profiles and smarter recovery UX
+- avatar skin presets, custom palette import/export, and custom avatar image support
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -50,6 +51,7 @@ Current capabilities:
 - show more natural intermediate response states
 - delete all tasks with voice confirmation
 - play kid-friendly voice games: words, hide and seek, riddles, guess the animal, and repeat after me
+- personalize Vasya through built-in skins, a custom palette, or a custom avatar image
 
 Example commands:
 - `Add a task to buy a lamp`
@@ -230,7 +232,11 @@ Notes:
 - tray menu can start listening or quit Vasya
 - tray and avatar menu now also expose size, position, hotkey, and tray-click settings
 - Vasya now uses a built-in procedural live avatar by default
-- set `AVATAR_IMAGE_PATH` only if you want to override the default look with your own PNG or SVG
+- built-in skins can be switched directly from settings
+- the current palette can be exported to JSON and imported back as a custom skin
+- a custom PNG, SVG, JPG, JPEG, or WEBP avatar image can be selected directly from settings
+- child mode can temporarily switch Vasya to the child skin without losing the manual skin selection
+- `AVATAR_IMAGE_PATH` still works as a fallback if you want to preconfigure an image from the environment
 - widget position is restored between launches
 - response bubble is shown next to the avatar during listening, thinking, speaking, and errors
 - right click opens the avatar context menu
@@ -274,8 +280,10 @@ VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
 AVATAR_IMAGE_PATH=
+AVATAR_SKIN=classic
 AVATAR_SIZE=210
 AVATAR_STATE_FILE=storage/avatar_widget.json
+AVATAR_CUSTOM_SKIN_FILE=storage/avatar_custom_skin.json
 
 STORAGE_DB_FILE=storage/vasya.db
 CALENDAR_STORAGE_FILE=storage/calendar.json
@@ -352,7 +360,7 @@ This is still an MVP, so current limits include:
 - Obsidian is still export-focused, not a full sync layer
 - no specialized code or writing agents yet
 - no simple Windows or Linux installation path yet
-- no skin system for Vasya yet
+- no full user-imported character pack system yet
 
 ## Version Path
 
@@ -363,7 +371,8 @@ This is still an MVP, so current limits include:
 - `v0.4.3`: notes, local memory, and Obsidian export
 - `v0.4.4`: voice responsiveness, child-safe UX, and improved game flow
 - `v0.4.5`: two-stage STT, STT quality profiles, smarter follow-up recovery, and clearer task/calendar clarifications
-- `v0.5.x`: a more cohesive desktop shell, alternate Vasya skins, and richer avatar behavior
+- `v0.4.6`: avatar personalization, built-in skins, custom palette import/export, custom avatar image overrides, and child-mode auto skin switching
+- `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows
 - `v0.8.x`: code agent and writing/research agent
@@ -373,7 +382,7 @@ This is still an MVP, so current limits include:
 
 Near-term goals:
 - a more polished desktop shell around the current widget MVP
-- a skin system for Vasya
+- richer avatar personalization and user-imported visual styles
 - continued improvements to voice understanding and recovery UX
 - easier installation, starting with a Windows setup path
 - Notion as a second adapter on top of the local-first core
@@ -386,6 +395,7 @@ For Vasya, `1.0` should mean a real product, not just another MVP:
 - the desktop shell feels stable and intentional
 - voice UX is fast and predictable
 - Vasya can be personalized through skins
+- Vasya can also be personalized through user images and custom palette-based themes
 - the local core remains the source of truth
 - Obsidian and Notion work as external adapters and views
 - multiple specialized agents are available instead of only one general assistant

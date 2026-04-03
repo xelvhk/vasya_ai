@@ -76,6 +76,7 @@ Current status:
 - notes memory and Obsidian export landed in `v0.4.3`
 - voice responsiveness and child-safe/game UX improved in `v0.4.4`
 - two-stage STT, STT quality profiles, smarter recovery, and better clarifications landed in `v0.4.5`
+- avatar personalization, built-in skins, custom palette import/export, custom avatar images, and child-mode auto skin switching landed in `v0.4.6`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -83,6 +84,7 @@ Targets:
 - floating widget or avatar
 - visible states: listening, thinking, speaking, error
 - alternate avatar skins and character presentation presets
+- user-imported palette themes and optional image-based avatar overrides
 
 Recommended order:
 1. hotkey
@@ -176,7 +178,8 @@ Good future exports:
 - `v0.4.3`: local notes memory and Obsidian export
 - `v0.4.4`: voice responsiveness, child-safe UX, and game interaction polish
 - `v0.4.5`: two-stage STT, STT quality profiles, smarter recovery, and clearer task/calendar clarifications
-- `v0.5.x`: fuller desktop shell, alternate Vasya skins, and richer avatar behavior
+- `v0.4.6`: avatar personalization, built-in skins, custom palette import/export, custom avatar image overrides, and child-mode auto skin switching
+- `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter
 - `v0.8.x`: code agent and writing/research agent
@@ -187,7 +190,7 @@ Good future exports:
 If choosing one practical path from here, the best next order is:
 
 1. Make the desktop shell feel more product-like
-2. Add a skin system for Vasya
+2. Deepen avatar personalization and user theme import
 3. Continue improving speech understanding and recovery UX
 4. Simplify setup and first-run experience, starting with Windows setup
 5. Deepen adapters such as Obsidian and later Notion
@@ -200,6 +203,7 @@ For Vasya, `1.0` should mean:
 - a polished desktop shell with character presence
 - stable and fast voice-first UX
 - alternate Vasya skins and personalization
+- user-imported themes or images for character customization
 - local-first core remains the source of truth
 - Obsidian and Notion available as adapters and external views
 - multiple specialized agents for different workflows

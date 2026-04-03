@@ -14,6 +14,7 @@ from dataclasses import dataclass
 class ProcessResult:
     intent: str
     response: str
+    needs_followup: bool = False
 
 
 def process_text(user_text: str) -> str:
@@ -69,7 +70,11 @@ def process_text_detailed(user_text: str) -> ProcessResult:
             "response": response,
         },
     )
-    return ProcessResult(intent=intent_result.intent, response=response)
+    return ProcessResult(
+        intent=intent_result.intent,
+        response=response,
+        needs_followup=_should_follow_up(intent_result.intent, response),
+    )
 
 
 def _handle_system_intent(user_text: str) -> ProcessResult | None:
@@ -98,7 +103,7 @@ def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
     decision = classify_confirmation_reply(user_text)
     if decision is None:
         response = "Нужно коротко подтвердить: скажи да или нет."
-        return ProcessResult(intent="unknown", response=response)
+        return ProcessResult(intent="unknown", response=response, needs_followup=True)
 
     confirmation_store.clear()
     if decision == "cancel":
@@ -118,4 +123,12 @@ def _handle_active_game(user_text: str) -> ProcessResult | None:
     response = handle_active_game_turn(user_text)
     if response is None:
         return None
-    return ProcessResult(intent="play_game", response=response)
+    return ProcessResult(intent="play_game", response=response, needs_followup=True)
+
+
+def _should_follow_up(intent: str, response: str) -> bool:
+    if intent in {"chat", "play_game"}:
+        return True
+    if intent == "unknown" and response:
+        return True
+    return response.strip().endswith("?")

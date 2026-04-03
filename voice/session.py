@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 
+from dataclasses import dataclass
+
 from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.conversation import conversation_memory
@@ -29,19 +31,33 @@ from voice.stt import transcribe
 from voice.tts import speak
 
 
+@dataclass(frozen=True)
+class CaptureOutcome:
+    text: str | None
+    failure_reason: str | None = None
+
+
 def run_voice_interaction() -> AssistantControlAction:
     followup_turns_left = CHAT_FOLLOWUP_MAX_TURNS
     keep_conversation_open = False
 
     while True:
         assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
-        user_text = _capture_user_text()
+        capture = _capture_user_text()
+        user_text = capture.text
         if not user_text:
             if keep_conversation_open:
+                reprompt = _followup_reprompt_for(capture.failure_reason)
+                if reprompt and followup_turns_left > 0:
+                    assistant_state.set(AssistantStateName.SPEAKING, reprompt)
+                    speak(reprompt)
+                    followup_turns_left -= 1
+                    time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
+                    continue
                 assistant_state.set(AssistantStateName.IDLE)
                 return assistant_control.consume_action()
             assistant_state.set(AssistantStateName.ERROR, "Не удалось распознать голосовую команду")
-            speak("Я так и не смог нормально расслышать команду.")
+            speak(_failure_message_for(capture.failure_reason))
             assistant_state.set(AssistantStateName.IDLE)
             return assistant_control.consume_action()
 
@@ -53,7 +69,7 @@ def run_voice_interaction() -> AssistantControlAction:
             assistant_state.set(AssistantStateName.SPEAKING, response)
             speak(response)
 
-        if not _should_keep_conversation_open(result.intent, response) or followup_turns_left <= 0:
+        if not result.needs_followup or followup_turns_left <= 0:
             break
 
         keep_conversation_open = True
@@ -64,13 +80,7 @@ def run_voice_interaction() -> AssistantControlAction:
     return assistant_control.consume_action()
 
 
-def _should_keep_conversation_open(intent: str, response: str) -> bool:
-    if intent in {"chat", "unknown", "play_game"}:
-        return True
-    return response.strip().endswith("?")
-
-
-def _capture_user_text() -> str | None:
+def _capture_user_text() -> CaptureOutcome:
     for attempt in range(1, MAX_VOICE_RETRIES + 1):
         log_voice_event(f"capture_attempt={attempt}/{MAX_VOICE_RETRIES}")
         recording = record_audio(
@@ -90,7 +100,7 @@ def _capture_user_text() -> str | None:
                 speak("Слишком тихо. Повтори, пожалуйста, чуть громче.")
                 continue
             log_voice_event("capture_failed reason=low_audio_level")
-            return None
+            return CaptureOutcome(text=None, failure_reason="low_audio_level")
 
         transcription = transcribe(AUDIO_FILENAME)
         if transcription.is_empty:
@@ -104,7 +114,7 @@ def _capture_user_text() -> str | None:
                 speak("Я ничего не расслышал. Повтори, пожалуйста.")
                 continue
             log_voice_event("capture_failed reason=empty_transcription")
-            return None
+            return CaptureOutcome(text=None, failure_reason="empty_transcription")
 
         if _needs_confirmation(transcription):
             log_voice_event(
@@ -118,9 +128,9 @@ def _capture_user_text() -> str | None:
             if confirmed_text is None:
                 if attempt < MAX_VOICE_RETRIES:
                     continue
-                return None
+                return CaptureOutcome(text=None, failure_reason="confirmation_failed")
             log_voice_event(f"transcription_confirmed text={confirmed_text!r}")
-            return confirmed_text
+            return CaptureOutcome(text=confirmed_text)
 
         log_voice_event(
             "transcription_success "
@@ -129,10 +139,10 @@ def _capture_user_text() -> str | None:
             f"no_speech_prob={transcription.no_speech_prob} "
             f"text={transcription.text!r}"
         )
-        return transcription.text
+        return CaptureOutcome(text=transcription.text)
 
     log_voice_event("capture_failed reason=retries_exhausted")
-    return None
+    return CaptureOutcome(text=None, failure_reason="retries_exhausted")
 
 
 def _update_listening_status(message: str) -> None:
@@ -265,3 +275,23 @@ def _is_safe_low_confidence_fast_path(transcription: TranscriptionResult) -> boo
         "get_notes",
         "export_notes",
     }
+
+
+def _failure_message_for(reason: str | None) -> str:
+    if reason == "low_audio_level":
+        return "Было слишком тихо. Скажи еще раз чуть громче."
+    if reason == "empty_transcription":
+        return "Я не расслышала фразу. Попробуй сказать еще раз."
+    if reason == "confirmation_failed":
+        return "Я так и не разобрала фразу уверенно. Давай еще раз."
+    return "Я так и не смогла нормально расслышать команду."
+
+
+def _followup_reprompt_for(reason: str | None) -> str | None:
+    if reason == "low_audio_level":
+        return "Не расслышала. Повтори чуть громче."
+    if reason == "empty_transcription":
+        return "Не расслышала. Повтори, пожалуйста."
+    if reason == "confirmation_failed":
+        return "Не уверена, что правильно услышала. Повтори коротко."
+    return None

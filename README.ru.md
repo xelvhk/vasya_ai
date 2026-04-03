@@ -253,6 +253,10 @@ OLLAMA_FAST_NUM_PREDICT=256
 AUDIO_FILENAME=input.wav
 RECORD_SECONDS=5
 WHISPER_MODEL=base
+WHISPER_PARTIAL_MODEL=base
+WHISPER_FINAL_MODEL=large-v3-turbo
+STT_PARTIAL_BEAM_SIZE=1
+STT_FINAL_BEAM_SIZE=5
 
 TTS_VOICE=Milena
 TTS_RATE=185
@@ -288,6 +292,12 @@ GOOGLE_CALENDAR_READ_MAX_RESULTS=20
 - `OLLAMA_FAST_MODEL` используется для коротких команд
 - `OLLAMA_FAST_THINK=false` отключает reasoning на fast-path
 - `OLLAMA_FAST_NUM_PREDICT` стоит держать небольшим, например `128` или `256`
+
+Для более быстрого и точного распознавания речи:
+- `WHISPER_PARTIAL_MODEL` можно оставить быстрым, например `base`
+- `WHISPER_FINAL_MODEL` лучше поставить точнее, например `large-v3-turbo`
+- `STT_PARTIAL_BEAM_SIZE=1` ускоряет промежуточное распознавание
+- `STT_FINAL_BEAM_SIZE=5` оставляет качество на финальном распознавании
 
 Выбор голоса:
 

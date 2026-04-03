@@ -253,6 +253,10 @@ OLLAMA_FAST_NUM_PREDICT=256
 AUDIO_FILENAME=input.wav
 RECORD_SECONDS=5
 WHISPER_MODEL=base
+WHISPER_PARTIAL_MODEL=base
+WHISPER_FINAL_MODEL=large-v3-turbo
+STT_PARTIAL_BEAM_SIZE=1
+STT_FINAL_BEAM_SIZE=5
 
 TTS_VOICE=Milena
 TTS_RATE=185
@@ -288,6 +292,12 @@ For faster intent parsing:
 - `OLLAMA_FAST_MODEL` is used for short assistant commands
 - `OLLAMA_FAST_THINK=false` disables reasoning on the fast path
 - keep `OLLAMA_FAST_NUM_PREDICT` small, for example `128` or `256`
+
+For faster and more accurate speech recognition:
+- keep `WHISPER_PARTIAL_MODEL` fast, for example `base`
+- set `WHISPER_FINAL_MODEL` to a stronger model such as `large-v3-turbo`
+- use `STT_PARTIAL_BEAM_SIZE=1` for quicker partial recognition
+- keep `STT_FINAL_BEAM_SIZE=5` for better final accuracy
 
 Voice selection:
 

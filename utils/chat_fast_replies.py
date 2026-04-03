@@ -146,6 +146,18 @@ def generate_local_chat_reply(
             ),
         )
 
+    if re.match(r"^(окей|ок|хорош|нормально|норм|ясненько)\b", normalized) and history_size > 0:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Хорошо. Что дальше?", "Окей. Идем дальше?", "Нормально. Что теперь?"),
+                supportive=("Хорошо. Давай спокойно дальше.", "Окей. Не спешим, идем дальше."),
+                playful=("Окей. Что дальше придумал?", "Нормально. Чем займемся теперь?"),
+                child=("Хорошо. Что дальше?", "Окей. Хочешь еще что-нибудь?"),
+            ),
+        )
+
     if re.match(r"^(да\b|угу\b|ага\b|ну да\b)", normalized) and history_size > 0:
         return _pick_variant(
             history_size + _tone_offset(tone),
@@ -154,6 +166,17 @@ def generate_local_chat_reply(
                 default=("Угу. Продолжай.", "Да, слушаю дальше.", "Понял. Давай дальше."),
                 supportive=("Угу. Я с тобой, продолжай.", "Да. Спокойно, рассказывай дальше."),
                 warm=("Да, слушаю дальше.", "Угу. Продолжай."),
+            ),
+        )
+
+    if re.match(r"^(ну\b|ну ладно\b|ладненько\b|угу да\b)$", normalized) and history_size > 0:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Угу. Что дальше?", "Хорошо. Продолжай.", "Ладно. Что теперь?"),
+                supportive=("Угу. Я с тобой. Продолжай.", "Хорошо. Давай дальше спокойно."),
+                child=("Угу. Что дальше?", "Хорошо. Хочешь еще?"),
             ),
         )
 
@@ -177,6 +200,18 @@ def generate_local_chat_reply(
             ),
         )
 
+    if re.match(r"^(класс|супер|здорово|прикольно)\b", normalized) and history_size > 0:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=("Да, неплохо получилось.", "Здорово. Что дальше?", "Класс. Идем дальше?"),
+                supportive=("Да, хорошо. Давай дальше без спешки.", "Здорово. Что хочешь дальше?"),
+                playful=("Супер. Продолжим?", "Класс. Что еще придумаем?"),
+                child=("Ура. Хочешь еще?", "Здорово. Что дальше?"),
+            ),
+        )
+
     if re.match(r"^(можешь помочь|поможешь)\b", normalized):
         return _pick_variant(
             history_size + _tone_offset(tone),
@@ -185,6 +220,31 @@ def generate_local_chat_reply(
                 default=("Да, конечно. С чем помочь?", "Да, помогу. Что нужно?"),
                 supportive=("Да, конечно. Я рядом. Что сейчас важнее всего?",),
                 child=("Да, конечно. Чем помочь?", "Да. Что хочешь сделать?"),
+            ),
+        )
+
+    if history_size > 0 and _is_short_followup(normalized):
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            *_tone_options(
+                tone,
+                default=(
+                    "Угу. Что дальше?",
+                    "Понял. Продолжай.",
+                    "Хорошо. Что теперь?",
+                ),
+                supportive=(
+                    "Угу. Я с тобой, продолжай.",
+                    "Хорошо. Давай дальше спокойно.",
+                ),
+                playful=(
+                    "Угу. Что дальше придумал?",
+                    "Хорошо. Чем займемся теперь?",
+                ),
+                child=(
+                    "Угу. Что дальше?",
+                    "Хорошо. Хочешь еще что-нибудь?",
+                ),
             ),
         )
 
@@ -344,3 +404,26 @@ def _tone_offset(tone: str) -> int:
     if tone == "playful":
         return 3
     return 0
+
+
+def _is_short_followup(normalized: str) -> bool:
+    words = normalized.split()
+    if not words or len(words) > 3:
+        return False
+
+    blocked = {
+        "задача",
+        "задачи",
+        "дела",
+        "события",
+        "календарь",
+        "заметка",
+        "заметки",
+        "обсидиан",
+        "игра",
+        "играть",
+    }
+    if any(word in blocked for word in words):
+        return False
+
+    return True

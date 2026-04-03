@@ -78,7 +78,7 @@ def _build_chat_prompt(
         role_label = "Пользователь" if message.role == "user" else "Вася"
         history_lines.append(f"{role_label}: {message.content}")
 
-    history_block = "\n".join(history_lines) if history_lines else "История пока пустая."
+    history_block = "\n".join(history_lines[-4:]) if history_lines else "История пока пустая."
     greeting_rule = (
         "Можно коротко поприветствовать пользователя, если это первое сообщение или он сам явно поздоровался."
         if allow_greeting
@@ -100,7 +100,7 @@ def _build_chat_prompt(
 - Обращайся к пользователю на "ты", а не на "вы"
 - Тон дружелюбный, живой и неформальный, но без фамильярности
 - Избегай канцелярита и слишком официальных формулировок
-- Для обычной беседы чаще отвечай 1-3 короткими фразами, а не длинным монологом
+- Для обычной беседы чаще отвечай 1-2 короткими фразами, а не длинным монологом
 - Если уместно, можно мягко задать один простой встречный вопрос, чтобы продолжить разговор
 - Не повторяй дословно фразу пользователя без необходимости
 - Не говори как справочник или техподдержка, говори как живой помощник
@@ -148,6 +148,7 @@ def _postprocess_chat_reply(reply: str, *, allow_greeting: bool) -> str:
     cleaned = reply.strip()
     cleaned = _soften_formality(cleaned)
     cleaned = _soften_robotic_openings(cleaned)
+    cleaned = _shorten_reply(cleaned)
     if allow_greeting:
         return cleaned
 
@@ -205,6 +206,19 @@ def _soften_robotic_openings(text: str) -> str:
         flags=re.IGNORECASE,
     ).strip()
     return softened or text.strip()
+
+
+def _shorten_reply(text: str) -> str:
+    cleaned = " ".join(text.split()).strip()
+    if not cleaned:
+        return text.strip()
+
+    sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+    if not sentences:
+        return cleaned
+
+    return " ".join(sentences[:2]).strip()
 
 
 def _generate_chat_reply_streaming(

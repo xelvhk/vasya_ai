@@ -78,11 +78,45 @@ GAME_STOP_PHRASES = {
     "закончим игру",
     "выход из игры",
     "останови игру",
+    "не хочу играть",
+    "не хочу",
+    "хватит",
+}
+
+GAME_RESTART_PHRASES = {
+    "сначала",
+    "начни сначала",
+    "давай сначала",
+    "еще раз",
+    "повтори игру",
+}
+
+GAME_REPEAT_LAST_PHRASES = {
+    "еще",
+    "давай еще",
+    "еще раз",
+    "давай еще раз",
+}
+
+GAME_OTHER_PHRASES = {
+    "другая игра",
+    "давай другую игру",
+    "сменим игру",
+}
+
+GAME_HINT_PHRASES = {
+    "подсказка",
+    "дай подсказку",
+    "подскажи",
 }
 
 
 def start_game(game_name: str | None) -> str:
     normalized_game = _normalize_game_name(game_name)
+    if normalized_game is None:
+        last_game = game_store.get_last_game()
+        if last_game:
+            normalized_game = last_game
     if normalized_game == "words":
         return _start_words_game()
     if normalized_game == "hide_and_seek":
@@ -110,6 +144,20 @@ def handle_active_game_turn(user_text: str) -> str | None:
         game_store.clear()
         return "Хорошо, заканчиваем игру."
 
+    if normalized in GAME_OTHER_PHRASES:
+        game_store.clear()
+        return (
+            "Хорошо. Давай другую игру. "
+            "Можем сыграть в слова, загадки, угадай животное, прятки или повтори за мной."
+        )
+
+    if normalized in GAME_RESTART_PHRASES:
+        game_store.clear()
+        return start_game(active_game.game)
+
+    if normalized in GAME_HINT_PHRASES:
+        return _handle_game_hint(active_game.game, active_game.state)
+
     if active_game.game == "words":
         return _handle_words_turn(user_text, active_game.state)
     if active_game.game == "hide_and_seek":
@@ -125,6 +173,16 @@ def handle_active_game_turn(user_text: str) -> str | None:
 
 def has_active_game() -> bool:
     return game_store.get() is not None
+
+
+def repeat_last_game() -> str:
+    last_game = game_store.get_last_game()
+    if not last_game:
+        return (
+            "Мы еще ни во что не играли. "
+            "Можем начать со слов, загадок, пряток, угадай животное или повтори за мной."
+        )
+    return start_game(last_game)
 
 
 def _start_words_game() -> str:
@@ -199,6 +257,33 @@ def _handle_hide_and_seek_turn(normalized: str) -> str:
     if "ищи" in normalized:
         return "Ищу, ищу. Может быть, ты спрятался очень хорошо?"
     return "В прятках можно сказать: ищи дальше или нашел."
+
+
+def _handle_game_hint(game_name: str, state: dict) -> str:
+    if game_name == "words":
+        expected_letter = state.get("expected_letter", "")
+        if expected_letter:
+            return f"Подсказка: сейчас нужно слово на букву {expected_letter}."
+        return "Подсказка: скажи любое простое слово."
+
+    if game_name == "hide_and_seek":
+        return "Подсказка: в прятках можно сказать ищи дальше или нашел."
+
+    if game_name == "riddle":
+        hint = state.get("hint", "Подумай еще немного.")
+        return f"Подсказка: {hint}"
+
+    if game_name == "guess_animal":
+        hint = state.get("hint", "Подумай еще немного.")
+        return f"Подсказка: {hint}"
+
+    if game_name == "repeat_after_me":
+        phrase = state.get("phrase", "")
+        if phrase:
+            return f"Подсказка: повтори так: {phrase}"
+        return "Подсказка: я скажу новую фразу, если начнем сначала."
+
+    return "Подсказка пока не готова для этой игры."
 
 
 def _start_riddle_game() -> str:

@@ -91,6 +91,12 @@ _GAME_PATTERNS = (
     (r"повтори за мной", "repeat_after_me"),
     (r"игра(?:ть)? в повтори за мной", "repeat_after_me"),
     (r"давай поиграем", None),
+    (r"^еще$", "__repeat_last__"),
+    (r"^еще раз$", "__repeat_last__"),
+    (r"^давай еще$", "__repeat_last__"),
+    (r"^давай еще раз$", "__repeat_last__"),
+    (r"^еще загадку$", "riddle"),
+    (r"^еще игру$", "__repeat_last__"),
 )
 
 _DATE_TAIL_PATTERN = re.compile(

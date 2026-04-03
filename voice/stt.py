@@ -3,6 +3,7 @@ from __future__ import annotations
 from faster_whisper import WhisperModel
 
 from config.settings import (
+    STT_QUALITY_PROFILE,
     STT_FINAL_BEAM_SIZE,
     STT_LANGUAGE,
     STT_PARTIAL_BEAM_SIZE,
@@ -16,6 +17,7 @@ from voice.models import TranscriptionResult
 
 _MODEL_CACHE: dict[str, WhisperModel] = {}
 _FAILED_MODEL_NAMES: set[str] = set()
+_MODEL_USAGE_LOGGED: set[tuple[str, str]] = set()
 
 
 def transcribe(audio_path: str) -> TranscriptionResult:
@@ -84,7 +86,13 @@ def _get_model_with_fallback(
 ) -> WhisperModel:
     if preferred_model_name not in _FAILED_MODEL_NAMES:
         try:
-            return _get_model(preferred_model_name)
+            model = _get_model(preferred_model_name)
+            _log_model_usage(
+                purpose=purpose,
+                model_name=preferred_model_name,
+                beam_size=STT_FINAL_BEAM_SIZE if purpose == "final" else STT_PARTIAL_BEAM_SIZE,
+            )
+            return model
         except Exception as exc:
             _FAILED_MODEL_NAMES.add(preferred_model_name)
             if preferred_model_name != fallback_model_name:
@@ -93,4 +101,30 @@ def _get_model_with_fallback(
                     f"fallback={fallback_model_name!r} error={type(exc).__name__}: {exc}"
                 )
 
-    return _get_model(fallback_model_name)
+    model = _get_model(fallback_model_name)
+    _log_model_usage(
+        purpose=purpose,
+        model_name=fallback_model_name,
+        beam_size=STT_FINAL_BEAM_SIZE if purpose == "final" else STT_PARTIAL_BEAM_SIZE,
+        fallback_used=True,
+    )
+    return model
+
+
+def _log_model_usage(
+    *,
+    purpose: str,
+    model_name: str,
+    beam_size: int,
+    fallback_used: bool = False,
+) -> None:
+    key = (purpose, model_name)
+    if key in _MODEL_USAGE_LOGGED:
+        return
+    _MODEL_USAGE_LOGGED.add(key)
+    log_voice_event(
+        "stt_model_active "
+        f"profile={STT_QUALITY_PROFILE!r} "
+        f"purpose={purpose} model={model_name!r} beam={beam_size} "
+        f"fallback_used={str(fallback_used).lower()}"
+    )

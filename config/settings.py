@@ -34,8 +34,39 @@ INTERRUPT_LISTEN_DELAY_SECONDS = float(
     os.getenv("INTERRUPT_LISTEN_DELAY_SECONDS", "0.8")
 )
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
-WHISPER_PARTIAL_MODEL = os.getenv("WHISPER_PARTIAL_MODEL", WHISPER_MODEL)
-WHISPER_FINAL_MODEL = os.getenv("WHISPER_FINAL_MODEL", WHISPER_MODEL)
+STT_QUALITY_PROFILE = os.getenv("STT_QUALITY_PROFILE", "balanced").strip().lower()
+_STT_PROFILE_DEFAULTS = {
+    "fast": {
+        "partial_model": "base",
+        "final_model": "small",
+        "partial_beam": 1,
+        "final_beam": 3,
+    },
+    "balanced": {
+        "partial_model": "base",
+        "final_model": "large-v3-turbo",
+        "partial_beam": 1,
+        "final_beam": 5,
+    },
+    "accurate": {
+        "partial_model": "small",
+        "final_model": "large-v3-turbo",
+        "partial_beam": 2,
+        "final_beam": 5,
+    },
+}
+_ACTIVE_STT_PROFILE = _STT_PROFILE_DEFAULTS.get(
+    STT_QUALITY_PROFILE,
+    _STT_PROFILE_DEFAULTS["balanced"],
+)
+WHISPER_PARTIAL_MODEL = os.getenv(
+    "WHISPER_PARTIAL_MODEL",
+    os.getenv("WHISPER_MODEL", _ACTIVE_STT_PROFILE["partial_model"]),
+)
+WHISPER_FINAL_MODEL = os.getenv(
+    "WHISPER_FINAL_MODEL",
+    os.getenv("WHISPER_MODEL", _ACTIVE_STT_PROFILE["final_model"]),
+)
 MAX_VOICE_RETRIES = int(os.getenv("MAX_VOICE_RETRIES", "2"))
 MIN_AUDIO_RMS = float(os.getenv("MIN_AUDIO_RMS", "150.0"))
 VOICE_SILENCE_RMS = float(os.getenv("VOICE_SILENCE_RMS", "110.0"))
@@ -54,8 +85,12 @@ VOICE_EARLY_FAST_INTENT_MIN_REPEATS = int(
     os.getenv("VOICE_EARLY_FAST_INTENT_MIN_REPEATS", "2")
 )
 STT_BEAM_SIZE = int(os.getenv("STT_BEAM_SIZE", "5"))
-STT_PARTIAL_BEAM_SIZE = int(os.getenv("STT_PARTIAL_BEAM_SIZE", "1"))
-STT_FINAL_BEAM_SIZE = int(os.getenv("STT_FINAL_BEAM_SIZE", str(STT_BEAM_SIZE)))
+STT_PARTIAL_BEAM_SIZE = int(
+    os.getenv("STT_PARTIAL_BEAM_SIZE", str(_ACTIVE_STT_PROFILE["partial_beam"]))
+)
+STT_FINAL_BEAM_SIZE = int(
+    os.getenv("STT_FINAL_BEAM_SIZE", str(_ACTIVE_STT_PROFILE["final_beam"]))
+)
 STT_LANGUAGE = os.getenv("STT_LANGUAGE", "ru")
 STT_PARTIAL_MAX_WORDS = int(os.getenv("STT_PARTIAL_MAX_WORDS", "6"))
 STT_CONFIRMATION_LOGPROB_THRESHOLD = float(

@@ -21,12 +21,12 @@ from core.models import IntentResult
 from core.orchestrator import process_text_detailed
 from services.game_service import is_active_game_fast_phrase
 from utils.chat_fast_replies import generate_local_chat_reply
+from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 from utils.logger import log_voice_event
 from voice.recorder import record_audio
 from voice.models import TranscriptionResult
 from voice.stt import transcribe
 from voice.tts import speak
-from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 
 
 def run_voice_interaction() -> AssistantControlAction:
@@ -177,6 +177,8 @@ def _build_early_stop_callback():
 
 
 def _needs_confirmation(transcription: TranscriptionResult) -> bool:
+    if _is_safe_low_confidence_fast_path(transcription):
+        return False
     if transcription.avg_logprob is not None and transcription.avg_logprob < STT_CONFIRMATION_LOGPROB_THRESHOLD:
         return True
     if (
@@ -208,7 +210,7 @@ def _intent_key(intent: IntentResult) -> str:
 
 def _confirm_transcription(candidate_text: str) -> str | None:
     assistant_state.set(AssistantStateName.THINKING, "Проверяю, правильно ли расслышал")
-    speak(f"Я расслышал так: {candidate_text}. Если все верно, скажи да. Иначе повтори фразу еще раз.")
+    speak(f"Я услышал так: {candidate_text}. Если верно, скажи да. Если нет, просто повтори.")
     assistant_state.set(AssistantStateName.LISTENING)
     confirmation_recording = record_audio(AUDIO_FILENAME, RECORD_SECONDS)
     log_voice_event(f"confirmation_recording_rms={confirmation_recording.rms:.2f}")
@@ -236,3 +238,30 @@ def _confirm_transcription(candidate_text: str) -> str | None:
         return candidate_text
 
     return confirmation.text
+
+
+def _is_safe_low_confidence_fast_path(transcription: TranscriptionResult) -> bool:
+    text = transcription.text.strip()
+    if not text:
+        return False
+
+    if transcription.no_speech_prob is not None and transcription.no_speech_prob > 0.2:
+        return False
+
+    if transcription.avg_logprob is not None:
+        if transcription.avg_logprob < STT_CONFIRMATION_LOGPROB_THRESHOLD - 0.25:
+            return False
+
+    fast_intent = detect_fast_intent(text)
+    if fast_intent is None:
+        return False
+
+    return fast_intent.intent in {
+        "chat",
+        "play_game",
+        "get_tasks",
+        "get_events",
+        "delete_tasks",
+        "get_notes",
+        "export_notes",
+    }

@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 import re
 
+from assistant.child_mode import child_mode_store
 from assistant.games import game_store
 
 
@@ -204,15 +205,24 @@ def _start_words_game() -> str:
 def _handle_words_turn(user_text: str, state: dict) -> str:
     word = _extract_word(user_text)
     if not word:
-        return "Я не расслышал слово. Скажи одно слово для игры."
+        return _game_retry_reply(
+            "Я не расслышал слово. Скажи одно слово для игры.",
+            game_name="words",
+        )
 
     expected_letter = state.get("expected_letter", "")
     used_words = set(state.get("used_words", []))
     if expected_letter and not word.startswith(expected_letter):
-        return f"Нужно слово на букву {expected_letter}. Попробуй еще раз."
+        return _game_retry_reply(
+            f"Нужно слово на букву {expected_letter}. Попробуй еще раз.",
+            game_name="words",
+        )
 
     if word in used_words:
-        return "Такое слово уже было. Давай другое."
+        return _game_retry_reply(
+            "Такое слово уже было. Давай другое.",
+            game_name="words",
+        )
 
     used_words.add(word)
     answer_letter = _last_playable_letter(word)
@@ -222,7 +232,8 @@ def _handle_words_turn(user_text: str, state: dict) -> str:
         state["expected_letter"] = answer_letter
         game_store.set("words", state)
         return (
-            f"Хорошее слово: {word}. У меня пока нет ответа на букву {answer_letter}. "
+            f"{_game_praise('words', strong=True)} {word} — отличное слово. "
+            f"У меня пока нет ответа на букву {answer_letter}. "
             f"Ты победил! Можем сыграть еще раз."
         )
 
@@ -236,7 +247,7 @@ def _handle_words_turn(user_text: str, state: dict) -> str:
         },
     )
     return (
-        f"Мое слово: {assistant_word}. "
+        f"{_game_praise('words')} Мое слово: {assistant_word}. "
         f"Теперь твоя очередь, слово на букву {next_letter}."
     )
 
@@ -253,10 +264,24 @@ def _start_hide_and_seek() -> str:
 def _handle_hide_and_seek_turn(normalized: str) -> str:
     if "нашел" in normalized or "нашла" in normalized:
         game_store.clear()
-        return "Ура, нашел! Было весело. Если хочешь, можем сыграть еще."
+        return (
+            f"{_game_praise('hide_and_seek', strong=True)} Ура, нашел! "
+            "Было весело. Если хочешь, можем сыграть еще."
+        )
     if "ищи" in normalized:
+        if child_mode_store.is_enabled():
+            return random.choice(
+                (
+                    "Ищу, ищу. Кажется, ты спрятался очень здорово.",
+                    "Ищу дальше. Наверное, ты выбрал отличное место.",
+                    "Ищу. Похоже, ты умеешь хорошо прятаться.",
+                )
+            )
         return "Ищу, ищу. Может быть, ты спрятался очень хорошо?"
-    return "В прятках можно сказать: ищи дальше или нашел."
+    return _game_retry_reply(
+        "В прятках можно сказать: ищи дальше или нашел.",
+        game_name="hide_and_seek",
+    )
 
 
 def _handle_game_hint(game_name: str, state: dict) -> str:
@@ -296,9 +321,12 @@ def _handle_riddle_turn(normalized: str, state: dict) -> str:
     answer = state.get("answer", "")
     if answer and answer in normalized:
         game_store.clear()
-        return "Правильно! Молодец. Хочешь еще загадку?"
+        return f"{_game_praise('riddle', strong=True)} Правильно! Хочешь еще загадку?"
     hint = state.get("hint", "Подумай еще немного.")
-    return f"Пока не угадал. Подсказка: {hint}"
+    return _game_retry_reply(
+        f"Пока не угадал. Подсказка: {hint}",
+        game_name="riddle",
+    )
 
 
 def _start_guess_animal_game() -> str:
@@ -311,9 +339,15 @@ def _handle_guess_animal_turn(normalized: str, state: dict) -> str:
     animal = state.get("animal", "")
     if animal and animal in normalized:
         game_store.clear()
-        return f"Да, это {animal}! Здорово, ты угадал. Хочешь еще одну игру?"
+        return (
+            f"{_game_praise('guess_animal', strong=True)} "
+            f"Да, это {animal}! Хочешь еще одну игру?"
+        )
     hint = state.get("hint", "Подумай еще немного.")
-    return f"Пока не угадал. Подсказка: {hint}"
+    return _game_retry_reply(
+        f"Пока не угадал. Подсказка: {hint}",
+        game_name="guess_animal",
+    )
 
 
 def _start_repeat_after_me_game() -> str:
@@ -329,8 +363,14 @@ def _handle_repeat_after_me_turn(normalized: str, state: dict) -> str:
         return "Кажется, фраза потерялась. Давай начнем игру заново."
     if normalized == phrase:
         game_store.clear()
-        return "Отлично, ты повторил правильно! Хочешь еще?"
-    return f"Почти. Попробуй еще раз: {state.get('phrase', '')}"
+        return (
+            f"{_game_praise('repeat_after_me', strong=True)} "
+            "Ты повторил правильно! Хочешь еще?"
+        )
+    return _game_retry_reply(
+        f"Почти. Попробуй еще раз: {state.get('phrase', '')}",
+        game_name="repeat_after_me",
+    )
 
 
 def _normalize_game_name(game_name: str | None) -> str | None:
@@ -377,3 +417,124 @@ def _choose_word(letter: str, used_words: set[str]) -> str | None:
         if word not in used_words:
             return word
     return None
+
+
+def _game_praise(game_name: str | None = None, *, strong: bool = False) -> str:
+    active_game = game_store.get()
+    key = game_name or (active_game.game if active_game is not None else "game")
+
+    if child_mode_store.is_enabled():
+        praise_map = {
+            "words": (
+                "Молодец.",
+                "Здорово придумал.",
+                "Какое хорошее слово.",
+                "Отлично получается.",
+            ),
+            "hide_and_seek": (
+                "Ух ты, здорово.",
+                "Вот это да, ты справился.",
+                "Отлично получилось.",
+            ),
+            "riddle": (
+                "Молодец.",
+                "Точно, ты угадал.",
+                "Здорово, правильный ответ.",
+            ),
+            "guess_animal": (
+                "Да, молодец.",
+                "Здорово, ты угадал.",
+                "Отлично, верно.",
+            ),
+            "repeat_after_me": (
+                "Здорово получилось.",
+                "Отлично повторил.",
+                "Молодец, очень хорошо.",
+            ),
+        }
+        strong_map = {
+            "words": (
+                "Вот это да, здорово.",
+                "Супер, ты отлично играешь.",
+                "Ух ты, как здорово получилось.",
+            ),
+            "hide_and_seek": (
+                "Ура, молодец.",
+                "Здорово, ты справился.",
+                "Вот это да, отлично вышло.",
+            ),
+            "riddle": (
+                "Ура, молодец.",
+                "Здорово, ты разгадал.",
+                "Вот это да, правильный ответ.",
+            ),
+            "guess_animal": (
+                "Ура, молодец.",
+                "Здорово, ты угадал.",
+                "Отлично, ты справился.",
+            ),
+            "repeat_after_me": (
+                "Супер, получилось.",
+                "Здорово, ты справился.",
+                "Вот это да, отлично повторил.",
+            ),
+        }
+        choices = strong_map.get(key) if strong else praise_map.get(key)
+        choices = choices or (
+            "Молодец.",
+            "Здорово получается.",
+            "У тебя хорошо выходит.",
+            "Вот это да, отлично.",
+        )
+    else:
+        choices = (
+            "Отлично.",
+            "Здорово.",
+            "Хорошо получается.",
+        )
+
+    return choices[abs(hash((key, strong, len(choices)))) % len(choices)]
+
+
+def _game_retry_reply(message: str, *, game_name: str | None = None) -> str:
+    if not child_mode_store.is_enabled():
+        return message
+
+    active_game = game_store.get()
+    key = game_name or (active_game.game if active_game is not None else "game")
+
+    prefix_map = {
+        "words": (
+            "Ничего страшного.",
+            "Давай еще слово.",
+            "Спокойно, попробуем снова.",
+        ),
+        "hide_and_seek": (
+            "Ничего, продолжаем.",
+            "Все хорошо, играем дальше.",
+            "Давай еще чуть-чуть поиграем.",
+        ),
+        "riddle": (
+            "Ничего страшного.",
+            "Почти получилось.",
+            "Давай подумаем еще немного.",
+        ),
+        "guess_animal": (
+            "Ничего страшного.",
+            "Почти угадал.",
+            "Давай попробуем еще раз.",
+        ),
+        "repeat_after_me": (
+            "Ничего страшного.",
+            "Почти получилось.",
+            "Давай еще раз, без спешки.",
+        ),
+    }
+    prefixes = prefix_map.get(key) or (
+        "Ничего страшного.",
+        "Это нормально.",
+        "Давай еще раз.",
+        "Спокойно, попробуем снова.",
+    )
+    prefix = prefixes[abs(hash((key, message))) % len(prefixes)]
+    return f"{prefix} {message}"

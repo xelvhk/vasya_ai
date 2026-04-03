@@ -19,7 +19,7 @@ from config.settings import (
 )
 from core.models import IntentResult
 from core.orchestrator import process_text_detailed
-from services.ollama_client import OllamaClientError, ensure_ollama_running
+from services.game_service import is_active_game_fast_phrase
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.logger import log_voice_event
 from voice.recorder import record_audio
@@ -30,16 +30,6 @@ from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 
 
 def run_voice_interaction() -> AssistantControlAction:
-    try:
-        ensure_ollama_running()
-    except OllamaClientError as exc:
-        message = str(exc)
-        assistant_state.set(AssistantStateName.ERROR, message)
-        print(message)
-        speak(message)
-        assistant_state.set(AssistantStateName.IDLE)
-        return assistant_control.consume_action()
-
     followup_turns_left = CHAT_FOLLOWUP_MAX_TURNS
     keep_conversation_open = False
 
@@ -159,6 +149,10 @@ def _build_early_stop_callback():
     def should_stop(partial_text: str) -> bool:
         nonlocal last_intent_key
 
+        if is_active_game_fast_phrase(partial_text):
+            assistant_state.set(AssistantStateName.LISTENING, "Понял игру, можно отвечать.")
+            return True
+
         intent = detect_early_fast_intent(partial_text)
         if intent is None:
             last_intent_key = None
@@ -170,7 +164,10 @@ def _build_early_stop_callback():
             return True
 
         if intent_key == last_intent_key:
-            assistant_state.set(AssistantStateName.LISTENING, "Понял запрос, можно отвечать.")
+            if intent.intent == "chat":
+                assistant_state.set(AssistantStateName.LISTENING, "Понял, можно отвечать сразу.")
+            else:
+                assistant_state.set(AssistantStateName.LISTENING, "Понял запрос, можно отвечать.")
             return True
 
         last_intent_key = intent_key

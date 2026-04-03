@@ -238,6 +238,9 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
     if fast_intent.intent in {"get_tasks", "get_events", "delete_tasks", "play_game"}:
         return fast_intent
 
+    if fast_intent.intent == "chat" and _is_safe_early_chat_text(normalized):
+        return fast_intent
+
     return None
 
 
@@ -305,3 +308,22 @@ def _looks_incomplete(text: str) -> bool:
         return True
 
     return False
+
+
+def _is_safe_early_chat_text(text: str) -> bool:
+    words = text.split()
+    if len(words) > 5:
+        return False
+
+    trailing_tokens = {
+        "и",
+        "а",
+        "но",
+        "или",
+        "что",
+        "чтобы",
+    }
+    if words and words[-1] in trailing_tokens:
+        return False
+
+    return True

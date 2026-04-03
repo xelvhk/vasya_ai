@@ -102,6 +102,7 @@ GAME_REPEAT_LAST_PHRASES = {
 GAME_OTHER_PHRASES = {
     "другая игра",
     "давай другую игру",
+    "давай другую",
     "сменим игру",
 }
 
@@ -109,6 +110,13 @@ GAME_HINT_PHRASES = {
     "подсказка",
     "дай подсказку",
     "подскажи",
+}
+
+GAME_CONTINUE_PHRASES = {
+    "дальше",
+    "еще",
+    "продолжай",
+    "ищи дальше",
 }
 
 
@@ -184,6 +192,30 @@ def repeat_last_game() -> str:
             "Можем начать со слов, загадок, пряток, угадай животное или повтори за мной."
         )
     return start_game(last_game)
+
+
+def is_active_game_fast_phrase(user_text: str) -> bool:
+    active_game = game_store.get()
+    if active_game is None:
+        return False
+
+    normalized = _normalize_text(user_text)
+    if not normalized:
+        return False
+
+    if normalized in GAME_STOP_PHRASES:
+        return True
+    if normalized in GAME_OTHER_PHRASES:
+        return True
+    if normalized in GAME_RESTART_PHRASES:
+        return True
+    if normalized in GAME_HINT_PHRASES:
+        return True
+    if active_game.game == "hide_and_seek" and (
+        "ищи" in normalized or normalized in GAME_CONTINUE_PHRASES
+    ):
+        return True
+    return False
 
 
 def _start_words_game() -> str:
@@ -268,7 +300,7 @@ def _handle_hide_and_seek_turn(normalized: str) -> str:
             f"{_game_praise('hide_and_seek', strong=True)} Ура, нашел! "
             "Было весело. Если хочешь, можем сыграть еще."
         )
-    if "ищи" in normalized:
+    if "ищи" in normalized or normalized in GAME_CONTINUE_PHRASES:
         if child_mode_store.is_enabled():
             return random.choice(
                 (

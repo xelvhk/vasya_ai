@@ -200,11 +200,17 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
 
 
 def _thinking_message_for(user_text: str) -> str:
+    recent_history = conversation_memory.recent()
+    last_assistant_reply = next(
+        (message.content for message in reversed(recent_history) if message.role == "assistant"),
+        None,
+    )
     if generate_local_chat_reply(
         user_text,
-        history_size=len(conversation_memory.recent()),
+        history_size=len(recent_history),
         tone="child" if child_mode_store.is_enabled() else conversation_tone.current(),
         child_mode=child_mode_store.is_enabled(),
+        last_assistant_reply=last_assistant_reply,
     ) is not None:
         return "Сейчас отвечу..."
     fast_intent = detect_fast_intent(user_text)

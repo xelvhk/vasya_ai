@@ -17,7 +17,12 @@ from utils.chat_fast_replies import generate_local_chat_reply
 
 
 def generate_chat_reply(user_text: str) -> str:
-    history_size = len(conversation_memory.recent())
+    recent_history = conversation_memory.recent()
+    history_size = len(recent_history)
+    last_assistant_reply = next(
+        (message.content for message in reversed(recent_history) if message.role == "assistant"),
+        None,
+    )
     tone = conversation_tone.observe_user_text(user_text)
     child_mode = child_mode_store.is_enabled()
     if child_mode:
@@ -32,6 +37,7 @@ def generate_chat_reply(user_text: str) -> str:
         history_size=history_size,
         tone="child" if child_mode else tone,
         child_mode=child_mode,
+        last_assistant_reply=last_assistant_reply,
     )
     if local_reply is not None:
         conversation_memory.add_user(user_text)
@@ -106,6 +112,7 @@ def _build_chat_prompt(
 - Не говори как справочник или техподдержка, говори как живой помощник
 - Если пользователь отвечает коротко, например "угу", "да", "не знаю", "может быть", поддержи разговор естественно и помоги двинуться дальше
 - Если пользователь делится усталостью, грустью, тревогой или раздражением, сначала отреагируй по-человечески и только потом предлагай следующий шаг
+- Если пользователь легко перескакивает между разговором и практической просьбой, переходи мягко, без резкого канцелярского тона
 - Можно поддерживать обычную беседу, объяснять, обсуждать идеи
 - Не выдумывай доступ к внешним данным, файлам или действиям, если их не было
 - Не оформляй ответ как JSON
@@ -134,13 +141,13 @@ def _should_greet(user_text: str) -> bool:
 
 def _tone_rule(tone: str) -> str:
     if tone == "supportive":
-        return "Сохраняй мягкий, поддерживающий и спокойный тон несколько реплик подряд, не становись резко сухим."
+        return "Сохраняй мягкий, поддерживающий и спокойный тон несколько реплик подряд, не становись резко сухим и не шути."
     if tone == "playful":
-        return "Сохраняй легкий, живой и чуть более игровой тон, но не скатывайся в клоунаду."
+        return "Сохраняй легкий, живой и чуть более игровой тон, но не скатывайся в клоунаду. Иногда уместен очень короткий мягкий каламбур."
     if tone == "warm":
-        return "Сохраняй теплый, дружелюбный и неформальный тон несколько реплик подряд."
+        return "Сохраняй теплый, дружелюбный и неформальный тон несколько реплик подряд. Редко можно позволить себе легкую словесную улыбку, если это уместно."
     if tone == "child":
-        return "Сохраняй спокойный, добрый и детский тон, как у дружелюбного помощника для ребенка."
+        return "Сохраняй спокойный, добрый и детский тон, как у дружелюбного помощника для ребенка. Юмор только мягкий и безопасный."
     return "Держи спокойный дружелюбный нейтральный тон."
 
 

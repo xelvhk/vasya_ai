@@ -41,13 +41,13 @@ def _infer_tone(text: str) -> ConversationTone | None:
     if not text:
         return None
 
-    if re.search(r"\b(грустно|печально|устал|устала|страшно|поддержи|злюсь|тяжело)\b", text):
+    if re.search(r"\b(грустно|печально|устал|устала|страшно|поддержи|злюсь|тяжело|сложно|боюсь|раздражает|бесит)\b", text):
         return "supportive"
 
     if re.search(r"\b(игра|поигра|скучно|загадк|угадай|прятки)\b", text):
         return "playful"
 
-    if re.search(r"\b(привет|добрый|спасибо|мне нравится|ты мне нравишься)\b", text):
+    if re.search(r"\b(привет|добрый|спасибо|мне нравится|ты мне нравишься|молодец|умница|класс|супер|здорово)\b", text):
         return "warm"
 
     return None
@@ -55,11 +55,11 @@ def _infer_tone(text: str) -> ConversationTone | None:
 
 def _duration_for_tone(tone: ConversationTone) -> int:
     if tone == "supportive":
-        return 4
+        return 5
     if tone == "playful":
         return 3
     if tone == "warm":
-        return 2
+        return 3
     return 0
 
 

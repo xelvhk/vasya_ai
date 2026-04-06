@@ -587,112 +587,6 @@ def main() -> None:
                 self._voice_profile_combo.setFocus()
 
 
-    class OnboardingDialog(QDialog):
-        def __init__(self, widget: "AvatarWidget") -> None:
-            super().__init__(widget)
-            self.setWindowTitle("Приветствие")
-            self.setModal(True)
-            self.setMinimumWidth(420)
-            self._widget = widget
-            self._mic_testing = False
-            self.setStyleSheet(
-                """
-                QDialog {
-                    background-color: #0b1435;
-                    border: 1px solid #274a99;
-                    border-radius: 18px;
-                }
-                QLabel {
-                    color: #e9f2ff;
-                    font-size: 13px;
-                }
-                QPushButton {
-                    background: #173377;
-                    color: #f5f9ff;
-                    border: 1px solid #3c67d1;
-                    border-radius: 10px;
-                    padding: 8px 14px;
-                    min-width: 120px;
-                }
-                QPushButton:hover {
-                    background: #1d439c;
-                }
-                """
-            )
-
-            layout = QVBoxLayout(self)
-            layout.setContentsMargins(20, 20, 20, 18)
-            layout.setSpacing(12)
-
-            title = QLabel("Добро пожаловать, я Вася", self)
-            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
-            layout.addWidget(title)
-
-            hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
-            body = QLabel(
-                "Я рядом и готов помочь.\n"
-                f"Горячая клавиша: {hotkey_hint}\n"
-                "Клик по мне — начать говорить, правый клик — меню.",
-                self,
-            )
-            body.setWordWrap(True)
-            body.setStyleSheet("color: #b9cdf3;")
-            layout.addWidget(body)
-
-            self._mic_status = QLabel("Можно сразу проверить микрофон.", self)
-            self._mic_status.setWordWrap(True)
-            self._mic_status.setStyleSheet("color: #9fb8ec; font-size: 12px;")
-            layout.addWidget(self._mic_status)
-
-            button_row = QHBoxLayout()
-            button_row.setSpacing(10)
-            settings_button = QPushButton("Настройки", self)
-            settings_button.clicked.connect(self._open_settings)
-            voice_button = QPushButton("Голос", self)
-            voice_button.clicked.connect(self._open_voice_settings)
-            mic_button = QPushButton("Тест микрофона", self)
-            mic_button.clicked.connect(self._run_mic_test)
-            close_button = QPushButton("Готово", self)
-            close_button.clicked.connect(self.accept)
-
-            button_row.addWidget(settings_button)
-            button_row.addWidget(voice_button)
-            button_row.addWidget(mic_button)
-            button_row.addStretch(1)
-            button_row.addWidget(close_button)
-            layout.addLayout(button_row)
-
-        def _open_settings(self) -> None:
-            self._widget._open_settings_dialog()
-
-        def _open_voice_settings(self) -> None:
-            self._widget._open_settings_dialog(focus="voice")
-
-        def _run_mic_test(self) -> None:
-            if self._mic_testing:
-                return
-            self._mic_testing = True
-            self._mic_status.setText("Слушаю 2 секунды…")
-
-            def worker():
-                message = "Микрофон работает. Слышу тебя."
-                try:
-                    recording = record_audio(AUDIO_FILENAME, 2.0)
-                    if recording.rms < MIN_AUDIO_RMS:
-                        message = "Слышу очень тихо. Попробуй говорить громче."
-                except Exception:
-                    message = "Не получилось проверить микрофон."
-
-                def finish():
-                    self._mic_status.setText(message)
-                    self._mic_testing = False
-
-                QTimer.singleShot(0, finish)
-
-            threading.Thread(target=worker, daemon=True).start()
-
-            self._sync_preview()
-
         def apply(self) -> None:
             self._widget._set_avatar_size(int(self._size_combo.currentData()))
             selected_skin = str(self._skin_combo.currentData())
@@ -849,6 +743,110 @@ def main() -> None:
                 opacity=self._opacity_slider.value() / 100.0,
                 idle_motion=self._idle_motion_checkbox.isChecked(),
             )
+
+    class OnboardingDialog(QDialog):
+        def __init__(self, widget: "AvatarWidget") -> None:
+            super().__init__(widget)
+            self.setWindowTitle("Приветствие")
+            self.setModal(True)
+            self.setMinimumWidth(420)
+            self._widget = widget
+            self._mic_testing = False
+            self.setStyleSheet(
+                """
+                QDialog {
+                    background-color: #0b1435;
+                    border: 1px solid #274a99;
+                    border-radius: 18px;
+                }
+                QLabel {
+                    color: #e9f2ff;
+                    font-size: 13px;
+                }
+                QPushButton {
+                    background: #173377;
+                    color: #f5f9ff;
+                    border: 1px solid #3c67d1;
+                    border-radius: 10px;
+                    padding: 8px 14px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background: #1d439c;
+                }
+                """
+            )
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(20, 20, 20, 18)
+            layout.setSpacing(12)
+
+            title = QLabel("Добро пожаловать, я Вася", self)
+            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            layout.addWidget(title)
+
+            hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
+            body = QLabel(
+                "Я рядом и готов помочь.\n"
+                f"Горячая клавиша: {hotkey_hint}\n"
+                "Клик по мне — начать говорить, правый клик — меню.",
+                self,
+            )
+            body.setWordWrap(True)
+            body.setStyleSheet("color: #b9cdf3;")
+            layout.addWidget(body)
+
+            self._mic_status = QLabel("Можно сразу проверить микрофон.", self)
+            self._mic_status.setWordWrap(True)
+            self._mic_status.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            layout.addWidget(self._mic_status)
+
+            button_row = QHBoxLayout()
+            button_row.setSpacing(10)
+            settings_button = QPushButton("Настройки", self)
+            settings_button.clicked.connect(self._open_settings)
+            voice_button = QPushButton("Голос", self)
+            voice_button.clicked.connect(self._open_voice_settings)
+            mic_button = QPushButton("Тест микрофона", self)
+            mic_button.clicked.connect(self._run_mic_test)
+            close_button = QPushButton("Готово", self)
+            close_button.clicked.connect(self.accept)
+
+            button_row.addWidget(settings_button)
+            button_row.addWidget(voice_button)
+            button_row.addWidget(mic_button)
+            button_row.addStretch(1)
+            button_row.addWidget(close_button)
+            layout.addLayout(button_row)
+
+        def _open_settings(self) -> None:
+            self._widget._open_settings_dialog()
+
+        def _open_voice_settings(self) -> None:
+            self._widget._open_settings_dialog(focus="voice")
+
+        def _run_mic_test(self) -> None:
+            if self._mic_testing:
+                return
+            self._mic_testing = True
+            self._mic_status.setText("Слушаю 2 секунды…")
+
+            def worker():
+                message = "Микрофон работает. Слышу тебя."
+                try:
+                    recording = record_audio(AUDIO_FILENAME, 2.0)
+                    if recording.rms < MIN_AUDIO_RMS:
+                        message = "Слышу очень тихо. Попробуй говорить громче."
+                except Exception:
+                    message = "Не получилось проверить микрофон."
+
+                def finish():
+                    self._mic_status.setText(message)
+                    self._mic_testing = False
+
+                QTimer.singleShot(0, finish)
+
+            threading.Thread(target=worker, daemon=True).start()
 
     class _AvatarPreview(QWidget):
         def __init__(self, widget: "AvatarWidget", parent: QWidget | None = None) -> None:

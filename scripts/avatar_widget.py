@@ -844,6 +844,7 @@ def main() -> None:
             self._avatar_opacity = float(self._widget_state.get("avatar_opacity", 1.0))
             self._start_hidden = bool(self._widget_state.get("start_hidden", False))
             self._first_run_done = bool(self._widget_state.get("first_run_done", False))
+            self._first_run_pending = bool(self._widget_state.get("first_run_pending", False))
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -1668,6 +1669,10 @@ def main() -> None:
             self.activateWindow()
             self._update_bubble()
             self._update_toggle_action()
+            if self._first_run_pending and not self._first_run_done:
+                self._first_run_pending = False
+                self._widget_state["first_run_pending"] = False
+                self._run_onboarding_flow(autostart_settings=True)
 
         def hide_avatar(self) -> None:
             self._save_position()
@@ -1704,8 +1709,19 @@ def main() -> None:
         def _maybe_run_onboarding(self) -> None:
             if self._first_run_done:
                 return
+            if self._start_hidden:
+                self._first_run_pending = True
+                self._widget_state["first_run_pending"] = True
+                self._save_position()
+                return
+            self._run_onboarding_flow(autostart_settings=True)
+
+        def _run_onboarding_flow(self, *, autostart_settings: bool) -> None:
+            if self._first_run_done:
+                return
             self._first_run_done = True
             self._widget_state["first_run_done"] = True
+            self._widget_state["first_run_pending"] = False
             self._save_position()
 
             def show_onboarding():
@@ -1715,11 +1731,20 @@ def main() -> None:
                 message = (
                     "Привет. Я Вася и я рядом.\n"
                     f"Горячая клавиша: {hotkey_hint}\n"
-                    "Клик по мне — начать говорить, правый клик — меню."
+                    "Клик по мне — начать говорить, правый клик — меню.\n"
+                    "Скажи «пока», чтобы закрыть, или «замолчи», чтобы остановить речь.\n"
+                    "Настройки — в меню, если нужно."
                 )
                 assistant_state.set(AssistantStateName.IDLE, message)
                 self._update_bubble()
-                QTimer.singleShot(800, self._open_settings_dialog)
+                def clear_onboarding():
+                    current = assistant_state.get()
+                    if current.name == AssistantStateName.IDLE and current.message == message:
+                        assistant_state.set(AssistantStateName.IDLE)
+                        self._update_bubble()
+                QTimer.singleShot(8000, clear_onboarding)
+                if autostart_settings:
+                    QTimer.singleShot(800, self._open_settings_dialog)
 
             QTimer.singleShot(300, show_onboarding)
 

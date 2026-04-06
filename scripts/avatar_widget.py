@@ -752,6 +752,11 @@ def main() -> None:
             self.setMinimumWidth(420)
             self._widget = widget
             self._mic_testing = False
+            self._check_state = {
+                "settings": False,
+                "voice": False,
+                "mic": False,
+            }
             self.setStyleSheet(
                 """
                 QDialog {
@@ -801,6 +806,21 @@ def main() -> None:
             self._mic_status.setStyleSheet("color: #9fb8ec; font-size: 12px;")
             layout.addWidget(self._mic_status)
 
+            checklist_title = QLabel("Быстрый чеклист", self)
+            checklist_title.setStyleSheet("font-size: 12px; color: #b9cdf3; font-weight: 600;")
+            layout.addWidget(checklist_title)
+
+            self._check_settings = QLabel(self._format_check_text("pending", "Открыть настройки"), self)
+            self._check_voice = QLabel(self._format_check_text("pending", "Выбрать голос"), self)
+            self._check_mic = QLabel(self._format_check_text("pending", "Проверить микрофон"), self)
+            for item in (self._check_settings, self._check_voice, self._check_mic):
+                item.setStyleSheet("color: #d7e6ff; font-size: 12px;")
+                layout.addWidget(item)
+
+            self._progress_label = QLabel("Готовность: 0/3", self)
+            self._progress_label.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            layout.addWidget(self._progress_label)
+
             button_row = QHBoxLayout()
             button_row.setSpacing(10)
             settings_button = QPushButton("Настройки", self)
@@ -821,9 +841,11 @@ def main() -> None:
 
         def _open_settings(self) -> None:
             self._widget._open_settings_dialog()
+            self._mark_check("settings", True)
 
         def _open_voice_settings(self) -> None:
             self._widget._open_settings_dialog(focus="voice")
+            self._mark_check("voice", True)
 
         def _run_mic_test(self) -> None:
             if self._mic_testing:
@@ -833,20 +855,50 @@ def main() -> None:
 
             def worker():
                 message = "Микрофон работает. Слышу тебя."
+                ok = True
                 try:
                     recording = record_audio(AUDIO_FILENAME, 2.0)
                     if recording.rms < MIN_AUDIO_RMS:
                         message = "Слышу очень тихо. Попробуй говорить громче."
+                        ok = False
                 except Exception:
                     message = "Не получилось проверить микрофон."
+                    ok = False
 
                 def finish():
                     self._mic_status.setText(message)
                     self._mic_testing = False
+                    self._mark_check("mic", ok)
 
                 QTimer.singleShot(0, finish)
 
             threading.Thread(target=worker, daemon=True).start()
+
+        def _mark_check(self, key: str, ok: bool) -> None:
+            self._check_state[key] = ok
+            state = "done" if ok else "warn"
+            if key == "settings":
+                self._check_settings.setText(self._format_check_text(state, "Открыть настройки"))
+            elif key == "voice":
+                self._check_voice.setText(self._format_check_text(state, "Выбрать голос"))
+            elif key == "mic":
+                self._check_mic.setText(self._format_check_text(state, "Проверить микрофон"))
+            self._update_progress()
+
+        def _update_progress(self) -> None:
+            done = sum(1 for value in self._check_state.values() if value)
+            self._progress_label.setText(f"Готовность: {done}/3")
+
+        @staticmethod
+        def _format_check_text(state: str, label: str) -> str:
+            colors = {
+                "done": "#6ee7a8",
+                "warn": "#ffb347",
+                "pending": "#7a8bb8",
+            }
+            color = colors.get(state, "#7a8bb8")
+            dot = f"<span style='color:{color}'>●</span>"
+            return f"{dot} {label}"
 
     class _AvatarPreview(QWidget):
         def __init__(self, widget: "AvatarWidget", parent: QWidget | None = None) -> None:

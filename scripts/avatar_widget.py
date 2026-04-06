@@ -843,6 +843,7 @@ def main() -> None:
             )
             self._avatar_opacity = float(self._widget_state.get("avatar_opacity", 1.0))
             self._start_hidden = bool(self._widget_state.get("start_hidden", False))
+            self._first_run_done = bool(self._widget_state.get("first_run_done", False))
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -881,6 +882,7 @@ def main() -> None:
             self._update_bubble()
             self._start_hotkey_listener()
             self._setup_tray()
+            self._maybe_run_onboarding()
 
         def _resolve_avatar_path(self) -> Path | None:
             override_path = str(self._widget_state.get("avatar_image_path", "")).strip()
@@ -1698,6 +1700,28 @@ def main() -> None:
                     dialog.apply()
                 except Exception as exc:
                     log(f"Failed to apply settings: {exc}")
+
+        def _maybe_run_onboarding(self) -> None:
+            if self._first_run_done:
+                return
+            self._first_run_done = True
+            self._widget_state["first_run_done"] = True
+            self._save_position()
+
+            def show_onboarding():
+                if not self.isVisible():
+                    self.show_avatar()
+                hotkey_hint = self._activation_hotkey or HOTKEY_COMBINATION
+                message = (
+                    "Привет. Я Вася и я рядом.\n"
+                    f"Горячая клавиша: {hotkey_hint}\n"
+                    "Клик по мне — начать говорить, правый клик — меню."
+                )
+                assistant_state.set(AssistantStateName.IDLE, message)
+                self._update_bubble()
+                QTimer.singleShot(800, self._open_settings_dialog)
+
+            QTimer.singleShot(300, show_onboarding)
 
         def _set_avatar_size(self, size: int) -> None:
             self._avatar_size = size

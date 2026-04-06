@@ -11,6 +11,7 @@ from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction
 from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
+    AUDIO_FILENAME,
     AVATAR_CUSTOM_SKIN_FILE,
     AVATAR_IMAGE_PATH,
     AVATAR_SKIN,
@@ -19,11 +20,13 @@ from config.settings import (
     HOTKEY_COMBINATION,
     HOTKEY_EXIT_COMBINATION,
     INTERRUPT_LISTEN_DELAY_SECONDS,
+    MIN_AUDIO_RMS,
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from utils.platform_runtime import get_platform_name
 from voice.profiles import get_active_voice_profile, list_voice_profiles
+from voice.recorder import record_audio
 from voice.session import run_voice_interaction
 from voice.tts import set_voice_profile, stop_speaking
 
@@ -580,6 +583,114 @@ def main() -> None:
             buttons.rejected.connect(self.reject)
             layout.addWidget(buttons)
 
+            if widget._settings_focus == "voice":
+                self._voice_profile_combo.setFocus()
+
+
+    class OnboardingDialog(QDialog):
+        def __init__(self, widget: "AvatarWidget") -> None:
+            super().__init__(widget)
+            self.setWindowTitle("Приветствие")
+            self.setModal(True)
+            self.setMinimumWidth(420)
+            self._widget = widget
+            self._mic_testing = False
+            self.setStyleSheet(
+                """
+                QDialog {
+                    background-color: #0b1435;
+                    border: 1px solid #274a99;
+                    border-radius: 18px;
+                }
+                QLabel {
+                    color: #e9f2ff;
+                    font-size: 13px;
+                }
+                QPushButton {
+                    background: #173377;
+                    color: #f5f9ff;
+                    border: 1px solid #3c67d1;
+                    border-radius: 10px;
+                    padding: 8px 14px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background: #1d439c;
+                }
+                """
+            )
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(20, 20, 20, 18)
+            layout.setSpacing(12)
+
+            title = QLabel("Добро пожаловать, я Вася", self)
+            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            layout.addWidget(title)
+
+            hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
+            body = QLabel(
+                "Я рядом и готов помочь.\n"
+                f"Горячая клавиша: {hotkey_hint}\n"
+                "Клик по мне — начать говорить, правый клик — меню.",
+                self,
+            )
+            body.setWordWrap(True)
+            body.setStyleSheet("color: #b9cdf3;")
+            layout.addWidget(body)
+
+            self._mic_status = QLabel("Можно сразу проверить микрофон.", self)
+            self._mic_status.setWordWrap(True)
+            self._mic_status.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            layout.addWidget(self._mic_status)
+
+            button_row = QHBoxLayout()
+            button_row.setSpacing(10)
+            settings_button = QPushButton("Настройки", self)
+            settings_button.clicked.connect(self._open_settings)
+            voice_button = QPushButton("Голос", self)
+            voice_button.clicked.connect(self._open_voice_settings)
+            mic_button = QPushButton("Тест микрофона", self)
+            mic_button.clicked.connect(self._run_mic_test)
+            close_button = QPushButton("Готово", self)
+            close_button.clicked.connect(self.accept)
+
+            button_row.addWidget(settings_button)
+            button_row.addWidget(voice_button)
+            button_row.addWidget(mic_button)
+            button_row.addStretch(1)
+            button_row.addWidget(close_button)
+            layout.addLayout(button_row)
+
+        def _open_settings(self) -> None:
+            self._widget._open_settings_dialog()
+
+        def _open_voice_settings(self) -> None:
+            self._widget._open_settings_dialog(focus="voice")
+
+        def _run_mic_test(self) -> None:
+            if self._mic_testing:
+                return
+            self._mic_testing = True
+            self._mic_status.setText("Слушаю 2 секунды…")
+
+            def worker():
+                message = "Микрофон работает. Слышу тебя."
+                try:
+                    recording = record_audio(AUDIO_FILENAME, 2.0)
+                    if recording.rms < MIN_AUDIO_RMS:
+                        message = "Слышу очень тихо. Попробуй говорить громче."
+                except Exception:
+                    message = "Не получилось проверить микрофон."
+
+                def finish():
+                    self._mic_status.setText(message)
+                    self._mic_testing = False
+
+                QTimer.singleShot(0, finish)
+
+            threading.Thread(target=worker, daemon=True).start()
+
             self._sync_preview()
 
         def apply(self) -> None:
@@ -870,6 +981,7 @@ def main() -> None:
             self._tray = None
             self._allow_close = False
             self._last_effective_skin = self._effective_avatar_skin()
+            self._settings_focus: str | None = None
 
             self._bridge.state_changed.connect(self._apply_state)
             self._bridge.exit_requested.connect(self.quit_application)
@@ -1698,13 +1810,15 @@ def main() -> None:
                 suffix = f" [{_state_label(self._state.name)}]"
             self._tray.setToolTip(f"Вася AI{suffix}")
 
-        def _open_settings_dialog(self) -> None:
+        def _open_settings_dialog(self, *, focus: str | None = None) -> None:
+            self._settings_focus = focus
             dialog = SettingsDialog(self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 try:
                     dialog.apply()
                 except Exception as exc:
                     log(f"Failed to apply settings: {exc}")
+            self._settings_focus = None
 
         def _maybe_run_onboarding(self) -> None:
             if self._first_run_done:
@@ -1744,9 +1858,13 @@ def main() -> None:
                         self._update_bubble()
                 QTimer.singleShot(8000, clear_onboarding)
                 if autostart_settings:
-                    QTimer.singleShot(800, self._open_settings_dialog)
+                    QTimer.singleShot(800, self._open_onboarding_dialog)
 
             QTimer.singleShot(300, show_onboarding)
+
+        def _open_onboarding_dialog(self) -> None:
+            dialog = OnboardingDialog(self)
+            dialog.exec()
 
         def _set_avatar_size(self, size: int) -> None:
             self._avatar_size = size

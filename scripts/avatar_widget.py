@@ -1835,7 +1835,14 @@ def main() -> None:
             if self._state.name == AssistantStateName.SPEAKING:
                 return "Говорю…"
             if self._state.name == AssistantStateName.ERROR:
-                return "Ошибка"
+                message = (self._state.message or "").lower()
+                if "тихо" in message:
+                    return "Слишком тихо — скажи громче"
+                if "не расслыш" in message:
+                    return "Не расслышал — повтори"
+                if "сомнева" in message:
+                    return "Сомневаюсь — повтори"
+                return "Не понял — повтори"
             return "Клик — говорить • ПКМ — меню"
 
         def _update_bubble_position(self) -> None:

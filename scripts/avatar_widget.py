@@ -1150,11 +1150,11 @@ def main() -> None:
             self._state = state
             if previous_state == AssistantStateName.SPEAKING and state.name == AssistantStateName.IDLE:
                 self._smile_bounce = 1.0
-            if self._state.name != AssistantStateName.IDLE:
-                self._hide_hover_hint()
             self._update_bubble()
             self._update_tray_tooltip()
             self.update()
+            if self._hover_hint_active:
+                self._refresh_hover_hint()
 
         def _tick(self) -> None:
             if self._state.name == AssistantStateName.IDLE and not self._idle_motion_enabled:
@@ -1803,21 +1803,38 @@ def main() -> None:
             self._bubble.raise_()
 
         def _show_hover_hint(self) -> None:
-            if self._state.name != AssistantStateName.IDLE or not self.isVisible():
+            if not self.isVisible():
                 return
             if self._bubble.isVisible():
                 return
             self._hover_hint_active = True
-            self._hover_bubble.set_text("Клик — говорить • ПКМ — меню")
+            self._hover_bubble.set_text(self._hover_hint_text())
             self._update_hover_bubble_position()
             self._hover_bubble.show()
             self._hover_bubble.raise_()
+
+        def _refresh_hover_hint(self) -> None:
+            if not self._hover_hint_active or not self._hover_bubble.isVisible():
+                return
+            self._hover_bubble.set_text(self._hover_hint_text())
+            self._update_hover_bubble_position()
 
         def _hide_hover_hint(self) -> None:
             if not self._hover_hint_active:
                 return
             self._hover_hint_active = False
             self._hover_bubble.hide()
+
+        def _hover_hint_text(self) -> str:
+            if self._state.name == AssistantStateName.LISTENING:
+                return "Слушаю…"
+            if self._state.name == AssistantStateName.THINKING:
+                return "Думаю…"
+            if self._state.name == AssistantStateName.SPEAKING:
+                return "Говорю…"
+            if self._state.name == AssistantStateName.ERROR:
+                return "Ошибка"
+            return "Клик — говорить • ПКМ — меню"
 
         def _update_bubble_position(self) -> None:
             if not self._bubble.isVisible():

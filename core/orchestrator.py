@@ -8,6 +8,7 @@ from services.ollama_client import OllamaClientError
 from utils.logger import log_interaction_event
 from utils.system_intents import detect_system_intent
 from dataclasses import dataclass
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -17,23 +18,57 @@ class ProcessResult:
     needs_followup: bool = False
 
 
+@dataclass(frozen=True)
+class RoutingStep:
+    name: str
+    handler: Callable[[str], ProcessResult | None]
+
+
 def process_text(user_text: str) -> str:
     return process_text_detailed(user_text).response
 
 
 def process_text_detailed(user_text: str) -> ProcessResult:
-    system_result = _handle_system_intent(user_text)
-    if system_result is not None:
-        return system_result
+    return _run_routing_policy(user_text)
 
-    confirmation_result = _handle_pending_confirmation(user_text)
-    if confirmation_result is not None:
-        return confirmation_result
 
-    game_result = _handle_active_game(user_text)
-    if game_result is not None:
-        return game_result
+def _run_routing_policy(user_text: str) -> ProcessResult:
+    steps: tuple[RoutingStep, ...] = (
+        RoutingStep("system_intent", _handle_system_intent),
+        RoutingStep("pending_confirmation", _handle_pending_confirmation),
+        RoutingStep("active_game", _handle_active_game),
+        RoutingStep("intent_parser", _handle_parsed_intent),
+    )
+    for step in steps:
+        result = step.handler(user_text)
+        if result is None:
+            continue
+        _log_routing_step(step.name, user_text, result.intent)
+        return result
+    # Defensive fallback: currently unreachable, but keeps the routing contract explicit.
+    response = "Не удалось обработать команду. Попробуй еще раз."
+    return ProcessResult(intent="unknown", response=response)
 
+
+def _handle_system_intent(user_text: str) -> ProcessResult | None:
+    system_intent = detect_system_intent(user_text)
+    if system_intent is None:
+        return None
+
+    response = route_intent(system_intent, user_text)
+    log_interaction_event(
+        "interaction",
+        {
+            "user_text": user_text,
+            "intent": system_intent.intent,
+            "intent_data": system_intent.data,
+            "response": response,
+        },
+    )
+    return ProcessResult(intent=system_intent.intent, response=response)
+
+
+def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
     try:
         intent_result = parse_intent(user_text)
     except OllamaClientError:
@@ -77,24 +112,6 @@ def process_text_detailed(user_text: str) -> ProcessResult:
     )
 
 
-def _handle_system_intent(user_text: str) -> ProcessResult | None:
-    system_intent = detect_system_intent(user_text)
-    if system_intent is None:
-        return None
-
-    response = route_intent(system_intent, user_text)
-    log_interaction_event(
-        "interaction",
-        {
-            "user_text": user_text,
-            "intent": system_intent.intent,
-            "intent_data": system_intent.data,
-            "response": response,
-        },
-    )
-    return ProcessResult(intent=system_intent.intent, response=response)
-
-
 def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
     pending = confirmation_store.get()
     if pending is None:
@@ -132,3 +149,14 @@ def _should_follow_up(intent: str, response: str) -> bool:
     if intent == "unknown" and response:
         return True
     return response.strip().endswith("?")
+
+
+def _log_routing_step(step_name: str, user_text: str, resolved_intent: str) -> None:
+    log_interaction_event(
+        "routing_step",
+        {
+            "step": step_name,
+            "user_text": user_text,
+            "resolved_intent": resolved_intent,
+        },
+    )

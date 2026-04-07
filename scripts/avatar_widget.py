@@ -379,6 +379,71 @@ def main() -> None:
                 self._text,
             )
 
+    class QuickCommandsDialog(QDialog):
+        def __init__(self, widget: "AvatarWidget") -> None:
+            super().__init__(widget)
+            self.setWindowTitle("Быстрые команды")
+            self.setModal(True)
+            self.setMinimumWidth(420)
+            self.setStyleSheet(
+                """
+                QDialog {
+                    background-color: #0b1435;
+                    border: 1px solid #274a99;
+                    border-radius: 18px;
+                }
+                QLabel {
+                    color: #e9f2ff;
+                    font-size: 13px;
+                }
+                QPushButton {
+                    background: #173377;
+                    color: #f5f9ff;
+                    border: 1px solid #3c67d1;
+                    border-radius: 10px;
+                    padding: 8px 14px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background: #1d439c;
+                }
+                """
+            )
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(20, 20, 20, 18)
+            layout.setSpacing(12)
+
+            title = QLabel("Быстрые команды", self)
+            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            layout.addWidget(title)
+
+            subtitle = QLabel("Примеры фраз, которые Вася понимает сразу.", self)
+            subtitle.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            subtitle.setWordWrap(True)
+            layout.addWidget(subtitle)
+
+            hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
+            commands = (
+                f"Горячая клавиша: {hotkey_hint}\n"
+                "Клик — начать говорить\n"
+                "«пока» — закрыть помощника\n"
+                "«замолчи» — остановить речь\n"
+                "«какие у меня задачи» — список задач\n"
+                "«какие у меня дела» — события\n"
+                "«запомни …» — сохранить заметку\n"
+                "«выгрузи заметки в обсидиан»\n"
+                "«давай играть в слова» — детские игры"
+            )
+            body = QLabel(commands, self)
+            body.setStyleSheet("color: #d7e6ff; font-size: 12px;")
+            body.setWordWrap(True)
+            layout.addWidget(body)
+
+            close_button = QPushButton("Понятно", self)
+            close_button.clicked.connect(self.accept)
+            layout.addWidget(close_button, alignment=Qt.AlignmentFlag.AlignRight)
+
     class SettingsDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:
             super().__init__(widget)
@@ -1220,6 +1285,7 @@ def main() -> None:
                 "Скрыть Васю" if self.isVisible() else "Показать Васю"
             )
             listen_action = menu.addAction("Начать слушать")
+            quick_action = menu.addAction("Быстрые команды")
             settings_action = menu.addAction("Настройки...")
             menu.addSeparator()
             quit_action = menu.addAction("Закрыть Васю")
@@ -1229,6 +1295,8 @@ def main() -> None:
                 self.toggle_avatar_visibility()
             elif chosen_action == listen_action:
                 self._activate_interaction()
+            elif chosen_action == quick_action:
+                self._open_quick_commands()
             elif chosen_action == settings_action:
                 self._open_settings_dialog()
             elif chosen_action == quit_action:
@@ -1941,6 +2009,10 @@ def main() -> None:
             listen_action.triggered.connect(self._activate_interaction)
             menu.addAction(listen_action)
 
+            quick_action = QAction("Быстрые команды", self)
+            quick_action.triggered.connect(self._open_quick_commands)
+            menu.addAction(quick_action)
+
             settings_action = QAction("Настройки...", self)
             settings_action.triggered.connect(self._open_settings_dialog)
             menu.addAction(settings_action)
@@ -2012,6 +2084,10 @@ def main() -> None:
                 except Exception as exc:
                     log(f"Failed to apply settings: {exc}")
             self._settings_focus = None
+
+        def _open_quick_commands(self) -> None:
+            dialog = QuickCommandsDialog(self)
+            dialog.exec()
 
         def _maybe_run_onboarding(self) -> None:
             if self._first_run_done:

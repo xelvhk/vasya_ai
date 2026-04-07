@@ -347,6 +347,38 @@ def main() -> None:
                 self._text,
             )
 
+    class HoverBubble(QWidget):
+        def __init__(self) -> None:
+            super().__init__()
+            self.setWindowFlags(
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowStaysOnTopHint
+                | Qt.WindowType.Tool
+            )
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            self._text = ""
+            self.resize(200, 44)
+
+        def set_text(self, text: str) -> None:
+            self._text = text
+            self.update()
+
+        def paintEvent(self, event) -> None:
+            _ = event
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setBrush(QColor(13, 24, 64, 210))
+            painter.setPen(QPen(QColor("#5e8fe6"), 1))
+            painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 14, 14)
+
+            painter.setPen(QColor("#e8f0ff"))
+            painter.setFont(QFont("Helvetica", 9))
+            painter.drawText(
+                self.rect().adjusted(12, 8, -12, -8),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
+                self._text,
+            )
+
     class SettingsDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:
             super().__init__(widget)
@@ -1048,11 +1080,13 @@ def main() -> None:
             self._tray_icon_pixmap = self._build_tray_pixmap()
             self._bridge = StateBridge()
             self._bubble = ResponseBubble()
+            self._hover_bubble = HoverBubble()
             self._hotkey_listener = None
             self._tray = None
             self._allow_close = False
             self._last_effective_skin = self._effective_avatar_skin()
             self._settings_focus: str | None = None
+            self._hover_hint_active = False
 
             self._bridge.state_changed.connect(self._apply_state)
             self._bridge.exit_requested.connect(self.quit_application)
@@ -1116,6 +1150,8 @@ def main() -> None:
             self._state = state
             if previous_state == AssistantStateName.SPEAKING and state.name == AssistantStateName.IDLE:
                 self._smile_bounce = 1.0
+            if self._state.name != AssistantStateName.IDLE:
+                self._hide_hover_hint()
             self._update_bubble()
             self._update_tray_tooltip()
             self.update()
@@ -1137,6 +1173,7 @@ def main() -> None:
                     self._tray.setIcon(QIcon(self._tray_icon_pixmap))
             self.update()
             self._update_bubble_position()
+            self._update_hover_bubble_position()
 
         def mousePressEvent(self, event: QMouseEvent) -> None:
             if event.button() == Qt.MouseButton.LeftButton:
@@ -1163,6 +1200,16 @@ def main() -> None:
                         self.move(_snap_to_nearest_edge(self.pos(), self.width(), self.height()))
                         self._update_bubble_position()
                     self._save_position()
+
+        def enterEvent(self, event) -> None:
+            _ = event
+            self._show_hover_hint()
+            super().enterEvent(event)
+
+        def leaveEvent(self, event) -> None:
+            _ = event
+            self._hide_hover_hint()
+            super().leaveEvent(event)
 
         def contextMenuEvent(self, event) -> None:
             menu = QMenu(self)
@@ -1225,6 +1272,7 @@ def main() -> None:
 
             self._save_position()
             self._bubble.close()
+            self._hover_bubble.close()
             if self._hotkey_listener is not None:
                 self._hotkey_listener.stop()
             if self._tray is not None:
@@ -1242,6 +1290,25 @@ def main() -> None:
                 self._paint_avatar(painter)
             else:
                 self._paint_character(painter)
+            self._paint_status_indicator(painter)
+
+        def _paint_status_indicator(self, painter: QPainter) -> None:
+            if self._state.name == AssistantStateName.IDLE:
+                return
+            painter.save()
+            color = _animated_glow(
+                self._state.name,
+                self._pulse,
+                self._effective_avatar_skin(),
+            )
+            color.setAlpha(220)
+            painter.setPen(QPen(QColor(0, 0, 0, 80), 1))
+            painter.setBrush(color)
+            radius = 6
+            x = self.width() - 16
+            y = 10
+            painter.drawEllipse(QRectF(x, y, radius * 2, radius * 2))
+            painter.restore()
 
         def _paint_ambient_glow(self, painter: QPainter) -> None:
             glow = _animated_glow(
@@ -1735,6 +1802,23 @@ def main() -> None:
             self._bubble.show()
             self._bubble.raise_()
 
+        def _show_hover_hint(self) -> None:
+            if self._state.name != AssistantStateName.IDLE or not self.isVisible():
+                return
+            if self._bubble.isVisible():
+                return
+            self._hover_hint_active = True
+            self._hover_bubble.set_text("Клик — говорить • ПКМ — меню")
+            self._update_hover_bubble_position()
+            self._hover_bubble.show()
+            self._hover_bubble.raise_()
+
+        def _hide_hover_hint(self) -> None:
+            if not self._hover_hint_active:
+                return
+            self._hover_hint_active = False
+            self._hover_bubble.hide()
+
         def _update_bubble_position(self) -> None:
             if not self._bubble.isVisible():
                 return
@@ -1747,6 +1831,18 @@ def main() -> None:
                 if bubble_x + self._bubble.width() > available.right() - 8:
                     bubble_x = self.x() - self._bubble.width() - 12
             self._bubble.move(bubble_x, bubble_y)
+
+        def _update_hover_bubble_position(self) -> None:
+            if not self._hover_bubble.isVisible():
+                return
+            bubble_x = self.x() + self.width() + 10
+            bubble_y = self.y() + 10
+            primary = QGuiApplication.primaryScreen()
+            if primary is not None:
+                available = primary.availableGeometry()
+                if bubble_x + self._hover_bubble.width() > available.right() - 8:
+                    bubble_x = self.x() - self._hover_bubble.width() - 10
+            self._hover_bubble.move(bubble_x, bubble_y)
 
         def _restore_position(self) -> None:
             saved_pos = _load_saved_position()

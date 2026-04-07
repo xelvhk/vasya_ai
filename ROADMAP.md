@@ -80,6 +80,7 @@ Current status:
 - first-run onboarding dialog and checklist/progress polish landed in `v0.4.7`
 - product shell hover tooltip and status indicator landed in `v0.5.0`
 - mini hover tooltips per state landed in `v0.5.1`
+- tool registry, routing policy layer, and handoff rules landed in `v0.5.2`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -185,6 +186,7 @@ Good future exports:
 - `v0.4.7`: first-run onboarding dialog, checklist, and polish
 - `v0.5.0`: hover tooltip, status indicator, and more product-like desktop shell polish
 - `v0.5.1`: mini hover tooltips per state
+- `v0.5.2`: tool registry, routing policy layer, handoff rules, and unified local memory API
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

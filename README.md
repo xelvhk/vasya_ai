@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.5.1`
+Current version: `0.5.2`
 
 ## Overview
 
@@ -29,6 +29,10 @@ Vasya already supports:
 - a faster two-stage STT pipeline
 - STT quality profiles and smarter recovery UX
 - avatar skin presets, custom palette import/export, and custom avatar image support
+- tool registry with dispatch-based routing
+- orchestrator routing policy layer
+- agent-to-agent handoff rules
+- unified local memory API (snapshot/search)
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -375,6 +379,7 @@ This is still an MVP, so current limits include:
 - `v0.4.7`: first-run onboarding, onboarding dialog, and checklist/progress polish
 - `v0.5.0`: product shell polish (hover tooltip, status indicator)
 - `v0.5.1`: mini hover tooltips per state
+- `v0.5.2`: tool registry, routing policy layer, handoff rules, and unified memory API
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

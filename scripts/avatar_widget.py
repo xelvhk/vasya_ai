@@ -765,6 +765,8 @@ def main() -> None:
             self._sync_preview()
 
         def _sync_preview(self) -> None:
+            if not hasattr(self, "_child_mode_checkbox"):
+                return
             selected_skin = str(self._skin_combo.currentData())
             child_mode_enabled = self._child_mode_checkbox.isChecked()
             auto_child_skin = not (child_mode_enabled and selected_skin != "child")

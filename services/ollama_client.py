@@ -4,6 +4,7 @@ import json
 from urllib.parse import urlparse
 
 import requests
+from utils.platform_runtime import get_platform_name
 from config.settings import (
     OLLAMA_CHAT_MODEL,
     OLLAMA_CHAT_MODEL_CANDIDATES,
@@ -31,10 +32,23 @@ def ensure_ollama_running(timeout_seconds: float = 10.0) -> bool:
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
-    except OSError as exc:
-        raise OllamaClientError(
-            "Не удалось запустить Ollama автоматически. Проверь, что команда ollama доступна."
-        ) from exc
+    except OSError:
+        if get_platform_name() == "macos":
+            try:
+                subprocess.Popen(
+                    ["open", "-a", "Ollama"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            except OSError as exc:
+                raise OllamaClientError(
+                    "Не удалось запустить Ollama автоматически. Проверь, что Ollama установлена."
+                ) from exc
+        else:
+            raise OllamaClientError(
+                "Не удалось запустить Ollama автоматически. Проверь, что команда ollama доступна."
+            )
 
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:

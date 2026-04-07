@@ -32,6 +32,7 @@ from config.settings import (
     VOICE_PARTIAL_STT_INTERVAL_SECONDS,
     VOICE_SILENCE_DURATION_SECONDS,
     VOICE_SILENCE_RMS,
+    VOICE_START_TIMEOUT_SECONDS,
     VOICE_INPUT_BACKEND,
 )
 from utils.platform_runtime import get_platform_name
@@ -333,6 +334,7 @@ class SoundDeviceVoiceInputBackend(BaseVoiceInputBackend):
         silence_blocks_to_stop = max(1, int(VOICE_SILENCE_DURATION_SECONDS / block_duration))
         min_speech_blocks = max(1, int(VOICE_MIN_SPEECH_SECONDS / block_duration))
         partial_interval_blocks = max(1, int(VOICE_PARTIAL_STT_INTERVAL_SECONDS / block_duration))
+        start_timeout_blocks = max(1, int(VOICE_START_TIMEOUT_SECONDS / block_duration))
 
         audio_queue: Queue[np.ndarray | None] = Queue()
         collected_blocks: list[np.ndarray] = []
@@ -366,6 +368,12 @@ class SoundDeviceVoiceInputBackend(BaseVoiceInputBackend):
                 collected_blocks.append(block)
                 float_block = block.astype("float32")
                 block_rms = float(np.sqrt(np.mean(np.square(float_block))))
+
+                if not speech_started and block_rms < VOICE_SILENCE_RMS:
+                    silence_blocks += 1
+                    if silence_blocks >= start_timeout_blocks:
+                        break
+                    continue
 
                 if block_rms >= VOICE_SILENCE_RMS:
                     if not speech_started and status_callback is not None:

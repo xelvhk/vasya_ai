@@ -64,6 +64,7 @@ def main() -> None:
             QLineEdit,
             QMenu,
             QPushButton,
+            QProgressBar,
             QSlider,
             QSystemTrayIcon,
             QVBoxLayout,
@@ -820,6 +821,25 @@ def main() -> None:
             self._progress_label = QLabel("Готовность: 0/3", self)
             self._progress_label.setStyleSheet("color: #9fb8ec; font-size: 12px;")
             layout.addWidget(self._progress_label)
+            self._progress_bar = QProgressBar(self)
+            self._progress_bar.setRange(0, 3)
+            self._progress_bar.setValue(0)
+            self._progress_bar.setTextVisible(False)
+            self._progress_bar.setFixedHeight(6)
+            self._progress_bar.setStyleSheet(
+                """
+                QProgressBar {
+                    background: #13204e;
+                    border: 1px solid #345ab3;
+                    border-radius: 4px;
+                }
+                QProgressBar::chunk {
+                    background: #6ee7a8;
+                    border-radius: 4px;
+                }
+                """
+            )
+            layout.addWidget(self._progress_bar)
 
             button_row = QHBoxLayout()
             button_row.setSpacing(10)
@@ -888,6 +908,7 @@ def main() -> None:
         def _update_progress(self) -> None:
             done = sum(1 for value in self._check_state.values() if value)
             self._progress_label.setText(f"Готовность: {done}/3")
+            self._progress_bar.setValue(done)
 
         @staticmethod
         def _format_check_text(state: str, label: str) -> str:

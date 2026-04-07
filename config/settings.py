@@ -6,7 +6,7 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.4.6")
+APP_VERSION = os.getenv("APP_VERSION", "0.4.7")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)

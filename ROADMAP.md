@@ -77,6 +77,7 @@ Current status:
 - voice responsiveness and child-safe/game UX improved in `v0.4.4`
 - two-stage STT, STT quality profiles, smarter recovery, and better clarifications landed in `v0.4.5`
 - avatar personalization, built-in skins, custom palette import/export, custom avatar images, and child-mode auto skin switching landed in `v0.4.6`
+- first-run onboarding dialog and checklist/progress polish landed in `v0.4.7`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -179,6 +180,7 @@ Good future exports:
 - `v0.4.4`: voice responsiveness, child-safe UX, and game interaction polish
 - `v0.4.5`: two-stage STT, STT quality profiles, smarter recovery, and clearer task/calendar clarifications
 - `v0.4.6`: avatar personalization, built-in skins, custom palette import/export, custom avatar image overrides, and child-mode auto skin switching
+- `v0.4.7`: first-run onboarding dialog, checklist, and polish
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

@@ -1,6 +1,8 @@
 from assistant.confirmations import classify_confirmation_reply, confirmation_store
 from assistant.games import game_store
 from agents.task_agent import confirm_delete_all_tasks
+from core.handoffs import build_handoffs
+from core.models import IntentResult
 from services.game_service import handle_active_game_turn
 from core.intent_parser import parse_intent
 from core.router import route_intent
@@ -96,6 +98,9 @@ def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
         return ProcessResult(intent="unknown", response=response)
 
     response = route_intent(intent_result, user_text)
+    handoff_responses = _run_handoffs(intent_result, user_text)
+    if handoff_responses:
+        response = _merge_handoff_responses(response, handoff_responses)
     log_interaction_event(
         "interaction",
         {
@@ -160,3 +165,59 @@ def _log_routing_step(step_name: str, user_text: str, resolved_intent: str) -> N
             "resolved_intent": resolved_intent,
         },
     )
+
+
+def _run_handoffs(intent_result: IntentResult, user_text: str) -> list[tuple[str, str]]:
+    handoff_intents = build_handoffs(intent_result, user_text)
+    if not handoff_intents:
+        return []
+
+    results: list[tuple[str, str]] = []
+    for handoff_intent in handoff_intents:
+        try:
+            handoff_response = route_intent(handoff_intent, user_text).strip()
+        except Exception as exc:
+            log_interaction_event(
+                "handoff_error",
+                {
+                    "source_intent": intent_result.intent,
+                    "handoff_intent": handoff_intent.intent,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+            )
+            continue
+        if not handoff_response:
+            continue
+        if handoff_response not in {resp for _, resp in results}:
+            results.append((handoff_intent.intent, handoff_response))
+
+    if results:
+        log_interaction_event(
+            "handoff",
+            {
+                "source_intent": intent_result.intent,
+                "handoff_intents": [intent for intent, _ in results],
+            },
+        )
+    return results
+
+
+def _merge_handoff_responses(primary_response: str, handoff_responses: list[tuple[str, str]]) -> str:
+    if not handoff_responses:
+        return primary_response
+
+    fragments: list[str] = [primary_response.strip()] if primary_response.strip() else []
+    for intent, response in handoff_responses:
+        if intent == "create_event":
+            fragments.append(f"Дополнительно в календаре: {response}")
+            continue
+        if intent == "get_events":
+            fragments.append(f"И по событиям: {response}")
+            continue
+        if intent == "get_tasks":
+            fragments.append(f"И по задачам: {response}")
+            continue
+        fragments.append(response)
+
+    return "\n".join(fragment for fragment in fragments if fragment)

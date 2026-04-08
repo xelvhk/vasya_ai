@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.5.3`
+Current version: `0.5.4`
 
 ## Overview
 
@@ -34,6 +34,7 @@ Vasya already supports:
 - agent-to-agent handoff rules
 - unified local memory API (snapshot/search)
 - managed user profile memory (remember/forget/recall) with local persistence
+- Notion read/write adapter and GitHub -> Notion project update sync
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -58,12 +59,15 @@ Current capabilities:
 - play kid-friendly voice games: words, hide and seek, riddles, guess the animal, and repeat after me
 - personalize Vasya through built-in skins, a custom palette, or a custom avatar image
 - manage personal memory by voice and clear it from settings with confirmation
+- sync latest GitHub project updates to Notion and read/add Notion page entries
 
 Example commands:
 - `Add a task to buy a lamp`
 - `What tasks do I have?`
 - `Add a meeting with Sasha tomorrow at 6 PM`
 - `Show my events for March 30`
+- `Sync GitHub in Notion`
+- `Read Notion`
 - `Be quiet`
 - `Exit`
 
@@ -303,6 +307,13 @@ GOOGLE_CALENDAR_TIMEZONE=Europe/Moscow
 GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
 GOOGLE_CALENDAR_SYNC_ON_READ=true
 GOOGLE_CALENDAR_READ_MAX_RESULTS=20
+
+NOTION_API_TOKEN=
+NOTION_UPDATES_PAGE_ID=
+GITHUB_API_TOKEN=
+GITHUB_DEFAULT_REPO=owner/repo
+GITHUB_SYNC_DEFAULT_HOURS=24
+GITHUB_SYNC_STATE_FILE=storage/github_notion_sync_state.json
 ```
 
 For faster intent parsing:
@@ -383,6 +394,7 @@ This is still an MVP, so current limits include:
 - `v0.5.1`: mini hover tooltips per state
 - `v0.5.2`: tool registry, routing policy layer, handoff rules, and unified memory API
 - `v0.5.3`: managed user profile memory, fast-path memory commands, and settings-based personal memory cleanup
+- `v0.5.4`: Notion read/write adapter, GitHub-to-Notion updates sync, and fast voice intents for Notion workflows
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

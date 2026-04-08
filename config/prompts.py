@@ -21,6 +21,9 @@ INTENT_PROMPT_TEMPLATE = """
 - remember_user_profile
 - forget_user_profile
 - get_user_profile
+- sync_github_notion
+- read_notion_page
+- append_notion_page
 - chat
 - unknown
 
@@ -72,9 +75,19 @@ INTENT_PROMPT_TEMPLATE = """
    - используй для фраз вида "забудь это", "удали из памяти ..."
 18. Для get_user_profile:
    - используй, если пользователь спрашивает "что ты обо мне помнишь" и похожие
-19. Для chat:
+19. Для sync_github_notion:
+   - repo: optional, owner/repo
+   - используй для фраз "синхронизируй github в notion", "обнови notion по github"
+20. Для read_notion_page:
+   - page_id: optional
+   - используй для фраз "прочитай notion", "что в notion"
+21. Для append_notion_page:
+   - text: что добавить в страницу Notion
+   - page_id: optional
+   - используй для фраз "запиши в notion ..."
+22. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
-   - не используй chat для задач, календаря, заметок, игр, остановки речи или закрытия помощника
+   - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub синка
 
 Примеры ответа:
 
@@ -188,6 +201,25 @@ INTENT_PROMPT_TEMPLATE = """
 {{
   "intent": "get_user_profile",
   "data": {{}}
+}}
+
+{{
+  "intent": "sync_github_notion",
+  "data": {{
+    "repo": "owner/repo"
+  }}
+}}
+
+{{
+  "intent": "read_notion_page",
+  "data": {{}}
+}}
+
+{{
+  "intent": "append_notion_page",
+  "data": {{
+    "text": "обновили auth и пофиксили таймауты"
+  }}
 }}
 
 {{

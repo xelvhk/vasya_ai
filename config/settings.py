@@ -6,7 +6,7 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.5.3")
+APP_VERSION = os.getenv("APP_VERSION", "0.5.4")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
@@ -128,6 +128,18 @@ OBSIDIAN_EXPORT_NOTES_DIR = os.getenv(
     "OBSIDIAN_EXPORT_NOTES_DIR",
     "Vasya Inbox",
 ).strip()
+NOTION_API_TOKEN = os.getenv("NOTION_API_TOKEN", "").strip()
+NOTION_API_BASE_URL = os.getenv("NOTION_API_BASE_URL", "https://api.notion.com/v1").strip()
+NOTION_API_VERSION = os.getenv("NOTION_API_VERSION", "2022-06-28").strip()
+NOTION_UPDATES_PAGE_ID = os.getenv("NOTION_UPDATES_PAGE_ID", "").strip()
+GITHUB_API_TOKEN = os.getenv("GITHUB_API_TOKEN", "").strip()
+GITHUB_API_BASE_URL = os.getenv("GITHUB_API_BASE_URL", "https://api.github.com").strip()
+GITHUB_DEFAULT_REPO = os.getenv("GITHUB_DEFAULT_REPO", "").strip()
+GITHUB_SYNC_STATE_FILE = os.getenv(
+    "GITHUB_SYNC_STATE_FILE",
+    "storage/github_notion_sync_state.json",
+).strip()
+GITHUB_SYNC_DEFAULT_HOURS = int(os.getenv("GITHUB_SYNC_DEFAULT_HOURS", "24"))
 PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
 PIPER_MODEL_PATH = os.getenv(
     "PIPER_MODEL_PATH",

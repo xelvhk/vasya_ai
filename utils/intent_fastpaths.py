@@ -28,6 +28,11 @@ _COMMAND_MARKERS = (
     "забуд",
     "личную память",
     "личная память",
+    "notion",
+    "ноушн",
+    "гитхаб",
+    "github",
+    "репозитори",
     "обсидиан",
     "выгрузи",
     "экспорт",
@@ -251,6 +256,43 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     }:
         return IntentResult(intent="export_notes", data={})
 
+    sync_notion_patterns = (
+        r"^(?:синхронизируй|обнови)\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\s+(?:в|с)\s+(?:notion|ноушн)\b",
+        r"^(?:синхронизируй|обнови)\s+(?:notion|ноушн)\s+по\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\b",
+    )
+    for pattern in sync_notion_patterns:
+        match = re.search(pattern, normalized)
+        if match:
+            repo = ""
+            for group_value in match.groups():
+                if group_value:
+                    repo = str(group_value).strip()
+                    break
+            data = {"repo": repo} if repo else {}
+            return IntentResult(intent="sync_github_notion", data=data)
+
+    if normalized in {
+        "прочитай notion",
+        "прочитай ноушн",
+        "что в notion",
+        "что в ноушн",
+        "покажи notion",
+        "покажи ноушн",
+    }:
+        return IntentResult(intent="read_notion_page", data={})
+
+    append_notion_prefixes = (
+        "запиши в notion ",
+        "запиши в ноушн ",
+        "добавь в notion ",
+        "добавь в ноушн ",
+    )
+    for prefix in append_notion_prefixes:
+        if normalized.startswith(prefix):
+            text = normalized[len(prefix):].strip(" .,:;!-")
+            if text:
+                return IntentResult(intent="append_notion_page", data={"text": text})
+
     list_tasks_patterns = (
         r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",
     )
@@ -328,6 +370,9 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "get_user_profile",
         "remember_user_profile",
         "forget_user_profile",
+        "sync_github_notion",
+        "read_notion_page",
+        "append_notion_page",
     }:
         return fast_intent
 

@@ -10,6 +10,11 @@ from agents.task_agent import handle_task_intent
 from assistant.child_mode import child_mode_store
 from assistant.control import assistant_control
 from core.models import IntentResult
+from services.github_notion_sync_service import (
+    append_note_to_notion,
+    read_notion_updates_page,
+    sync_project_updates_to_notion,
+)
 from services.user_profile_service import (
     forget_user_profile,
     get_user_profile_summary,
@@ -86,6 +91,23 @@ def _run_user_profile_tool(intent_result: IntentResult) -> str:
     return get_user_profile_summary()
 
 
+def _run_notion_github_sync_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "sync_github_notion":
+        repo = str(intent_result.data.get("repo", "")).strip() or None
+        page_id = str(intent_result.data.get("page_id", "")).strip() or None
+        hours_raw = intent_result.data.get("hours")
+        hours = int(hours_raw) if isinstance(hours_raw, (int, float, str)) and str(hours_raw).strip().isdigit() else None
+        return sync_project_updates_to_notion(repo=repo, page_id=page_id, hours=hours)
+
+    if intent_result.intent == "read_notion_page":
+        page_id = str(intent_result.data.get("page_id", "")).strip() or None
+        return read_notion_updates_page(page_id=page_id, limit=10)
+
+    text = str(intent_result.data.get("text", "")).strip()
+    page_id = str(intent_result.data.get("page_id", "")).strip() or None
+    return append_note_to_notion(text, page_id=page_id)
+
+
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="calendar",
@@ -140,6 +162,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Управление персональной памятью о пользователе.",
         intents=("remember_user_profile", "forget_user_profile", "get_user_profile"),
         handler=_run_user_profile_tool,
+    ),
+    ToolSpec(
+        tool_id="notion_github_sync",
+        description="Чтение/запись в Notion и синхронизация последних изменений из GitHub.",
+        intents=("sync_github_notion", "read_notion_page", "append_notion_page"),
+        handler=_run_notion_github_sync_tool,
     ),
 )
 

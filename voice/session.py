@@ -280,6 +280,9 @@ def _is_safe_low_confidence_fast_path(transcription: TranscriptionResult) -> boo
         "delete_tasks",
         "get_notes",
         "export_notes",
+        "sync_github_notion",
+        "read_notion_page",
+        "append_notion_page",
     }
 
 

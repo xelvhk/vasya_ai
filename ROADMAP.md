@@ -82,6 +82,7 @@ Current status:
 - mini hover tooltips per state landed in `v0.5.1`
 - tool registry, routing policy layer, and handoff rules landed in `v0.5.2`
 - managed user profile memory, fast-path memory commands, and settings cleanup landed in `v0.5.3`
+- Notion adapter MVP with GitHub update sync landed in `v0.5.4`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -189,6 +190,7 @@ Good future exports:
 - `v0.5.1`: mini hover tooltips per state
 - `v0.5.2`: tool registry, routing policy layer, handoff rules, and unified local memory API
 - `v0.5.3`: managed user profile memory, faster memory command routing, and settings-based personal memory cleanup
+- `v0.5.4`: Notion read/write adapter, GitHub-to-Notion project sync, and fast Notion voice intents
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

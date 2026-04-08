@@ -25,6 +25,7 @@ from config.settings import (
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from utils.platform_runtime import get_platform_name
+from services.user_profile_service import clear_user_profile
 from voice.profiles import get_active_voice_profile, list_voice_profiles
 from voice.recorder import record_audio
 from voice.session import run_voice_interaction
@@ -63,6 +64,7 @@ def main() -> None:
             QLabel,
             QLineEdit,
             QMenu,
+            QMessageBox,
             QPushButton,
             QProgressBar,
             QSlider,
@@ -648,6 +650,13 @@ def main() -> None:
             self._child_mode_checkbox.setChecked(child_mode_store.is_enabled())
             form.addRow(self._child_mode_checkbox)
 
+            memory_actions = QHBoxLayout()
+            clear_memory_button = QPushButton("Очистить личную память...", self)
+            clear_memory_button.clicked.connect(self._clear_personal_memory)
+            memory_actions.addWidget(clear_memory_button)
+            memory_actions.addStretch(1)
+            form.addRow("Память о пользователе", memory_actions)
+
             self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)
             self._idle_motion_checkbox.setChecked(widget._idle_motion_enabled)
             self._idle_motion_checkbox.toggled.connect(self._sync_preview)
@@ -843,6 +852,19 @@ def main() -> None:
                 opacity=self._opacity_slider.value() / 100.0,
                 idle_motion=self._idle_motion_checkbox.isChecked(),
             )
+
+        def _clear_personal_memory(self) -> None:
+            answer = QMessageBox.question(
+                self,
+                "Очистить личную память",
+                "Удалить все сохраненные личные предпочтения и факты о пользователе?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+            message = clear_user_profile()
+            QMessageBox.information(self, "Личная память", message)
 
     class OnboardingDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:

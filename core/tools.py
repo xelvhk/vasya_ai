@@ -10,6 +10,11 @@ from agents.task_agent import handle_task_intent
 from assistant.child_mode import child_mode_store
 from assistant.control import assistant_control
 from core.models import IntentResult
+from services.user_profile_service import (
+    forget_user_profile,
+    get_user_profile_summary,
+    remember_user_profile,
+)
 from voice.tts import stop_speaking
 
 
@@ -68,6 +73,14 @@ def _run_exit_assistant_tool(intent_result: IntentResult) -> str:
     return "Завершаю работу."
 
 
+def _run_user_profile_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "remember_user_profile":
+        return remember_user_profile(str(intent_result.data.get("memory", "")))
+    if intent_result.intent == "forget_user_profile":
+        return forget_user_profile(str(intent_result.data.get("target", "")))
+    return get_user_profile_summary()
+
+
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="calendar",
@@ -117,6 +130,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         intents=("exit_assistant",),
         handler=_run_exit_assistant_tool,
     ),
+    ToolSpec(
+        tool_id="user_profile",
+        description="Управление персональной памятью о пользователе.",
+        intents=("remember_user_profile", "forget_user_profile", "get_user_profile"),
+        handler=_run_user_profile_tool,
+    ),
 )
 
 
@@ -136,4 +155,3 @@ def dispatch_tool(intent_result: IntentResult) -> str | None:
 
 def list_tools() -> tuple[ToolSpec, ...]:
     return TOOL_SPECS
-

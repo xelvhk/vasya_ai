@@ -6,17 +6,20 @@ from assistant.child_mode import child_mode_store
 from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
+from assistant.user_profile import user_profile_memory
 from config.settings import (
     OLLAMA_CHAT_STREAM,
     OLLAMA_CHAT_NUM_PREDICT,
     OLLAMA_CHAT_TEMPERATURE,
     OLLAMA_CHAT_THINK,
 )
+from services.memory_service import get_memory_snapshot, search_memory
 from services.ollama_client import generate, generate_stream, resolve_chat_model
 from utils.chat_fast_replies import generate_local_chat_reply
 
 
 def generate_chat_reply(user_text: str) -> str:
+    user_profile_memory.observe_user_text(user_text)
     recent_history = conversation_memory.recent()
     history_size = len(recent_history)
     last_assistant_reply = next(
@@ -45,11 +48,15 @@ def generate_chat_reply(user_text: str) -> str:
         return local_reply
 
     allow_greeting = _should_greet(user_text)
+    memory_context = _build_memory_context(user_text)
+    user_profile_hint = user_profile_memory.render_hint()
     prompt = _build_chat_prompt(
         user_text,
         allow_greeting=allow_greeting,
         tone="child" if child_mode else tone,
         child_mode=child_mode,
+        memory_context=memory_context,
+        user_profile_hint=user_profile_hint,
     )
     model = resolve_chat_model()
     if OLLAMA_CHAT_STREAM:
@@ -78,6 +85,8 @@ def _build_chat_prompt(
     allow_greeting: bool,
     tone: str,
     child_mode: bool,
+    memory_context: str | None = None,
+    user_profile_hint: str | None = None,
 ) -> str:
     history_lines = []
     for message in conversation_memory.recent():
@@ -96,6 +105,19 @@ def _build_chat_prompt(
         if child_mode
         else "Ориентируйся на обычный дружелюбный режим."
     )
+    memory_rule = (
+        "Если в блоке 'Локальная память' есть релевантный контекст, используй его аккуратно и коротко. "
+        "Если данных нет, честно скажи, что не нашла."
+        if memory_context
+        else "Не придумывай детали про прошлые задачи, заметки или события, если контекст не предоставлен."
+    )
+    memory_block = memory_context or "Локальная память не запрашивалась."
+    profile_rule = (
+        "Если есть блок 'Профиль пользователя', учитывай его как мягкие предпочтения тона и интересов."
+        if user_profile_hint
+        else "Если профиль пользователя не задан, не выдумывай персональные факты."
+    )
+    profile_block = user_profile_hint or "Профиль пользователя пока не заполнен."
 
     return f"""
 Ты Вася, дружелюбный локальный AI-помощник.
@@ -121,9 +143,17 @@ def _build_chat_prompt(
 - {greeting_rule}
 - {tone_rule}
 - {child_rule}
+- {memory_rule}
+- {profile_rule}
 
 Недавняя история:
 {history_block}
+
+Локальная память:
+{memory_block}
+
+Профиль пользователя:
+{profile_block}
 
 Новый запрос пользователя:
 {user_text}
@@ -261,6 +291,136 @@ def _build_stream_preview(text: str) -> str:
     if len(cleaned) > 120:
         preview += "..."
     return preview
+
+
+_MEMORY_QUERY_MARKERS = (
+    "помнишь",
+    "вспомни",
+    "мы обсуждали",
+    "что у меня",
+    "какие у меня",
+    "напомни",
+    "прошл",
+    "раньше",
+    "вчера",
+    "сегодня",
+    "недавно",
+    "заметк",
+    "задач",
+    "событ",
+    "календар",
+)
+
+_GENERIC_MEMORY_QUERIES = (
+    "что у меня",
+    "какие у меня",
+    "что было",
+    "что нового",
+    "что у нас",
+    "вспомни",
+    "напомни",
+)
+
+
+def _build_memory_context(user_text: str) -> str | None:
+    normalized = " ".join(user_text.lower().strip().split())
+    if not normalized:
+        return None
+    if not any(marker in normalized for marker in _MEMORY_QUERY_MARKERS):
+        return None
+
+    try:
+        query = _extract_memory_query(normalized)
+        is_generic_query = not query or query in _GENERIC_MEMORY_QUERIES
+        if is_generic_query:
+            snapshot = get_memory_snapshot(limit_per_type=3)
+            return _format_memory_snapshot(snapshot)
+
+        matches = search_memory(query, limit_per_type=3)
+        if _has_memory_matches(matches):
+            return _format_memory_matches(matches)
+
+        snapshot = get_memory_snapshot(limit_per_type=2)
+        return _format_memory_snapshot(snapshot)
+    except Exception:
+        return None
+
+
+def _extract_memory_query(normalized_text: str) -> str:
+    query = normalized_text
+    leading_patterns = (
+        r"^(помнишь(?: ли)?(?:,)?\s*)",
+        r"^(вспомни(?:,)?\s*)",
+        r"^(напомни(?:,)?\s*)",
+        r"^(скажи(?:,)?\s*)",
+    )
+    for pattern in leading_patterns:
+        query = re.sub(pattern, "", query, flags=re.IGNORECASE).strip()
+
+    query = re.sub(r"\b(что|какие|было|были|у|меня|мы|обсуждали|про|о)\b", " ", query)
+    return " ".join(query.split()).strip()
+
+
+def _has_memory_matches(matches: dict) -> bool:
+    return bool(matches.get("notes") or matches.get("tasks") or matches.get("events"))
+
+
+def _format_memory_matches(matches: dict) -> str:
+    sections: list[str] = []
+    notes = matches.get("notes", [])
+    tasks = matches.get("tasks", [])
+    events = matches.get("events", [])
+
+    if notes:
+        note_lines = [f"- {str(note.get('content', '')).strip()[:120]}" for note in notes]
+        sections.append("Заметки:\n" + "\n".join(note_lines))
+
+    if tasks:
+        task_lines = [f"- {str(task.get('task', '')).strip()[:120]}" for task in tasks]
+        sections.append("Задачи:\n" + "\n".join(task_lines))
+
+    if events:
+        event_lines = []
+        for event in events:
+            title = str(event.get("title", "")).strip()[:80]
+            dt = str(event.get("date", "") or event.get("datetime", "")).strip()
+            event_lines.append(f"- {title} ({dt})" if dt else f"- {title}")
+        sections.append("События:\n" + "\n".join(event_lines))
+
+    if not sections:
+        return "Совпадений в локальной памяти нет."
+    return "\n\n".join(sections)
+
+
+def _format_memory_snapshot(snapshot: dict) -> str:
+    sections: list[str] = []
+    notes = snapshot.get("notes", {}).get("items", [])
+    tasks = snapshot.get("tasks", {}).get("items", [])
+    events = snapshot.get("events", {}).get("items", [])
+
+    if notes:
+        note_lines = [f"- {str(note.get('content', '')).strip()[:100]}" for note in notes]
+        sections.append("Последние заметки:\n" + "\n".join(note_lines))
+    else:
+        sections.append("Последние заметки: пусто.")
+
+    if tasks:
+        task_lines = [f"- {str(task.get('task', '')).strip()[:100]}" for task in tasks]
+        sections.append("Последние задачи:\n" + "\n".join(task_lines))
+    else:
+        sections.append("Последние задачи: пусто.")
+
+    if events:
+        event_lines = []
+        for event in events:
+            title = str(event.get("title", "")).strip()[:80]
+            dt = str(event.get("date", "") or event.get("datetime", "")).strip()
+            event_lines.append(f"- {title} ({dt})" if dt else f"- {title}")
+        sections.append("Последние события:\n" + "\n".join(event_lines))
+    else:
+        sections.append("Последние события: пусто.")
+
+    return "\n\n".join(sections)
 
 
 def _generate_child_safe_redirect(user_text: str) -> str | None:

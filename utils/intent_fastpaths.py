@@ -23,6 +23,9 @@ _COMMAND_MARKERS = (
     "запомни",
     "заметк",
     "помнишь",
+    "обо мне",
+    "про меня",
+    "забуд",
     "обсидиан",
     "выгрузи",
     "экспорт",
@@ -151,8 +154,71 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     for prefix in create_note_prefixes:
         if normalized.startswith(prefix):
             content = normalized[len(prefix):].strip(" .,:;!-")
+            if prefix == "запомни ":
+                personal_markers = (
+                    "мне нравится",
+                    "я люблю",
+                    "мне не нравится",
+                    "я не люблю",
+                    "терпеть не могу",
+                    "меня зовут",
+                    "будь ",
+                    "давай ",
+                )
+                if any(marker in content for marker in personal_markers):
+                    break
             if content:
                 return IntentResult(intent="create_note", data={"content": content})
+
+    remember_profile_prefixes = (
+        "запомни, что ",
+        "запомни что ",
+        "запомни обо мне ",
+        "запомни про меня ",
+    )
+    for prefix in remember_profile_prefixes:
+        if normalized.startswith(prefix):
+            memory_text = normalized[len(prefix):].strip(" .,:;!-")
+            if memory_text:
+                return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
+
+    if normalized.startswith("запомни "):
+        memory_text = normalized[len("запомни "):].strip(" .,:;!-")
+        personal_markers = (
+            "мне нравится",
+            "я люблю",
+            "мне не нравится",
+            "я не люблю",
+            "терпеть не могу",
+            "меня зовут",
+            "будь ",
+            "давай ",
+        )
+        if memory_text and any(marker in memory_text for marker in personal_markers):
+            return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
+
+    get_profile_variants = {
+        "что ты обо мне помнишь",
+        "что ты про меня помнишь",
+        "что ты помнишь обо мне",
+        "что ты помнишь про меня",
+        "что ты знаешь обо мне",
+        "мои предпочтения",
+        "какие у меня предпочтения",
+    }
+    if normalized in get_profile_variants:
+        return IntentResult(intent="get_user_profile", data={})
+
+    forget_prefixes = (
+        "забудь ",
+        "удали из памяти ",
+        "стереть из памяти ",
+    )
+    for prefix in forget_prefixes:
+        if normalized.startswith(prefix):
+            target = normalized[len(prefix):].strip(" .,:;!-")
+            if target:
+                return IntentResult(intent="forget_user_profile", data={"target": target})
 
     if normalized in {
         "что ты помнишь",

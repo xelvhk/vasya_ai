@@ -21,6 +21,9 @@ class IntentResult(BaseModel):
         "enable_child_mode",
         "disable_child_mode",
         "exit_assistant",
+        "remember_user_profile",
+        "forget_user_profile",
+        "get_user_profile",
         "chat",
         "unknown",
     ]

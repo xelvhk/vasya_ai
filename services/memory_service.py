@@ -8,10 +8,9 @@ from services.task_service import get_tasks
 def get_memory_snapshot(limit_per_type: int = 5, *, filter_date: str | None = None) -> dict:
     limit = max(1, int(limit_per_type))
 
-    notes = get_notes(limit=limit)
-    tasks = get_tasks(filter_date=filter_date)
-    events_result = get_events(filter_date=filter_date)
-    events = events_result.get("events", [])
+    notes = _safe_get_notes(limit=limit)
+    tasks = _safe_get_tasks(filter_date=filter_date)
+    events = _safe_get_events(filter_date=filter_date)
 
     return {
         "notes": {
@@ -39,21 +38,21 @@ def search_memory(query: str, limit_per_type: int = 5) -> dict:
     task_hits: list[dict] = []
     event_hits: list[dict] = []
 
-    for note in get_notes(limit=100):
+    for note in _safe_get_notes(limit=100):
         content = str(note.get("content", ""))
         if normalized_query in content.lower():
             note_hits.append(note)
             if len(note_hits) >= limit:
                 break
 
-    for task in get_tasks():
+    for task in _safe_get_tasks():
         text = str(task.get("task", ""))
         if normalized_query in text.lower():
             task_hits.append(task)
             if len(task_hits) >= limit:
                 break
 
-    for event in get_events().get("events", []):
+    for event in _safe_get_events():
         title = str(event.get("title", ""))
         if normalized_query in title.lower():
             event_hits.append(event)
@@ -66,3 +65,29 @@ def search_memory(query: str, limit_per_type: int = 5) -> dict:
         "events": event_hits,
     }
 
+
+def _safe_get_notes(*, limit: int) -> list[dict]:
+    try:
+        return get_notes(limit=limit)
+    except Exception:
+        return []
+
+
+def _safe_get_tasks(*, filter_date: str | None = None) -> list[dict]:
+    try:
+        return get_tasks(filter_date=filter_date)
+    except Exception:
+        return []
+
+
+def _safe_get_events(*, filter_date: str | None = None) -> list[dict]:
+    try:
+        events_result = get_events(filter_date=filter_date)
+    except Exception:
+        return []
+    if not isinstance(events_result, dict):
+        return []
+    events = events_result.get("events", [])
+    if not isinstance(events, list):
+        return []
+    return events

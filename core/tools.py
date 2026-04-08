@@ -13,7 +13,9 @@ from core.models import IntentResult
 from services.user_profile_service import (
     forget_user_profile,
     get_user_profile_summary,
+    is_clear_all_target,
     remember_user_profile,
+    request_clear_user_profile_confirmation,
 )
 from voice.tts import stop_speaking
 
@@ -77,7 +79,10 @@ def _run_user_profile_tool(intent_result: IntentResult) -> str:
     if intent_result.intent == "remember_user_profile":
         return remember_user_profile(str(intent_result.data.get("memory", "")))
     if intent_result.intent == "forget_user_profile":
-        return forget_user_profile(str(intent_result.data.get("target", "")))
+        target = str(intent_result.data.get("target", ""))
+        if is_clear_all_target(target):
+            return request_clear_user_profile_confirmation()
+        return forget_user_profile(target)
     return get_user_profile_summary()
 
 

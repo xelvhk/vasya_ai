@@ -436,7 +436,7 @@ def main() -> None:
                 "«запомни …» — сохранить заметку\n"
                 "«запомни, что мне нравится …» — личная память\n"
                 "«что ты обо мне помнишь» — показать личную память\n"
-                "«очисти личную память» — сбросить личную память\n"
+                "«очисти личную память» — сбросить личную память (с подтверждением)\n"
                 "«выгрузи заметки в обсидиан»\n"
                 "«давай играть в слова» — детские игры"
             )
@@ -1312,6 +1312,7 @@ def main() -> None:
             listen_action = menu.addAction("Начать слушать")
             quick_action = menu.addAction("Быстрые команды")
             settings_action = menu.addAction("Настройки...")
+            clear_memory_action = menu.addAction("Очистить личную память...")
             menu.addSeparator()
             quit_action = menu.addAction("Закрыть Васю")
 
@@ -1324,6 +1325,8 @@ def main() -> None:
                 self._open_quick_commands()
             elif chosen_action == settings_action:
                 self._open_settings_dialog()
+            elif chosen_action == clear_memory_action:
+                self._clear_personal_memory()
             elif chosen_action == quit_action:
                 self.quit_application()
 
@@ -2041,6 +2044,10 @@ def main() -> None:
             settings_action = QAction("Настройки...", self)
             settings_action.triggered.connect(self._open_settings_dialog)
             menu.addAction(settings_action)
+
+            clear_memory_action = QAction("Очистить личную память...", self)
+            clear_memory_action.triggered.connect(self._clear_personal_memory)
+            menu.addAction(clear_memory_action)
             menu.addSeparator()
 
             quit_action = QAction("Закрыть Васю", self)
@@ -2051,6 +2058,19 @@ def main() -> None:
             self._tray.activated.connect(self._on_tray_activated)
             self._tray.show()
             self._update_tray_tooltip()
+
+        def _clear_personal_memory(self) -> None:
+            answer = QMessageBox.question(
+                self,
+                "Очистить личную память",
+                "Удалить все сохраненные личные предпочтения и факты о пользователе?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+            message = clear_user_profile()
+            QMessageBox.information(self, "Личная память", message)
 
         def _on_tray_activated(self, reason) -> None:
             if reason == QSystemTrayIcon.ActivationReason.Trigger:

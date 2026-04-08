@@ -41,6 +41,8 @@ AFFIRMATIVE_PHRASES = {
     "подтверждаю удаление",
     "удаляй",
     "удали",
+    "очищай",
+    "очисти",
     "подтверждаю, удаляй",
 }
 
@@ -51,6 +53,8 @@ NEGATIVE_PHRASES = {
     "отмени",
     "не удаляй",
     "не удалять",
+    "не очищай",
+    "не очищать",
     "стоп",
 }
 
@@ -61,9 +65,9 @@ def classify_confirmation_reply(user_text: str) -> str | None:
         return "confirm"
     if normalized in NEGATIVE_PHRASES:
         return "cancel"
-    if normalized.startswith(("да ", "ага ", "угу ", "подтверждаю ", "удаляй ", "удали ")):
+    if normalized.startswith(("да ", "ага ", "угу ", "подтверждаю ", "удаляй ", "удали ", "очищай ", "очисти ")):
         return "confirm"
-    if normalized.startswith(("нет ", "не надо ", "отмена ", "отмени ", "не удаляй ")):
+    if normalized.startswith(("нет ", "не надо ", "отмена ", "отмени ", "не удаляй ", "не очищай ")):
         return "cancel"
     return None
 

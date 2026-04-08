@@ -4,6 +4,7 @@ from agents.task_agent import confirm_delete_all_tasks
 from core.handoffs import build_handoffs
 from core.models import IntentResult
 from services.game_service import handle_active_game_turn
+from services.user_profile_service import confirm_clear_user_profile
 from core.intent_parser import parse_intent
 from core.router import route_intent
 from services.ollama_client import OllamaClientError
@@ -129,11 +130,16 @@ def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
 
     confirmation_store.clear()
     if decision == "cancel":
+        if pending.kind == "clear_user_profile":
+            return ProcessResult(intent="unknown", response="Хорошо, не очищаю личную память.")
         return ProcessResult(intent="unknown", response="Хорошо, не удаляю.")
 
     if pending.kind == "delete_all_tasks":
         response = confirm_delete_all_tasks()
         return ProcessResult(intent="delete_tasks", response=response)
+    if pending.kind == "clear_user_profile":
+        response = confirm_clear_user_profile()
+        return ProcessResult(intent="forget_user_profile", response=response)
 
     return ProcessResult(intent="unknown", response="Подтверждение сброшено.")
 

@@ -137,6 +137,17 @@ class UserProfileMemory:
         self._save()
         return True
 
+    def total_items(self) -> int:
+        total = 0
+        if self._snapshot.name:
+            total += 1
+        if self._snapshot.preferred_style:
+            total += 1
+        total += len(self._snapshot.likes)
+        total += len(self._snapshot.dislikes)
+        total += len(self._snapshot.facts)
+        return total
+
     def _capture_name(self, text: str) -> bool:
         match = re.search(r"\bменя зовут\s+([а-яёa-z-]{2,24})\b", text, re.IGNORECASE)
         if not match:

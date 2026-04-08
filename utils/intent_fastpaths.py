@@ -26,6 +26,8 @@ _COMMAND_MARKERS = (
     "обо мне",
     "про меня",
     "забуд",
+    "личную память",
+    "личная память",
     "обсидиан",
     "выгрузи",
     "экспорт",
@@ -221,6 +223,16 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
                 return IntentResult(intent="forget_user_profile", data={"target": target})
 
     if normalized in {
+        "очисти личную память",
+        "сбрось личную память",
+        "очистить личную память",
+        "сбросить личную память",
+        "забудь обо мне все",
+        "забудь про меня все",
+    }:
+        return IntentResult(intent="forget_user_profile", data={"target": "все"})
+
+    if normalized in {
         "что ты помнишь",
         "что у тебя в заметках",
         "покажи заметки",
@@ -308,7 +320,15 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
     if fast_intent is None:
         return None
 
-    if fast_intent.intent in {"get_tasks", "get_events", "delete_tasks", "play_game"}:
+    if fast_intent.intent in {
+        "get_tasks",
+        "get_events",
+        "delete_tasks",
+        "play_game",
+        "get_user_profile",
+        "remember_user_profile",
+        "forget_user_profile",
+    }:
         return fast_intent
 
     if fast_intent.intent == "chat" and _is_safe_early_chat_text(normalized):

@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.5.4`
+Current version: `0.5.5`
 
 ## Overview
 
@@ -35,6 +35,7 @@ Vasya already supports:
 - unified local memory API (snapshot/search)
 - managed user profile memory (remember/forget/recall) with local persistence
 - Notion read/write adapter and GitHub -> Notion project update sync
+- faster conversational loop (quick chat profile + shorter follow-up delay)
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -60,6 +61,7 @@ Current capabilities:
 - personalize Vasya through built-in skins, a custom palette, or a custom avatar image
 - manage personal memory by voice and clear it from settings with confirmation
 - sync latest GitHub project updates to Notion and read/add Notion page entries
+- answer short conversational prompts faster through a quick chat profile
 
 Example commands:
 - `Add a task to buy a lamp`
@@ -269,6 +271,11 @@ OLLAMA_REASONING_MODEL=llama3
 OLLAMA_FAST_THINK=false
 OLLAMA_FAST_TEMPERATURE=0.1
 OLLAMA_FAST_NUM_PREDICT=256
+OLLAMA_CHAT_NUM_PREDICT=160
+OLLAMA_CHAT_QUICK_ENABLED=true
+OLLAMA_CHAT_QUICK_MAX_WORDS=10
+OLLAMA_CHAT_QUICK_NUM_PREDICT=96
+OLLAMA_CHAT_QUICK_MODEL=fast
 AUDIO_FILENAME=input.wav
 RECORD_SECONDS=5
 WHISPER_MODEL=base
@@ -289,6 +296,7 @@ TTS_STATE_FILE=storage/tts_settings.json
 VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
 HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
+INTERRUPT_LISTEN_DELAY_SECONDS=0.45
 AVATAR_IMAGE_PATH=
 AVATAR_SKIN=classic
 AVATAR_SIZE=210
@@ -320,6 +328,13 @@ For faster intent parsing:
 - `OLLAMA_FAST_MODEL` is used for short assistant commands
 - `OLLAMA_FAST_THINK=false` disables reasoning on the fast path
 - keep `OLLAMA_FAST_NUM_PREDICT` small, for example `128` or `256`
+
+For faster conversational replies:
+- `OLLAMA_CHAT_NUM_PREDICT=120..160` is usually enough
+- `OLLAMA_CHAT_QUICK_ENABLED=true` enables a short-utterance quick profile
+- `OLLAMA_CHAT_QUICK_NUM_PREDICT=72..96` makes short replies much faster
+- `OLLAMA_CHAT_QUICK_MODEL=fast` uses the fast model for short phrases
+- `INTERRUPT_LISTEN_DELAY_SECONDS=0.35..0.5` shortens follow-up turn delay
 
 For faster and more accurate speech recognition:
 - keep `WHISPER_PARTIAL_MODEL` fast, for example `base`
@@ -395,6 +410,7 @@ This is still an MVP, so current limits include:
 - `v0.5.2`: tool registry, routing policy layer, handoff rules, and unified memory API
 - `v0.5.3`: managed user profile memory, fast-path memory commands, and settings-based personal memory cleanup
 - `v0.5.4`: Notion read/write adapter, GitHub-to-Notion updates sync, and fast voice intents for Notion workflows
+- `v0.5.5`: faster conversational loop (quick chat profile, lower chat num_predict, shorter follow-up delay)
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

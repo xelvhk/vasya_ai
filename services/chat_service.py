@@ -8,10 +8,15 @@ from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
 from assistant.user_profile import user_profile_memory
 from config.settings import (
+    OLLAMA_CHAT_QUICK_ENABLED,
+    OLLAMA_CHAT_QUICK_MAX_WORDS,
+    OLLAMA_CHAT_QUICK_MODEL,
+    OLLAMA_CHAT_QUICK_NUM_PREDICT,
     OLLAMA_CHAT_STREAM,
     OLLAMA_CHAT_NUM_PREDICT,
     OLLAMA_CHAT_TEMPERATURE,
     OLLAMA_CHAT_THINK,
+    OLLAMA_FAST_MODEL,
 )
 from services.memory_service import get_memory_snapshot, search_memory
 from services.ollama_client import generate, generate_stream, resolve_chat_model
@@ -50,6 +55,11 @@ def generate_chat_reply(user_text: str) -> str:
     allow_greeting = _should_greet(user_text)
     memory_context = _build_memory_context(user_text)
     user_profile_hint = user_profile_memory.render_hint()
+    use_quick_chat = _should_use_quick_chat(
+        user_text,
+        memory_context=memory_context,
+        child_mode=child_mode,
+    )
     prompt = _build_chat_prompt(
         user_text,
         allow_greeting=allow_greeting,
@@ -57,13 +67,16 @@ def generate_chat_reply(user_text: str) -> str:
         child_mode=child_mode,
         memory_context=memory_context,
         user_profile_hint=user_profile_hint,
+        compact=use_quick_chat,
     )
-    model = resolve_chat_model()
+    model = _resolve_reply_model(use_quick_chat=use_quick_chat)
+    num_predict = OLLAMA_CHAT_QUICK_NUM_PREDICT if use_quick_chat else OLLAMA_CHAT_NUM_PREDICT
     if OLLAMA_CHAT_STREAM:
         reply = _generate_chat_reply_streaming(
             prompt,
             model=model,
             allow_greeting=allow_greeting,
+            num_predict=num_predict,
         )
     else:
         reply = generate(
@@ -71,7 +84,7 @@ def generate_chat_reply(user_text: str) -> str:
             model=model,
             think=OLLAMA_CHAT_THINK,
             temperature=OLLAMA_CHAT_TEMPERATURE,
-            num_predict=OLLAMA_CHAT_NUM_PREDICT,
+            num_predict=num_predict,
         )
         reply = _postprocess_chat_reply(reply, allow_greeting=allow_greeting)
     conversation_memory.add_user(user_text)
@@ -87,13 +100,15 @@ def _build_chat_prompt(
     child_mode: bool,
     memory_context: str | None = None,
     user_profile_hint: str | None = None,
+    compact: bool = False,
 ) -> str:
     history_lines = []
     for message in conversation_memory.recent():
         role_label = "Пользователь" if message.role == "user" else "Вася"
         history_lines.append(f"{role_label}: {message.content}")
 
-    history_block = "\n".join(history_lines[-4:]) if history_lines else "История пока пустая."
+    history_limit = 2 if compact else 4
+    history_block = "\n".join(history_lines[-history_limit:]) if history_lines else "История пока пустая."
     greeting_rule = (
         "Можно коротко поприветствовать пользователя, если это первое сообщение или он сам явно поздоровался."
         if allow_greeting
@@ -118,6 +133,35 @@ def _build_chat_prompt(
         else "Если профиль пользователя не задан, не выдумывай персональные факты."
     )
     profile_block = user_profile_hint or "Профиль пользователя пока не заполнен."
+
+    if compact:
+        return f"""
+Ты Вася, дружелюбный локальный AI-помощник.
+
+Правила:
+- Отвечай по-русски
+- Ответ короткий: 1-2 фразы
+- На "ты", естественно и без формальностей
+- {greeting_rule}
+- {tone_rule}
+- {child_rule}
+- {memory_rule}
+- {profile_rule}
+
+Недавняя история:
+{history_block}
+
+Локальная память:
+{memory_block}
+
+Профиль пользователя:
+{profile_block}
+
+Запрос:
+{user_text}
+
+Короткий ответ Васи:
+""".strip()
 
     return f"""
 Ты Вася, дружелюбный локальный AI-помощник.
@@ -263,6 +307,7 @@ def _generate_chat_reply_streaming(
     *,
     model: str,
     allow_greeting: bool,
+    num_predict: int,
 ) -> str:
     chunks: list[str] = []
     last_preview = ""
@@ -271,7 +316,7 @@ def _generate_chat_reply_streaming(
         model=model,
         think=OLLAMA_CHAT_THINK,
         temperature=OLLAMA_CHAT_TEMPERATURE,
-        num_predict=OLLAMA_CHAT_NUM_PREDICT,
+        num_predict=num_predict,
     ):
         chunks.append(chunk)
         preview = _build_stream_preview("".join(chunks))
@@ -281,6 +326,34 @@ def _generate_chat_reply_streaming(
 
     full_reply = "".join(chunks).strip()
     return _postprocess_chat_reply(full_reply, allow_greeting=allow_greeting)
+
+
+def _should_use_quick_chat(
+    user_text: str,
+    *,
+    memory_context: str | None,
+    child_mode: bool,
+) -> bool:
+    if not OLLAMA_CHAT_QUICK_ENABLED:
+        return False
+    if child_mode:
+        return False
+    if memory_context:
+        return False
+    words = [part for part in re.split(r"\s+", user_text.strip()) if part]
+    if not words:
+        return False
+    return len(words) <= max(1, OLLAMA_CHAT_QUICK_MAX_WORDS)
+
+
+def _resolve_reply_model(*, use_quick_chat: bool) -> str:
+    if not use_quick_chat:
+        return resolve_chat_model()
+    if OLLAMA_CHAT_QUICK_MODEL in {"", "fast"}:
+        return OLLAMA_FAST_MODEL
+    if OLLAMA_CHAT_QUICK_MODEL == "chat":
+        return resolve_chat_model()
+    return OLLAMA_CHAT_QUICK_MODEL
 
 
 def _build_stream_preview(text: str) -> str:

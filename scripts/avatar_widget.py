@@ -8,8 +8,9 @@ import time
 from pathlib import Path
 
 from assistant.child_mode import child_mode_store
-from assistant.control import AssistantControlAction
+from assistant.control import AssistantControlAction, assistant_control
 from assistant.state import AssistantState, AssistantStateName, assistant_state
+from core.orchestrator import process_text_detailed
 from config.settings import (
     AUDIO_FILENAME,
     AVATAR_CUSTOM_SKIN_FILE,
@@ -19,6 +20,7 @@ from config.settings import (
     AVATAR_STATE_FILE,
     HOTKEY_COMBINATION,
     HOTKEY_EXIT_COMBINATION,
+    HOTKEY_TEXT_COMBINATION,
     INTERRUPT_LISTEN_DELAY_SECONDS,
     MIN_AUDIO_RMS,
 )
@@ -316,6 +318,7 @@ def main() -> None:
     class StateBridge(QObject):
         state_changed = Signal(object)
         exit_requested = Signal()
+        text_command_requested = Signal()
 
     class ResponseBubble(QWidget):
         def __init__(self) -> None:
@@ -426,8 +429,10 @@ def main() -> None:
             layout.addWidget(subtitle)
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
+            text_hotkey_hint = widget._text_hotkey or HOTKEY_TEXT_COMBINATION
             commands = (
                 f"Горячая клавиша: {hotkey_hint}\n"
+                f"Текстовая клавиша: {text_hotkey_hint}\n"
                 "Клик — начать говорить\n"
                 "«пока» — закрыть помощника\n"
                 "«замолчи» — остановить речь\n"
@@ -450,6 +455,92 @@ def main() -> None:
             close_button = QPushButton("Понятно", self)
             close_button.clicked.connect(self.accept)
             layout.addWidget(close_button, alignment=Qt.AlignmentFlag.AlignRight)
+
+    class TextCommandDialog(QDialog):
+        def __init__(self, widget: "AvatarWidget") -> None:
+            super().__init__(widget)
+            self.setWindowTitle("Текстовая команда")
+            self.setModal(True)
+            self.setMinimumWidth(460)
+            self._text = ""
+            self.setStyleSheet(
+                """
+                QDialog {
+                    background-color: #0b1435;
+                    border: 1px solid #274a99;
+                    border-radius: 18px;
+                }
+                QLabel {
+                    color: #e9f2ff;
+                    font-size: 13px;
+                }
+                QLineEdit {
+                    background: #13204e;
+                    color: #f4f8ff;
+                    border: 1px solid #345ab3;
+                    border-radius: 10px;
+                    padding: 8px 10px;
+                    min-height: 20px;
+                }
+                QPushButton {
+                    background: #173377;
+                    color: #f5f9ff;
+                    border: 1px solid #3c67d1;
+                    border-radius: 10px;
+                    padding: 8px 14px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background: #1d439c;
+                }
+                """
+            )
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(20, 20, 20, 18)
+            layout.setSpacing(12)
+
+            title = QLabel("Текстовая команда", self)
+            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            layout.addWidget(title)
+
+            subtitle = QLabel(
+                "Удобно для точных команд в Notion/GitHub и длинного текста.",
+                self,
+            )
+            subtitle.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            subtitle.setWordWrap(True)
+            layout.addWidget(subtitle)
+
+            self._input = QLineEdit(self)
+            self._input.setPlaceholderText("Например: синхронизируй github xelvhk/vasya_ai в notion")
+            self._input.returnPressed.connect(self._submit)
+            layout.addWidget(self._input)
+
+            buttons_row = QHBoxLayout()
+            buttons_row.setSpacing(10)
+            submit_button = QPushButton("Отправить", self)
+            submit_button.clicked.connect(self._submit)
+            cancel_button = QPushButton("Отмена", self)
+            cancel_button.clicked.connect(self.reject)
+            buttons_row.addStretch(1)
+            buttons_row.addWidget(cancel_button)
+            buttons_row.addWidget(submit_button)
+            layout.addLayout(buttons_row)
+
+            self._input.setFocus()
+
+        @property
+        def command_text(self) -> str:
+            return self._text
+
+        def _submit(self) -> None:
+            text = " ".join(self._input.text().strip().split())
+            if not text:
+                self._input.setFocus()
+                return
+            self._text = text
+            self.accept()
 
     class SettingsDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:
@@ -684,6 +775,8 @@ def main() -> None:
 
             self._hotkey_input = QLineEdit(widget._activation_hotkey, self)
             form.addRow("Горячая клавиша", self._hotkey_input)
+            self._text_hotkey_input = QLineEdit(widget._text_hotkey, self)
+            form.addRow("Текстовая клавиша", self._text_hotkey_input)
 
             layout.addLayout(form)
 
@@ -733,6 +826,9 @@ def main() -> None:
             hotkey_value = self._hotkey_input.text().strip()
             if hotkey_value and hotkey_value != self._widget._activation_hotkey:
                 self._widget._apply_hotkey(hotkey_value)
+            text_hotkey_value = self._text_hotkey_input.text().strip()
+            if text_hotkey_value and text_hotkey_value != self._widget._text_hotkey:
+                self._widget._apply_text_hotkey(text_hotkey_value)
 
             if not self._widget._show_response_bubble:
                 self._widget._bubble.hide()
@@ -918,9 +1014,11 @@ def main() -> None:
             layout.addWidget(title)
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
+            text_hotkey_hint = widget._text_hotkey or HOTKEY_TEXT_COMBINATION
             body = QLabel(
                 "Я рядом и готов помочь.\n"
                 f"Горячая клавиша: {hotkey_hint}\n"
+                f"Текстовая клавиша: {text_hotkey_hint}\n"
                 "Клик по мне — начать говорить, правый клик — меню.",
                 self,
             )
@@ -1157,6 +1255,9 @@ def main() -> None:
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
             )
+            self._text_hotkey = str(
+                self._widget_state.get("text_hotkey_combination", HOTKEY_TEXT_COMBINATION)
+            )
             self.setFixedSize(self._avatar_size, self._avatar_size)
 
             self._drag_pos: QPoint | None = None
@@ -1184,6 +1285,7 @@ def main() -> None:
 
             self._bridge.state_changed.connect(self._apply_state)
             self._bridge.exit_requested.connect(self.quit_application)
+            self._bridge.text_command_requested.connect(self._open_text_command_dialog)
             assistant_state.subscribe(self._on_state_changed)
 
             self._timer = QTimer(self)
@@ -1312,6 +1414,7 @@ def main() -> None:
                 "Скрыть Васю" if self.isVisible() else "Показать Васю"
             )
             listen_action = menu.addAction("Начать слушать")
+            text_action = menu.addAction("Текстовая команда...")
             quick_action = menu.addAction("Быстрые команды")
             settings_action = menu.addAction("Настройки...")
             clear_memory_action = menu.addAction("Очистить личную память...")
@@ -1323,6 +1426,8 @@ def main() -> None:
                 self.toggle_avatar_visibility()
             elif chosen_action == listen_action:
                 self._activate_interaction()
+            elif chosen_action == text_action:
+                self._open_text_command_dialog()
             elif chosen_action == quick_action:
                 self._open_quick_commands()
             elif chosen_action == settings_action:
@@ -1982,6 +2087,7 @@ def main() -> None:
                     "size": self._avatar_size,
                     "tray_click_action": self._tray_click_action,
                     "hotkey_combination": self._activation_hotkey,
+                    "text_hotkey_combination": self._text_hotkey,
                     "show_response_bubble": self._show_response_bubble,
                     "idle_motion_enabled": self._idle_motion_enabled,
                     "snap_to_edge_enabled": self._snap_to_edge_enabled,
@@ -2005,9 +2111,11 @@ def main() -> None:
                 return
 
             activation_hotkey = normalize_hotkey_combination(self._activation_hotkey)
+            text_hotkey = normalize_hotkey_combination(self._text_hotkey)
             exit_hotkey = normalize_hotkey_combination(HOTKEY_EXIT_COMBINATION)
             hotkeys = {
                 activation_hotkey: self._activate_interaction,
+                text_hotkey: self._request_open_text_command_dialog,
                 exit_hotkey: self.close,
             }
             try:
@@ -2019,7 +2127,7 @@ def main() -> None:
             self._hotkey_listener.start()
             log(
                 f"Avatar widget hotkeys enabled. Activation: {activation_hotkey}. "
-                f"Exit: {exit_hotkey}."
+                f"Text: {text_hotkey}. Exit: {exit_hotkey}."
             )
 
         def _setup_tray(self) -> None:
@@ -2038,6 +2146,10 @@ def main() -> None:
             listen_action = QAction("Начать слушать", self)
             listen_action.triggered.connect(self._activate_interaction)
             menu.addAction(listen_action)
+
+            text_action = QAction("Текстовая команда...", self)
+            text_action.triggered.connect(self._open_text_command_dialog)
+            menu.addAction(text_action)
 
             quick_action = QAction("Быстрые команды", self)
             quick_action.triggered.connect(self._open_quick_commands)
@@ -2136,6 +2248,49 @@ def main() -> None:
             dialog = QuickCommandsDialog(self)
             dialog.exec()
 
+        def _open_text_command_dialog(self) -> None:
+            dialog = TextCommandDialog(self)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            command_text = dialog.command_text
+            if not command_text:
+                return
+            self._start_text_command_thread(command_text)
+
+        def _request_open_text_command_dialog(self) -> None:
+            self._bridge.text_command_requested.emit()
+
+        def _start_text_command_thread(self, command_text: str) -> None:
+            if self._interaction_lock.locked():
+                assistant_state.set(
+                    AssistantStateName.THINKING,
+                    "Секунду, сначала закончу текущий запрос.",
+                )
+                return
+
+            def worker() -> None:
+                with self._interaction_lock:
+                    try:
+                        assistant_state.set(
+                            AssistantStateName.THINKING,
+                            f"Разбираю текстовую команду: {command_text}",
+                        )
+                        result = process_text_detailed(command_text)
+                        response = result.response
+                        if response:
+                            assistant_state.set(AssistantStateName.SPEAKING, response)
+                            speak(response)
+                    except Exception as exc:
+                        message = f"Не удалось обработать текстовую команду: {exc}"
+                        assistant_state.set(AssistantStateName.ERROR, message)
+                        speak("Не удалось обработать текстовую команду.")
+                assistant_state.set(AssistantStateName.IDLE)
+                action = assistant_control.consume_action()
+                if action == AssistantControlAction.EXIT:
+                    self._bridge.exit_requested.emit()
+
+            threading.Thread(target=worker, daemon=True).start()
+
         def _maybe_run_onboarding(self) -> None:
             if self._first_run_done:
                 return
@@ -2158,9 +2313,11 @@ def main() -> None:
                 if not self.isVisible():
                     self.show_avatar()
                 hotkey_hint = self._activation_hotkey or HOTKEY_COMBINATION
+                text_hotkey_hint = self._text_hotkey or HOTKEY_TEXT_COMBINATION
                 message = (
                     "Привет. Я Вася и я рядом.\n"
                     f"Горячая клавиша: {hotkey_hint}\n"
+                    f"Текстовая клавиша: {text_hotkey_hint}\n"
                     "Клик по мне — начать говорить, правый клик — меню.\n"
                     "Скажи «пока», чтобы закрыть, или «замолчи», чтобы остановить речь.\n"
                     "Настройки — в меню, если нужно."
@@ -2233,6 +2390,23 @@ def main() -> None:
                 self._activation_hotkey = old_hotkey
                 self._start_hotkey_listener()
                 raise RuntimeError("Не удалось применить горячую клавишу.")
+
+            self._save_position()
+
+        def _apply_text_hotkey(self, hotkey_text: str) -> None:
+            new_hotkey = normalize_hotkey_combination(hotkey_text)
+            old_hotkey = self._text_hotkey
+            self._text_hotkey = new_hotkey
+
+            if self._hotkey_listener is not None:
+                self._hotkey_listener.stop()
+                self._hotkey_listener = None
+
+            self._start_hotkey_listener()
+            if self._hotkey_listener is None:
+                self._text_hotkey = old_hotkey
+                self._start_hotkey_listener()
+                raise RuntimeError("Не удалось применить текстовую горячую клавишу.")
 
             self._save_position()
 

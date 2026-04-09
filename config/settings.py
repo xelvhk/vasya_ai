@@ -6,7 +6,7 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.5.6")
+APP_VERSION = os.getenv("APP_VERSION", "0.5.7")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
@@ -118,6 +118,7 @@ INTERACTION_LOG_FILE = os.getenv("INTERACTION_LOG_FILE", "storage/interactions.l
 TTS_BACKEND = os.getenv("TTS_BACKEND", "auto")
 VOICE_INPUT_BACKEND = os.getenv("VOICE_INPUT_BACKEND", "auto")
 HOTKEY_COMBINATION = os.getenv("HOTKEY_COMBINATION", "<cmd>+<option>+<space>")
+HOTKEY_TEXT_COMBINATION = os.getenv("HOTKEY_TEXT_COMBINATION", "<cmd>+<option>+k")
 HOTKEY_EXIT_COMBINATION = os.getenv("HOTKEY_EXIT_COMBINATION", "<cmd>+<option>+q")
 AVATAR_IMAGE_PATH = os.getenv("AVATAR_IMAGE_PATH", "").strip()
 AVATAR_SKIN = os.getenv("AVATAR_SKIN", "classic").strip()

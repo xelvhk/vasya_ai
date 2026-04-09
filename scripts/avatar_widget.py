@@ -5,6 +5,7 @@ import math
 import sys
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from assistant.child_mode import child_mode_store
@@ -28,10 +29,16 @@ from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
 from utils.platform_runtime import get_platform_name
 from services.user_profile_service import clear_user_profile
+from services.integration_settings_service import (
+    get_integration_setting,
+    save_integration_settings,
+)
+from services.github_service import GitHubServiceError, fetch_recent_commits
+from services.notion_service import NotionServiceError, read_page_text
 from voice.profiles import get_active_voice_profile, list_voice_profiles
 from voice.recorder import record_audio
 from voice.session import run_voice_interaction
-from voice.tts import set_voice_profile, stop_speaking
+from voice.tts import set_voice_profile, speak, stop_speaking
 
 
 def main() -> None:
@@ -746,6 +753,43 @@ def main() -> None:
             self._child_mode_checkbox.setChecked(child_mode_store.is_enabled())
             form.addRow(self._child_mode_checkbox)
 
+            self._github_repo_input = QLineEdit(
+                get_integration_setting("github_default_repo"),
+                self,
+            )
+            self._github_repo_input.setPlaceholderText("owner/repo")
+            form.addRow("GitHub repo", self._github_repo_input)
+
+            self._notion_page_input = QLineEdit(
+                get_integration_setting("notion_updates_page_id"),
+                self,
+            )
+            self._notion_page_input.setPlaceholderText("Notion page id")
+            form.addRow("Notion page id", self._notion_page_input)
+
+            self._github_token_input = QLineEdit(
+                get_integration_setting("github_api_token"),
+                self,
+            )
+            self._github_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self._github_token_input.setPlaceholderText("GitHub token (optional)")
+            form.addRow("GitHub token", self._github_token_input)
+
+            self._notion_token_input = QLineEdit(
+                get_integration_setting("notion_api_token"),
+                self,
+            )
+            self._notion_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self._notion_token_input.setPlaceholderText("Notion integration token")
+            form.addRow("Notion token", self._notion_token_input)
+
+            integration_actions = QHBoxLayout()
+            test_integrations_button = QPushButton("Проверить интеграции", self)
+            test_integrations_button.clicked.connect(self._test_integrations)
+            integration_actions.addWidget(test_integrations_button)
+            integration_actions.addStretch(1)
+            form.addRow("Notion/GitHub", integration_actions)
+
             memory_actions = QHBoxLayout()
             clear_memory_button = QPushButton("Очистить личную память...", self)
             clear_memory_button.clicked.connect(self._clear_personal_memory)
@@ -793,6 +837,7 @@ def main() -> None:
 
 
         def apply(self) -> None:
+            self._save_integrations()
             self._widget._set_avatar_size(int(self._size_combo.currentData()))
             selected_skin = str(self._skin_combo.currentData())
             desired_child_mode = self._child_mode_checkbox.isChecked()
@@ -966,6 +1011,47 @@ def main() -> None:
                 return
             message = clear_user_profile()
             QMessageBox.information(self, "Личная память", message)
+
+        def _save_integrations(self) -> None:
+            save_integration_settings(
+                {
+                    "github_default_repo": self._github_repo_input.text().strip(),
+                    "notion_updates_page_id": self._notion_page_input.text().strip(),
+                    "github_api_token": self._github_token_input.text().strip(),
+                    "notion_api_token": self._notion_token_input.text().strip(),
+                }
+            )
+
+        def _test_integrations(self) -> None:
+            self._save_integrations()
+            repo = self._github_repo_input.text().strip()
+            page_id = self._notion_page_input.text().strip()
+
+            checks: list[str] = []
+            if not repo:
+                checks.append("GitHub: укажи repo в формате owner/repo.")
+            else:
+                since_iso = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+                try:
+                    commits = fetch_recent_commits(repo, since_iso=since_iso, limit=1)
+                    checks.append(f"GitHub: ok ({len(commits)} recent commits).")
+                except GitHubServiceError as exc:
+                    checks.append(f"GitHub: ошибка — {exc}")
+                except Exception as exc:
+                    checks.append(f"GitHub: ошибка — {type(exc).__name__}: {exc}")
+
+            if not page_id:
+                checks.append("Notion: укажи page id.")
+            else:
+                try:
+                    lines = read_page_text(page_id, limit=3)
+                    checks.append(f"Notion: ok ({len(lines)} text blocks).")
+                except NotionServiceError as exc:
+                    checks.append(f"Notion: ошибка — {exc}")
+                except Exception as exc:
+                    checks.append(f"Notion: ошибка — {type(exc).__name__}: {exc}")
+
+            QMessageBox.information(self, "Проверка интеграций", "\n".join(checks))
 
     class OnboardingDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:

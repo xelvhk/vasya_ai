@@ -10,6 +10,7 @@ from config.settings import (
     GITHUB_SYNC_STATE_FILE,
     NOTION_UPDATES_PAGE_ID,
 )
+from services.integration_settings_service import get_integration_setting
 from services.github_service import (
     GitHubServiceError,
     fetch_recent_commits,
@@ -102,6 +103,9 @@ def _resolve_repo(repo: str | None) -> str:
     candidate = " ".join(str(repo or "").strip().split())
     if candidate:
         return candidate
+    configured = get_integration_setting("github_default_repo")
+    if configured:
+        return configured
     return GITHUB_DEFAULT_REPO
 
 
@@ -109,6 +113,9 @@ def _resolve_page(page_id: str | None) -> str:
     candidate = " ".join(str(page_id or "").strip().split())
     if candidate:
         return candidate
+    configured = get_integration_setting("notion_updates_page_id")
+    if configured:
+        return configured
     return NOTION_UPDATES_PAGE_ID
 
 

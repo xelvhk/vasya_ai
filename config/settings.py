@@ -154,6 +154,10 @@ GITHUB_SYNC_STATE_FILE = os.getenv(
     "storage/github_notion_sync_state.json",
 ).strip()
 GITHUB_SYNC_DEFAULT_HOURS = int(os.getenv("GITHUB_SYNC_DEFAULT_HOURS", "24"))
+INTEGRATIONS_STATE_FILE = os.getenv(
+    "INTEGRATIONS_STATE_FILE",
+    "storage/integrations.json",
+).strip()
 PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
 PIPER_MODEL_PATH = os.getenv(
     "PIPER_MODEL_PATH",

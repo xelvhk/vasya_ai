@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import requests
 
 from config.settings import GITHUB_API_BASE_URL, GITHUB_API_TOKEN
+from services.integration_settings_service import get_integration_setting
 
 
 class GitHubServiceError(Exception):
@@ -95,12 +96,13 @@ def now_utc_iso() -> str:
 
 
 def _build_headers() -> dict[str, str]:
+    token = get_integration_setting("github_api_token") or GITHUB_API_TOKEN
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "vasya-ai",
     }
-    if GITHUB_API_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_API_TOKEN}"
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
 

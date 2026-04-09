@@ -7,6 +7,7 @@ from config.settings import (
     NOTION_API_TOKEN,
     NOTION_API_VERSION,
 )
+from services.integration_settings_service import get_integration_setting
 
 
 class NotionServiceError(Exception):
@@ -17,7 +18,8 @@ def append_markdown_like_entry(page_id: str, title: str, lines: list[str]) -> No
     normalized_page_id = _normalize_page_id(page_id)
     if not normalized_page_id:
         raise NotionServiceError("Не указан NOTION_UPDATES_PAGE_ID.")
-    if not NOTION_API_TOKEN:
+    token = get_integration_setting("notion_api_token") or NOTION_API_TOKEN
+    if not token:
         raise NotionServiceError("Не указан NOTION_API_TOKEN.")
 
     blocks: list[dict] = [
@@ -32,7 +34,7 @@ def append_markdown_like_entry(page_id: str, title: str, lines: list[str]) -> No
 
     response = requests.patch(
         f"{NOTION_API_BASE_URL}/blocks/{normalized_page_id}/children",
-        headers=_headers(),
+        headers=_headers(token),
         json={"children": blocks},
         timeout=20,
     )
@@ -44,12 +46,13 @@ def read_page_text(page_id: str, *, limit: int = 25) -> list[str]:
     normalized_page_id = _normalize_page_id(page_id)
     if not normalized_page_id:
         raise NotionServiceError("Не указан NOTION_UPDATES_PAGE_ID.")
-    if not NOTION_API_TOKEN:
+    token = get_integration_setting("notion_api_token") or NOTION_API_TOKEN
+    if not token:
         raise NotionServiceError("Не указан NOTION_API_TOKEN.")
 
     response = requests.get(
         f"{NOTION_API_BASE_URL}/blocks/{normalized_page_id}/children",
-        headers=_headers(),
+        headers=_headers(token),
         params={"page_size": max(1, min(limit, 100))},
         timeout=20,
     )
@@ -81,9 +84,9 @@ def read_page_text(page_id: str, *, limit: int = 25) -> list[str]:
     return lines
 
 
-def _headers() -> dict[str, str]:
+def _headers(token: str) -> dict[str, str]:
     return {
-        "Authorization": f"Bearer {NOTION_API_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "Notion-Version": NOTION_API_VERSION,
         "Content-Type": "application/json",
     }

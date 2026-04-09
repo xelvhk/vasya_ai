@@ -9,6 +9,7 @@ from core.models import IntentResult
 from services.ollama_client import generate
 from utils.intent_fastpaths import detect_fast_intent
 from utils.json_utils import extract_json
+from utils.logger import log_voice_event
 from utils.system_intents import detect_system_intent
 
 
@@ -22,6 +23,7 @@ def parse_intent(user_text: str) -> IntentResult:
         return fast_intent
 
     prompt = INTENT_PROMPT_TEMPLATE.format(user_text=user_text)
+    started = time.perf_counter()
     raw_response = generate(
         prompt,
         model=OLLAMA_FAST_MODEL,
@@ -29,5 +31,8 @@ def parse_intent(user_text: str) -> IntentResult:
         temperature=OLLAMA_FAST_TEMPERATURE,
         num_predict=OLLAMA_FAST_NUM_PREDICT,
     )
+    parse_ms = (time.perf_counter() - started) * 1000
+    log_voice_event(f"intent_parse_ms={parse_ms:.0f} model={OLLAMA_FAST_MODEL}")
     data = extract_json(raw_response)
     return IntentResult(**data)
+import time

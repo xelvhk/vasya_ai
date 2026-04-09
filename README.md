@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.5.5`
+Current version: `0.5.6`
 
 ## Overview
 
@@ -36,6 +36,7 @@ Vasya already supports:
 - managed user profile memory (remember/forget/recall) with local persistence
 - Notion read/write adapter and GitHub -> Notion project update sync
 - faster conversational loop (quick chat profile + shorter follow-up delay)
+- voice latency metrics and a built-in speed report command
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -62,6 +63,7 @@ Current capabilities:
 - manage personal memory by voice and clear it from settings with confirmation
 - sync latest GitHub project updates to Notion and read/add Notion page entries
 - answer short conversational prompts faster through a quick chat profile
+- report recent voice pipeline speed breakdown by command
 
 Example commands:
 - `Add a task to buy a lamp`
@@ -70,6 +72,7 @@ Example commands:
 - `Show my events for March 30`
 - `Sync GitHub in Notion`
 - `Read Notion`
+- `Speed report`
 - `Be quiet`
 - `Exit`
 
@@ -278,6 +281,10 @@ OLLAMA_CHAT_QUICK_NUM_PREDICT=96
 OLLAMA_CHAT_QUICK_MODEL=fast
 AUDIO_FILENAME=input.wav
 RECORD_SECONDS=5
+VOICE_ULTRA_FAST_MODE=true
+VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS=true
+VOICE_ULTRA_FAST_MAX_RECORD_SECONDS=3.2
+VOICE_SPEED_REPORT_WINDOW=30
 WHISPER_MODEL=base
 WHISPER_PARTIAL_MODEL=base
 WHISPER_FINAL_MODEL=large-v3-turbo
@@ -335,6 +342,8 @@ For faster conversational replies:
 - `OLLAMA_CHAT_QUICK_NUM_PREDICT=72..96` makes short replies much faster
 - `OLLAMA_CHAT_QUICK_MODEL=fast` uses the fast model for short phrases
 - `INTERRUPT_LISTEN_DELAY_SECONDS=0.35..0.5` shortens follow-up turn delay
+- `VOICE_ULTRA_FAST_MODE=true` enables a more aggressive fast voice path
+- `VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS=true` reduces extra confirmation turns
 
 For faster and more accurate speech recognition:
 - keep `WHISPER_PARTIAL_MODEL` fast, for example `base`
@@ -388,7 +397,7 @@ This is still an MVP, so current limits include:
 - speech understanding still needs improvement in noisy or imperfect conditions
 - the desktop avatar is still a first lightweight widget, not a full desktop app
 - no menu bar app yet
-- no Notion integration yet
+- Notion integration is MVP-level and currently page-oriented (not full workspace sync)
 - Obsidian is still export-focused, not a full sync layer
 - no specialized code or writing agents yet
 - no simple Windows or Linux installation path yet
@@ -411,6 +420,7 @@ This is still an MVP, so current limits include:
 - `v0.5.3`: managed user profile memory, fast-path memory commands, and settings-based personal memory cleanup
 - `v0.5.4`: Notion read/write adapter, GitHub-to-Notion updates sync, and fast voice intents for Notion workflows
 - `v0.5.5`: faster conversational loop (quick chat profile, lower chat num_predict, shorter follow-up delay)
+- `v0.5.6`: voice latency instrumentation, `speed_report` command, and ultra-fast voice mode tuning
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

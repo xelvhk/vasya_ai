@@ -24,6 +24,7 @@ INTENT_PROMPT_TEMPLATE = """
 - sync_github_notion
 - read_notion_page
 - append_notion_page
+- speed_report
 - chat
 - unknown
 
@@ -85,7 +86,9 @@ INTENT_PROMPT_TEMPLATE = """
    - text: что добавить в страницу Notion
    - page_id: optional
    - используй для фраз "запиши в notion ..."
-22. Для chat:
+22. Для speed_report:
+   - используй, если пользователь просит показать скорость ответа или отчет по задержкам
+23. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
    - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub синка
 
@@ -220,6 +223,11 @@ INTENT_PROMPT_TEMPLATE = """
   "data": {{
     "text": "обновили auth и пофиксили таймауты"
   }}
+}}
+
+{{
+  "intent": "speed_report",
+  "data": {{}}
 }}
 
 {{

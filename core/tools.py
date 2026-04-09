@@ -15,6 +15,7 @@ from services.github_notion_sync_service import (
     read_notion_updates_page,
     sync_project_updates_to_notion,
 )
+from services.speed_report_service import build_voice_speed_report
 from services.user_profile_service import (
     forget_user_profile,
     get_user_profile_summary,
@@ -108,6 +109,11 @@ def _run_notion_github_sync_tool(intent_result: IntentResult) -> str:
     return append_note_to_notion(text, page_id=page_id)
 
 
+def _run_speed_report_tool(intent_result: IntentResult) -> str:
+    _ = intent_result
+    return build_voice_speed_report()
+
+
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="calendar",
@@ -168,6 +174,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Чтение/запись в Notion и синхронизация последних изменений из GitHub.",
         intents=("sync_github_notion", "read_notion_page", "append_notion_page"),
         handler=_run_notion_github_sync_tool,
+    ),
+    ToolSpec(
+        tool_id="speed_report",
+        description="Краткий отчет задержек голосового контура.",
+        intents=("speed_report",),
+        handler=_run_speed_report_tool,
     ),
 )
 

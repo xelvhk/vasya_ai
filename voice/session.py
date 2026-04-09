@@ -18,13 +18,16 @@ from config.settings import (
     RECORD_SECONDS,
     STT_CONFIRMATION_LOGPROB_THRESHOLD,
     STT_CONFIRMATION_NO_SPEECH_THRESHOLD,
+    VOICE_ULTRA_FAST_MAX_RECORD_SECONDS,
+    VOICE_ULTRA_FAST_MODE,
+    VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS,
 )
 from core.models import IntentResult
 from core.orchestrator import process_text_detailed
 from services.game_service import is_active_game_fast_phrase
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
-from utils.logger import log_voice_event
+from utils.logger import log_interaction_event, log_voice_event
 from voice.recorder import record_audio
 from voice.models import TranscriptionResult
 from voice.stt import transcribe
@@ -35,39 +38,71 @@ from voice.tts import speak
 class CaptureOutcome:
     text: str | None
     failure_reason: str | None = None
+    capture_ms: float = 0.0
+    stt_ms: float = 0.0
+    attempts: int = 0
 
 
 def run_voice_interaction() -> AssistantControlAction:
+    interaction_started = time.perf_counter()
+    metrics = {
+        "capture_ms": 0.0,
+        "stt_ms": 0.0,
+        "intent_ms": 0.0,
+        "tts_ms": 0.0,
+    }
     followup_turns_left = CHAT_FOLLOWUP_MAX_TURNS
     keep_conversation_open = False
 
     while True:
         assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
         capture = _capture_user_text()
+        metrics["capture_ms"] += capture.capture_ms
+        metrics["stt_ms"] += capture.stt_ms
         user_text = capture.text
         if not user_text:
             if keep_conversation_open:
                 reprompt = _followup_reprompt_for(capture.failure_reason)
                 if reprompt and followup_turns_left > 0:
                     assistant_state.set(AssistantStateName.SPEAKING, reprompt)
+                    tts_started = time.perf_counter()
                     speak(reprompt)
+                    metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
                     followup_turns_left -= 1
                     time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
                     continue
                 assistant_state.set(AssistantStateName.IDLE)
+                _log_voice_perf(
+                    metrics=metrics,
+                    total_ms=(time.perf_counter() - interaction_started) * 1000,
+                    status="capture_failed_followup",
+                    failure_reason=capture.failure_reason,
+                )
                 return assistant_control.consume_action()
             assistant_state.set(AssistantStateName.ERROR, "Не удалось распознать голосовую команду")
+            tts_started = time.perf_counter()
             speak(_failure_message_for(capture.failure_reason))
+            metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
             assistant_state.set(AssistantStateName.IDLE)
+            _log_voice_perf(
+                metrics=metrics,
+                total_ms=(time.perf_counter() - interaction_started) * 1000,
+                status="capture_failed",
+                failure_reason=capture.failure_reason,
+            )
             return assistant_control.consume_action()
 
         print(f"Ты сказал: {user_text}")
         assistant_state.set(AssistantStateName.THINKING, _thinking_message_for(user_text))
+        intent_started = time.perf_counter()
         result = process_text_detailed(user_text)
+        metrics["intent_ms"] += (time.perf_counter() - intent_started) * 1000
         response = result.response
         if response:
             assistant_state.set(AssistantStateName.SPEAKING, response)
+            tts_started = time.perf_counter()
             speak(response)
+            metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
 
         if not result.needs_followup or followup_turns_left <= 0:
             break
@@ -77,19 +112,34 @@ def run_voice_interaction() -> AssistantControlAction:
         time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
 
     assistant_state.set(AssistantStateName.IDLE)
+    _log_voice_perf(
+        metrics=metrics,
+        total_ms=(time.perf_counter() - interaction_started) * 1000,
+        status="ok",
+        failure_reason=None,
+    )
     return assistant_control.consume_action()
 
 
 def _capture_user_text() -> CaptureOutcome:
+    total_capture_ms = 0.0
+    total_stt_ms = 0.0
+    max_record_seconds = (
+        min(float(RECORD_SECONDS), max(1.0, VOICE_ULTRA_FAST_MAX_RECORD_SECONDS))
+        if VOICE_ULTRA_FAST_MODE
+        else float(RECORD_SECONDS)
+    )
     for attempt in range(1, MAX_VOICE_RETRIES + 1):
         log_voice_event(f"capture_attempt={attempt}/{MAX_VOICE_RETRIES}")
+        record_started = time.perf_counter()
         recording = record_audio(
             AUDIO_FILENAME,
-            RECORD_SECONDS,
+            int(max(1, round(max_record_seconds))),
             status_callback=_update_listening_status,
             partial_text_callback=_update_partial_transcript,
             early_stop_callback=_build_early_stop_callback(),
         )
+        total_capture_ms += (time.perf_counter() - record_started) * 1000
         log_voice_event(f"recording_rms={recording.rms:.2f}")
 
         if recording.rms < MIN_AUDIO_RMS:
@@ -100,9 +150,17 @@ def _capture_user_text() -> CaptureOutcome:
                 speak("Слишком тихо. Повтори, пожалуйста, чуть громче.")
                 continue
             log_voice_event("capture_failed reason=low_audio_level")
-            return CaptureOutcome(text=None, failure_reason="low_audio_level")
+            return CaptureOutcome(
+                text=None,
+                failure_reason="low_audio_level",
+                capture_ms=total_capture_ms,
+                stt_ms=total_stt_ms,
+                attempts=attempt,
+            )
 
+        stt_started = time.perf_counter()
         transcription = transcribe(AUDIO_FILENAME)
+        total_stt_ms += (time.perf_counter() - stt_started) * 1000
         if transcription.is_empty:
             log_voice_event(
                 "empty_transcription "
@@ -114,7 +172,13 @@ def _capture_user_text() -> CaptureOutcome:
                 speak("Я ничего не расслышал. Повтори, пожалуйста.")
                 continue
             log_voice_event("capture_failed reason=empty_transcription")
-            return CaptureOutcome(text=None, failure_reason="empty_transcription")
+            return CaptureOutcome(
+                text=None,
+                failure_reason="empty_transcription",
+                capture_ms=total_capture_ms,
+                stt_ms=total_stt_ms,
+                attempts=attempt,
+            )
 
         if _needs_confirmation(transcription):
             log_voice_event(
@@ -128,9 +192,20 @@ def _capture_user_text() -> CaptureOutcome:
             if confirmed_text is None:
                 if attempt < MAX_VOICE_RETRIES:
                     continue
-                return CaptureOutcome(text=None, failure_reason="confirmation_failed")
+                return CaptureOutcome(
+                    text=None,
+                    failure_reason="confirmation_failed",
+                    capture_ms=total_capture_ms,
+                    stt_ms=total_stt_ms,
+                    attempts=attempt,
+                )
             log_voice_event(f"transcription_confirmed text={confirmed_text!r}")
-            return CaptureOutcome(text=confirmed_text)
+            return CaptureOutcome(
+                text=confirmed_text,
+                capture_ms=total_capture_ms,
+                stt_ms=total_stt_ms,
+                attempts=attempt,
+            )
 
         log_voice_event(
             "transcription_success "
@@ -139,10 +214,21 @@ def _capture_user_text() -> CaptureOutcome:
             f"no_speech_prob={transcription.no_speech_prob} "
             f"text={transcription.text!r}"
         )
-        return CaptureOutcome(text=transcription.text)
+        return CaptureOutcome(
+            text=transcription.text,
+            capture_ms=total_capture_ms,
+            stt_ms=total_stt_ms,
+            attempts=attempt,
+        )
 
     log_voice_event("capture_failed reason=retries_exhausted")
-    return CaptureOutcome(text=None, failure_reason="retries_exhausted")
+    return CaptureOutcome(
+        text=None,
+        failure_reason="retries_exhausted",
+        capture_ms=total_capture_ms,
+        stt_ms=total_stt_ms,
+        attempts=MAX_VOICE_RETRIES,
+    )
 
 
 def _update_listening_status(message: str) -> None:
@@ -187,6 +273,24 @@ def _build_early_stop_callback():
 
 
 def _needs_confirmation(transcription: TranscriptionResult) -> bool:
+    if VOICE_ULTRA_FAST_MODE and VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS:
+        fast_intent = detect_fast_intent(transcription.text.strip())
+        if fast_intent is not None and fast_intent.intent in {
+            "chat",
+            "play_game",
+            "get_tasks",
+            "get_events",
+            "delete_tasks",
+            "get_notes",
+            "export_notes",
+            "sync_github_notion",
+            "read_notion_page",
+            "append_notion_page",
+            "remember_user_profile",
+            "forget_user_profile",
+            "get_user_profile",
+        }:
+            return False
     if _is_safe_low_confidence_fast_path(transcription):
         return False
     if transcription.avg_logprob is not None and transcription.avg_logprob < STT_CONFIRMATION_LOGPROB_THRESHOLD:
@@ -304,3 +408,22 @@ def _followup_reprompt_for(reason: str | None) -> str | None:
     if reason == "confirmation_failed":
         return "Не уверена, что правильно услышала. Повтори коротко."
     return None
+
+
+def _log_voice_perf(
+    *,
+    metrics: dict[str, float],
+    total_ms: float,
+    status: str,
+    failure_reason: str | None,
+) -> None:
+    payload = {
+        "status": status,
+        "failure_reason": failure_reason,
+        "capture_ms": round(metrics.get("capture_ms", 0.0), 2),
+        "stt_ms": round(metrics.get("stt_ms", 0.0), 2),
+        "intent_ms": round(metrics.get("intent_ms", 0.0), 2),
+        "tts_ms": round(metrics.get("tts_ms", 0.0), 2),
+        "total_ms": round(total_ms, 2),
+    }
+    log_interaction_event("voice_perf", payload)

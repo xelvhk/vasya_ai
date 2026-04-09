@@ -84,6 +84,7 @@ Current status:
 - managed user profile memory, fast-path memory commands, and settings cleanup landed in `v0.5.3`
 - Notion adapter MVP with GitHub update sync landed in `v0.5.4`
 - conversational speed profile (quick chat + shorter follow-up delay) landed in `v0.5.5`
+- voice latency instrumentation and speed report tooling landed in `v0.5.6`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -193,6 +194,7 @@ Good future exports:
 - `v0.5.3`: managed user profile memory, faster memory command routing, and settings-based personal memory cleanup
 - `v0.5.4`: Notion read/write adapter, GitHub-to-Notion project sync, and fast Notion voice intents
 - `v0.5.5`: conversational speed profile with quick chat prompt/model routing and reduced follow-up latency
+- `v0.5.6`: voice performance metrics, speed report command, and ultra-fast voice mode tuning
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

@@ -6,7 +6,7 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.5.5")
+APP_VERSION = os.getenv("APP_VERSION", "0.5.6")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
@@ -33,6 +33,15 @@ OLLAMA_CHAT_QUICK_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_QUICK_NUM_PREDICT", "
 OLLAMA_CHAT_QUICK_MODEL = os.getenv("OLLAMA_CHAT_QUICK_MODEL", "fast").strip().lower()
 AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")
 RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "5"))
+VOICE_ULTRA_FAST_MODE = os.getenv("VOICE_ULTRA_FAST_MODE", "true").lower() == "true"
+VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS = os.getenv(
+    "VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS",
+    "true",
+).lower() == "true"
+VOICE_ULTRA_FAST_MAX_RECORD_SECONDS = float(
+    os.getenv("VOICE_ULTRA_FAST_MAX_RECORD_SECONDS", "3.2")
+)
+VOICE_SPEED_REPORT_WINDOW = int(os.getenv("VOICE_SPEED_REPORT_WINDOW", "30"))
 VOICE_START_TIMEOUT_SECONDS = float(os.getenv("VOICE_START_TIMEOUT_SECONDS", "2.5"))
 CHAT_FOLLOWUP_MAX_TURNS = int(os.getenv("CHAT_FOLLOWUP_MAX_TURNS", "3"))
 INTERRUPT_LISTEN_DELAY_SECONDS = float(

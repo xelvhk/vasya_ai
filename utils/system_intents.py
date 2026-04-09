@@ -40,6 +40,14 @@ DISABLE_CHILD_MODE_PHRASES = (
     "выйди из детского режима",
 )
 
+SPEED_REPORT_PHRASES = (
+    "отчет скорости",
+    "отчёт скорости",
+    "скорость ответа",
+    "покажи скорость",
+    "как быстро ты отвечаешь",
+)
+
 
 def detect_system_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
@@ -57,5 +65,8 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
 
     if normalized in EXIT_ASSISTANT_PHRASES:
         return IntentResult(intent="exit_assistant", data={})
+
+    if normalized in SPEED_REPORT_PHRASES:
+        return IntentResult(intent="speed_report", data={})
 
     return None

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 
 from assistant.child_mode import child_mode_store
 from assistant.conversation import conversation_memory
@@ -21,6 +22,7 @@ from config.settings import (
 from services.memory_service import get_memory_snapshot, search_memory
 from services.ollama_client import generate, generate_stream, resolve_chat_model
 from utils.chat_fast_replies import generate_local_chat_reply
+from utils.logger import log_voice_event
 
 
 def generate_chat_reply(user_text: str) -> str:
@@ -72,19 +74,29 @@ def generate_chat_reply(user_text: str) -> str:
     model = _resolve_reply_model(use_quick_chat=use_quick_chat)
     num_predict = OLLAMA_CHAT_QUICK_NUM_PREDICT if use_quick_chat else OLLAMA_CHAT_NUM_PREDICT
     if OLLAMA_CHAT_STREAM:
+        llm_started = time.perf_counter()
         reply = _generate_chat_reply_streaming(
             prompt,
             model=model,
             allow_greeting=allow_greeting,
             num_predict=num_predict,
         )
+        llm_ms = (time.perf_counter() - llm_started) * 1000
+        log_voice_event(
+            f"chat_llm_ms={llm_ms:.0f} stream=true model={model} quick={str(use_quick_chat).lower()}"
+        )
     else:
+        llm_started = time.perf_counter()
         reply = generate(
             prompt,
             model=model,
             think=OLLAMA_CHAT_THINK,
             temperature=OLLAMA_CHAT_TEMPERATURE,
             num_predict=num_predict,
+        )
+        llm_ms = (time.perf_counter() - llm_started) * 1000
+        log_voice_event(
+            f"chat_llm_ms={llm_ms:.0f} stream=false model={model} quick={str(use_quick_chat).lower()}"
         )
         reply = _postprocess_chat_reply(reply, allow_greeting=allow_greeting)
     conversation_memory.add_user(user_text)
@@ -311,6 +323,8 @@ def _generate_chat_reply_streaming(
 ) -> str:
     chunks: list[str] = []
     last_preview = ""
+    started = time.perf_counter()
+    first_token_ms: float | None = None
     for chunk in generate_stream(
         prompt,
         model=model,
@@ -318,6 +332,8 @@ def _generate_chat_reply_streaming(
         temperature=OLLAMA_CHAT_TEMPERATURE,
         num_predict=num_predict,
     ):
+        if first_token_ms is None:
+            first_token_ms = (time.perf_counter() - started) * 1000
         chunks.append(chunk)
         preview = _build_stream_preview("".join(chunks))
         if preview and preview != last_preview:
@@ -325,6 +341,8 @@ def _generate_chat_reply_streaming(
             last_preview = preview
 
     full_reply = "".join(chunks).strip()
+    if first_token_ms is not None:
+        log_voice_event(f"chat_first_token_ms={first_token_ms:.0f} model={model}")
     return _postprocess_chat_reply(full_reply, allow_greeting=allow_greeting)
 
 

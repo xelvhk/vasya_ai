@@ -27,6 +27,7 @@ class IntentResult(BaseModel):
         "sync_github_notion",
         "read_notion_page",
         "append_notion_page",
+        "speed_report",
         "chat",
         "unknown",
     ]

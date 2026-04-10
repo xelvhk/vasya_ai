@@ -21,6 +21,7 @@ class IntentResult(BaseModel):
         "enable_child_mode",
         "disable_child_mode",
         "exit_assistant",
+        "open_text_command",
         "remember_user_profile",
         "forget_user_profile",
         "get_user_profile",

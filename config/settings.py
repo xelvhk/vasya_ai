@@ -6,7 +6,7 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.5.7")
+APP_VERSION = os.getenv("APP_VERSION", "0.5.8")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
@@ -42,6 +42,13 @@ VOICE_ULTRA_FAST_MAX_RECORD_SECONDS = float(
     os.getenv("VOICE_ULTRA_FAST_MAX_RECORD_SECONDS", "3.2")
 )
 VOICE_SPEED_REPORT_WINDOW = int(os.getenv("VOICE_SPEED_REPORT_WINDOW", "30"))
+MORNING_SHOW_ENABLED = os.getenv("MORNING_SHOW_ENABLED", "true").lower() == "true"
+MORNING_SHOW_CITY = os.getenv("MORNING_SHOW_CITY", "Moscow").strip()
+MORNING_SHOW_HOUR_LIMIT = int(os.getenv("MORNING_SHOW_HOUR_LIMIT", "12"))
+MORNING_SHOW_STATE_FILE = os.getenv(
+    "MORNING_SHOW_STATE_FILE",
+    "storage/morning_show_state.json",
+).strip()
 VOICE_START_TIMEOUT_SECONDS = float(os.getenv("VOICE_START_TIMEOUT_SECONDS", "2.5"))
 CHAT_FOLLOWUP_MAX_TURNS = int(os.getenv("CHAT_FOLLOWUP_MAX_TURNS", "3"))
 INTERRUPT_LISTEN_DELAY_SECONDS = float(

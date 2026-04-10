@@ -48,6 +48,17 @@ SPEED_REPORT_PHRASES = (
     "как быстро ты отвечаешь",
 )
 
+OPEN_TEXT_COMMAND_PHRASES = (
+    "открой текстовое окно",
+    "открой текстовую команду",
+    "открой окно ввода",
+    "открой текстовый ввод",
+    "покажи текстовое окно",
+    "покажи окно ввода",
+    "переключись в текстовый режим",
+    "текстовый режим",
+)
+
 
 def detect_system_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
@@ -68,5 +79,8 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
 
     if normalized in SPEED_REPORT_PHRASES:
         return IntentResult(intent="speed_report", data={})
+
+    if normalized in OPEN_TEXT_COMMAND_PHRASES:
+        return IntentResult(intent="open_text_command", data={})
 
     return None

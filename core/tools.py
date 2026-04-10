@@ -81,6 +81,12 @@ def _run_exit_assistant_tool(intent_result: IntentResult) -> str:
     return "Завершаю работу."
 
 
+def _run_open_text_command_tool(intent_result: IntentResult) -> str:
+    _ = intent_result
+    assistant_control.request_open_text_command()
+    return "Открываю текстовое окно."
+
+
 def _run_user_profile_tool(intent_result: IntentResult) -> str:
     if intent_result.intent == "remember_user_profile":
         return remember_user_profile(str(intent_result.data.get("memory", "")))
@@ -162,6 +168,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Корректно завершить помощника.",
         intents=("exit_assistant",),
         handler=_run_exit_assistant_tool,
+    ),
+    ToolSpec(
+        tool_id="open_text_command",
+        description="Открыть текстовое окно команды.",
+        intents=("open_text_command",),
+        handler=_run_open_text_command_tool,
     ),
     ToolSpec(
         tool_id="user_profile",

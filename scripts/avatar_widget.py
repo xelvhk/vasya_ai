@@ -22,7 +22,9 @@ from config.settings import (
     HOTKEY_COMBINATION,
     HOTKEY_EXIT_COMBINATION,
     HOTKEY_TEXT_COMBINATION,
-    INTERRUPT_LISTEN_DELAY_SECONDS,
+    MORNING_SHOW_CITY,
+    MORNING_SHOW_ENABLED,
+    MORNING_SHOW_HOUR_LIMIT,
     MIN_AUDIO_RMS,
 )
 from utils.hotkeys import normalize_hotkey_combination
@@ -77,7 +79,9 @@ def main() -> None:
             QPushButton,
             QProgressBar,
             QSlider,
+            QSpinBox,
             QSystemTrayIcon,
+            QTabWidget,
             QVBoxLayout,
             QWidget,
         )
@@ -604,6 +608,45 @@ def main() -> None:
                     selection-color: #ffffff;
                     outline: 0;
                 }
+                QWidget#settingsTabPage {
+                    background: #0f1d4a;
+                }
+                QTabWidget#settingsTabs {
+                    background: transparent;
+                }
+                QTabWidget#settingsTabs::pane {
+                    border: 1px solid #274a99;
+                    border-radius: 12px;
+                    background: #0f1d4a;
+                    margin-top: 6px;
+                }
+                QTabWidget#settingsTabs::tab-bar {
+                    alignment: left;
+                }
+                QTabWidget#settingsTabs > QWidget#qt_tabwidget_stackedwidget {
+                    background: #0f1d4a;
+                    border-radius: 10px;
+                }
+                QTabWidget#settingsTabs QTabBar {
+                    background: #0b1435;
+                }
+                QTabWidget#settingsTabs QTabBar::tab {
+                    background: #12285f;
+                    color: #b8cdf3;
+                    border: 1px solid #2f58b0;
+                    border-bottom: none;
+                    border-top-left-radius: 8px;
+                    border-top-right-radius: 8px;
+                    padding: 7px 12px;
+                    margin-right: 6px;
+                }
+                QTabWidget#settingsTabs QTabBar::tab:selected {
+                    background: #1a3a85;
+                    color: #f0f6ff;
+                }
+                QTabWidget#settingsTabs QTabBar::tab:!selected {
+                    margin-top: 2px;
+                }
                 QSlider::groove:horizontal {
                     border: 0;
                     height: 6px;
@@ -617,16 +660,18 @@ def main() -> None:
                     margin: -6px 0;
                     border-radius: 8px;
                 }
-                QDialogButtonBox QPushButton {
+                QPushButton {
                     background: #173377;
                     color: #f5f9ff;
                     border: 1px solid #3c67d1;
                     border-radius: 10px;
                     padding: 8px 14px;
-                    min-width: 100px;
                 }
-                QDialogButtonBox QPushButton:hover {
+                QPushButton:hover {
                     background: #1d439c;
+                }
+                QDialogButtonBox QPushButton {
+                    min-width: 100px;
                 }
                 """
             )
@@ -669,18 +714,45 @@ def main() -> None:
             preview_layout.addWidget(self._preview, alignment=Qt.AlignmentFlag.AlignHCenter)
             layout.addWidget(preview_wrap)
 
-            form = QFormLayout()
-            form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-            form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-            form.setHorizontalSpacing(16)
-            form.setVerticalSpacing(12)
+            tabs = QTabWidget(self)
+            tabs.setObjectName("settingsTabs")
+            tabs.setDocumentMode(True)
+            tabs.tabBar().setDrawBase(False)
+
+            appearance_tab = QWidget(self)
+            appearance_tab.setObjectName("settingsTabPage")
+            behavior_tab = QWidget(self)
+            behavior_tab.setObjectName("settingsTabPage")
+            integrations_tab = QWidget(self)
+            integrations_tab.setObjectName("settingsTabPage")
+            tabs.addTab(appearance_tab, "Внешний вид")
+            tabs.addTab(behavior_tab, "Поведение")
+            tabs.addTab(integrations_tab, "Интеграции")
+
+            appearance_form = QFormLayout(appearance_tab)
+            appearance_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+            appearance_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+            appearance_form.setHorizontalSpacing(16)
+            appearance_form.setVerticalSpacing(12)
+
+            behavior_form = QFormLayout(behavior_tab)
+            behavior_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+            behavior_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+            behavior_form.setHorizontalSpacing(16)
+            behavior_form.setVerticalSpacing(12)
+
+            integrations_form = QFormLayout(integrations_tab)
+            integrations_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+            integrations_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+            integrations_form.setHorizontalSpacing(16)
+            integrations_form.setVerticalSpacing(12)
 
             self._size_combo = QComboBox(self)
             for label, size in (("Маленький", 180), ("Средний", 210), ("Большой", 270)):
                 self._size_combo.addItem(label, size)
             self._select_combo_value(self._size_combo, widget._avatar_size)
             self._size_combo.currentIndexChanged.connect(self._sync_preview)
-            form.addRow("Размер Васи", self._size_combo)
+            appearance_form.addRow("Размер Васи", self._size_combo)
 
             self._skin_combo = QComboBox(self)
             self._skin_combo.currentIndexChanged.connect(self._sync_preview)
@@ -702,7 +774,7 @@ def main() -> None:
             skin_row.setSpacing(8)
             skin_row.addWidget(self._skin_combo)
             skin_row.addLayout(skin_actions)
-            form.addRow("Скин Васи", skin_row)
+            appearance_form.addRow("Скин Васи", skin_row)
 
             image_actions = QHBoxLayout()
             choose_image_button = QPushButton("Выбрать изображение...", self)
@@ -712,7 +784,7 @@ def main() -> None:
             reset_image_button.clicked.connect(self._reset_avatar_image)
             image_actions.addWidget(reset_image_button)
             image_actions.addStretch(1)
-            form.addRow("Картинка Васи", image_actions)
+            appearance_form.addRow("Картинка Васи", image_actions)
 
             self._voice_profile_combo = QComboBox(self)
             active_profile = get_active_voice_profile()
@@ -722,13 +794,13 @@ def main() -> None:
                     profile.profile_id,
                 )
             self._select_combo_value(self._voice_profile_combo, active_profile.profile_id)
-            form.addRow("Голос Васи", self._voice_profile_combo)
+            behavior_form.addRow("Голос Васи", self._voice_profile_combo)
 
             self._tray_click_combo = QComboBox(self)
             self._tray_click_combo.addItem("Показать или скрыть Васю", "toggle")
             self._tray_click_combo.addItem("Начать слушать", "listen")
             self._select_combo_value(self._tray_click_combo, widget._tray_click_action)
-            form.addRow("Клик по иконке в трее", self._tray_click_combo)
+            behavior_form.addRow("Клик по иконке в трее", self._tray_click_combo)
 
             self._opacity_slider = QSlider(Qt.Orientation.Horizontal, self)
             self._opacity_slider.setMinimum(70)
@@ -743,29 +815,42 @@ def main() -> None:
                 lambda value: self._opacity_label.setText(f"{value}%")
             )
             self._opacity_slider.valueChanged.connect(self._sync_preview)
-            form.addRow("Прозрачность Васи", opacity_row)
+            appearance_form.addRow("Прозрачность Васи", opacity_row)
 
             self._show_bubble_checkbox = QCheckBox("Показывать пузырь ответа", self)
             self._show_bubble_checkbox.setChecked(widget._show_response_bubble)
-            form.addRow(self._show_bubble_checkbox)
+            behavior_form.addRow(self._show_bubble_checkbox)
 
             self._child_mode_checkbox = QCheckBox("Детский режим", self)
             self._child_mode_checkbox.setChecked(child_mode_store.is_enabled())
-            form.addRow(self._child_mode_checkbox)
+            behavior_form.addRow(self._child_mode_checkbox)
+
+            self._morning_show_checkbox = QCheckBox("Утреннее шоу (первое обращение за день)", self)
+            self._morning_show_checkbox.setChecked(widget._morning_show_enabled)
+            behavior_form.addRow(self._morning_show_checkbox)
+
+            self._morning_show_city_input = QLineEdit(widget._morning_show_city, self)
+            self._morning_show_city_input.setPlaceholderText("Город для погоды, например Moscow")
+            behavior_form.addRow("Город утреннего шоу", self._morning_show_city_input)
+
+            self._morning_show_hour_limit = QSpinBox(self)
+            self._morning_show_hour_limit.setRange(0, 23)
+            self._morning_show_hour_limit.setValue(widget._morning_show_hour_limit)
+            behavior_form.addRow("До какого часа", self._morning_show_hour_limit)
 
             self._github_repo_input = QLineEdit(
                 get_integration_setting("github_default_repo"),
                 self,
             )
             self._github_repo_input.setPlaceholderText("owner/repo")
-            form.addRow("GitHub repo", self._github_repo_input)
+            integrations_form.addRow("GitHub repo", self._github_repo_input)
 
             self._notion_page_input = QLineEdit(
                 get_integration_setting("notion_updates_page_id"),
                 self,
             )
             self._notion_page_input.setPlaceholderText("Notion page id")
-            form.addRow("Notion page id", self._notion_page_input)
+            integrations_form.addRow("Notion page id", self._notion_page_input)
 
             self._github_token_input = QLineEdit(
                 get_integration_setting("github_api_token"),
@@ -773,7 +858,7 @@ def main() -> None:
             )
             self._github_token_input.setEchoMode(QLineEdit.EchoMode.Password)
             self._github_token_input.setPlaceholderText("GitHub token (optional)")
-            form.addRow("GitHub token", self._github_token_input)
+            integrations_form.addRow("GitHub token", self._github_token_input)
 
             self._notion_token_input = QLineEdit(
                 get_integration_setting("notion_api_token"),
@@ -781,48 +866,48 @@ def main() -> None:
             )
             self._notion_token_input.setEchoMode(QLineEdit.EchoMode.Password)
             self._notion_token_input.setPlaceholderText("Notion integration token")
-            form.addRow("Notion token", self._notion_token_input)
+            integrations_form.addRow("Notion token", self._notion_token_input)
 
             integration_actions = QHBoxLayout()
             test_integrations_button = QPushButton("Проверить интеграции", self)
             test_integrations_button.clicked.connect(self._test_integrations)
             integration_actions.addWidget(test_integrations_button)
             integration_actions.addStretch(1)
-            form.addRow("Notion/GitHub", integration_actions)
+            integrations_form.addRow("Notion/GitHub", integration_actions)
 
             memory_actions = QHBoxLayout()
             clear_memory_button = QPushButton("Очистить личную память...", self)
             clear_memory_button.clicked.connect(self._clear_personal_memory)
             memory_actions.addWidget(clear_memory_button)
             memory_actions.addStretch(1)
-            form.addRow("Память о пользователе", memory_actions)
+            integrations_form.addRow("Память о пользователе", memory_actions)
 
             self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)
             self._idle_motion_checkbox.setChecked(widget._idle_motion_enabled)
             self._idle_motion_checkbox.toggled.connect(self._sync_preview)
-            form.addRow(self._idle_motion_checkbox)
+            appearance_form.addRow(self._idle_motion_checkbox)
 
             self._snap_checkbox = QCheckBox("Прилипать к краю экрана", self)
             self._snap_checkbox.setChecked(widget._snap_to_edge_enabled)
-            form.addRow(self._snap_checkbox)
+            behavior_form.addRow(self._snap_checkbox)
 
             self._start_hidden_checkbox = QCheckBox("Запускать скрытым", self)
             self._start_hidden_checkbox.setChecked(widget._start_hidden)
-            form.addRow(self._start_hidden_checkbox)
+            behavior_form.addRow(self._start_hidden_checkbox)
 
             if get_platform_name() == "macos":
                 self._autostart_checkbox = QCheckBox("Запускать при входе", self)
                 self._autostart_checkbox.setChecked(widget._launch_at_login_enabled)
-                form.addRow(self._autostart_checkbox)
+                behavior_form.addRow(self._autostart_checkbox)
             else:
                 self._autostart_checkbox = None
 
             self._hotkey_input = QLineEdit(widget._activation_hotkey, self)
-            form.addRow("Горячая клавиша", self._hotkey_input)
+            behavior_form.addRow("Горячая клавиша", self._hotkey_input)
             self._text_hotkey_input = QLineEdit(widget._text_hotkey, self)
-            form.addRow("Текстовая клавиша", self._text_hotkey_input)
+            behavior_form.addRow("Текстовая клавиша", self._text_hotkey_input)
 
-            layout.addLayout(form)
+            layout.addWidget(tabs)
 
             buttons = QDialogButtonBox(
                 QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
@@ -833,6 +918,7 @@ def main() -> None:
             layout.addWidget(buttons)
 
             if widget._settings_focus == "voice":
+                tabs.setCurrentWidget(behavior_tab)
                 self._voice_profile_combo.setFocus()
 
 
@@ -851,6 +937,11 @@ def main() -> None:
             self._widget._tray_click_action = str(self._tray_click_combo.currentData())
             self._widget._avatar_opacity = self._opacity_slider.value() / 100.0
             self._widget._show_response_bubble = self._show_bubble_checkbox.isChecked()
+            self._widget._morning_show_enabled = self._morning_show_checkbox.isChecked()
+            self._widget._morning_show_city = (
+                self._morning_show_city_input.text().strip() or MORNING_SHOW_CITY
+            )
+            self._widget._morning_show_hour_limit = int(self._morning_show_hour_limit.value())
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -1337,6 +1428,21 @@ def main() -> None:
             self._start_hidden = bool(self._widget_state.get("start_hidden", False))
             self._first_run_done = bool(self._widget_state.get("first_run_done", False))
             self._first_run_pending = bool(self._widget_state.get("first_run_pending", False))
+            self._morning_show_enabled = bool(
+                self._widget_state.get("morning_show_enabled", MORNING_SHOW_ENABLED)
+            )
+            self._morning_show_city = str(
+                self._widget_state.get("morning_show_city", MORNING_SHOW_CITY)
+            ).strip() or MORNING_SHOW_CITY
+            raw_hour_limit = self._widget_state.get(
+                "morning_show_hour_limit",
+                MORNING_SHOW_HOUR_LIMIT,
+            )
+            try:
+                self._morning_show_hour_limit = int(raw_hour_limit)
+            except (TypeError, ValueError):
+                self._morning_show_hour_limit = int(MORNING_SHOW_HOUR_LIMIT)
+            self._morning_show_hour_limit = min(23, max(0, self._morning_show_hour_limit))
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -1368,6 +1474,7 @@ def main() -> None:
             self._last_effective_skin = self._effective_avatar_skin()
             self._settings_focus: str | None = None
             self._hover_hint_active = False
+            self._state_since = time.monotonic()
 
             self._bridge.state_changed.connect(self._apply_state)
             self._bridge.exit_requested.connect(self.quit_application)
@@ -1429,7 +1536,10 @@ def main() -> None:
 
         def _apply_state(self, state: AssistantState) -> None:
             previous_state = self._state.name
+            state_changed = previous_state != state.name
             self._state = state
+            if state_changed:
+                self._state_since = time.monotonic()
             if previous_state == AssistantStateName.SPEAKING and state.name == AssistantStateName.IDLE:
                 self._smile_bounce = 1.0
             self._update_bubble()
@@ -1494,64 +1604,80 @@ def main() -> None:
             super().leaveEvent(event)
 
         def contextMenuEvent(self, event) -> None:
-            menu = QMenu(self)
+            try:
+                menu = QMenu(self)
 
-            toggle_action = menu.addAction(
-                "Скрыть Васю" if self.isVisible() else "Показать Васю"
-            )
-            listen_action = menu.addAction("Начать слушать")
-            text_action = menu.addAction("Текстовая команда...")
-            quick_action = menu.addAction("Быстрые команды")
-            settings_action = menu.addAction("Настройки...")
-            clear_memory_action = menu.addAction("Очистить личную память...")
-            menu.addSeparator()
-            quit_action = menu.addAction("Закрыть Васю")
+                toggle_action = menu.addAction(
+                    "Скрыть Васю" if self.isVisible() else "Показать Васю"
+                )
+                menu.addSeparator()
+                interaction_menu = menu.addMenu("Общение")
+                listen_action = interaction_menu.addAction("Начать слушать")
+                text_action = interaction_menu.addAction("Текстовая команда...")
+                quick_action = interaction_menu.addAction("Быстрые команды")
 
-            chosen_action = menu.exec(event.globalPos())
-            if chosen_action == toggle_action:
-                self.toggle_avatar_visibility()
-            elif chosen_action == listen_action:
-                self._activate_interaction()
-            elif chosen_action == text_action:
-                self._open_text_command_dialog()
-            elif chosen_action == quick_action:
-                self._open_quick_commands()
-            elif chosen_action == settings_action:
-                self._open_settings_dialog()
-            elif chosen_action == clear_memory_action:
-                self._clear_personal_memory()
-            elif chosen_action == quit_action:
-                self.quit_application()
+                settings_menu = menu.addMenu("Настройки")
+                settings_action = settings_menu.addAction("Открыть настройки...")
+                clear_memory_action = settings_menu.addAction("Очистить личную память...")
+                menu.addSeparator()
+                quit_action = menu.addAction("Закрыть Васю")
+
+                chosen_action = menu.exec(event.globalPos())
+                if chosen_action is None:
+                    return
+
+                handlers = {
+                    toggle_action: self.toggle_avatar_visibility,
+                    listen_action: self._activate_interaction,
+                    text_action: self._open_text_command_dialog,
+                    quick_action: self._open_quick_commands,
+                    settings_action: self._open_settings_dialog,
+                    clear_memory_action: self._clear_personal_memory,
+                    quit_action: self.quit_application,
+                }
+                handler = handlers.get(chosen_action)
+                if handler is not None:
+                    handler()
+            except Exception as exc:
+                log(f"Context menu error: {exc}")
 
         def _activate_interaction(self) -> None:
             if self._interaction_lock.locked():
                 if assistant_state.get().name == AssistantStateName.SPEAKING:
                     log_voice_event("widget_activation_interrupt_speaking")
                     stop_speaking()
-                    self._queue_followup_interaction()
+                    assistant_state.set(
+                        AssistantStateName.IDLE,
+                        "Остановила озвучивание. Нажми еще раз, чтобы говорить.",
+                    )
                     return
                 else:
                     log_voice_event("widget_activation_ignored reason=interaction_in_progress")
+                    assistant_state.set(
+                        AssistantStateName.THINKING,
+                        "Еще обрабатываю предыдущий запрос. Секунду.",
+                    )
                     return
 
             self._start_interaction_thread("widget_activation_started")
 
-        def _queue_followup_interaction(self) -> None:
-            def delayed_worker() -> None:
-                with self._interaction_lock:
-                    pass
-                time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
-                self._start_interaction_thread("widget_activation_followup_started")
-
-            threading.Thread(target=delayed_worker, daemon=True).start()
-
         def _start_interaction_thread(self, log_event: str) -> None:
             def worker() -> None:
                 with self._interaction_lock:
-                    log_voice_event(log_event)
-                    action = run_voice_interaction()
+                    try:
+                        log_voice_event(log_event)
+                        action = run_voice_interaction()
+                    except Exception as exc:
+                        log(f"Voice interaction failed: {exc}")
+                        assistant_state.set(
+                            AssistantStateName.ERROR,
+                            f"Ошибка голосового контура: {type(exc).__name__}",
+                        )
+                        return
                     if action == AssistantControlAction.EXIT:
                         self._bridge.exit_requested.emit()
+                    elif action == AssistantControlAction.OPEN_TEXT_COMMAND:
+                        self._bridge.text_command_requested.emit()
 
             threading.Thread(target=worker, daemon=True).start()
 
@@ -2120,7 +2246,8 @@ def main() -> None:
             if self._state.name == AssistantStateName.LISTENING:
                 return "Слушаю…"
             if self._state.name == AssistantStateName.THINKING:
-                return "Думаю…"
+                seconds = max(1, int(time.monotonic() - self._state_since))
+                return f"Думаю… {seconds}с"
             if self._state.name == AssistantStateName.SPEAKING:
                 return "Говорю…"
             if self._state.name == AssistantStateName.ERROR:
@@ -2181,6 +2308,9 @@ def main() -> None:
                     "avatar_skin": self._avatar_skin,
                     "auto_child_skin": self._auto_child_skin,
                     "start_hidden": not self.isVisible(),
+                    "morning_show_enabled": self._morning_show_enabled,
+                    "morning_show_city": self._morning_show_city,
+                    "morning_show_hour_limit": self._morning_show_hour_limit,
                 }
             )
 
@@ -2318,6 +2448,14 @@ def main() -> None:
             suffix = ""
             if self._state.name != AssistantStateName.IDLE:
                 suffix = f" [{_state_label(self._state.name)}]"
+                if self._state.name == AssistantStateName.THINKING:
+                    seconds = max(1, int(time.monotonic() - self._state_since))
+                    suffix = f"{suffix} {seconds}с"
+                elif self._state.message:
+                    detail = " ".join(self._state.message.split())
+                    if len(detail) > 56:
+                        detail = f"{detail[:53]}..."
+                    suffix = f"{suffix} • {detail}"
             self._tray.setToolTip(f"Вася AI{suffix}")
 
         def _open_settings_dialog(self, *, focus: str | None = None) -> None:
@@ -2374,6 +2512,8 @@ def main() -> None:
                 action = assistant_control.consume_action()
                 if action == AssistantControlAction.EXIT:
                     self._bridge.exit_requested.emit()
+                elif action == AssistantControlAction.OPEN_TEXT_COMMAND:
+                    self._bridge.text_command_requested.emit()
 
             threading.Thread(target=worker, daemon=True).start()
 

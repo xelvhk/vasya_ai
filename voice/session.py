@@ -4,9 +4,11 @@ import time
 
 from dataclasses import dataclass
 
+from assistant.confirmations import confirmation_store
 from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.conversation import conversation_memory
+from assistant.games import game_store
 from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
 from config.settings import (
@@ -24,10 +26,14 @@ from config.settings import (
 )
 from core.models import IntentResult
 from core.orchestrator import process_text_detailed
+from core.router import route_intent
+from services.chat_service import generate_chat_reply_local_fast
 from services.game_service import is_active_game_fast_phrase
+from services.morning_show_service import get_morning_show_message
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 from utils.logger import log_interaction_event, log_voice_event
+from utils.system_intents import detect_system_intent
 from voice.recorder import record_audio
 from voice.models import TranscriptionResult
 from voice.stt import transcribe
@@ -53,6 +59,13 @@ def run_voice_interaction() -> AssistantControlAction:
     }
     followup_turns_left = CHAT_FOLLOWUP_MAX_TURNS
     keep_conversation_open = False
+    morning_show_message = get_morning_show_message()
+    if morning_show_message:
+        assistant_state.set(AssistantStateName.SPEAKING, morning_show_message)
+        tts_started = time.perf_counter()
+        speak(morning_show_message)
+        metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
+        time.sleep(0.25)
 
     while True:
         assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
@@ -95,7 +108,9 @@ def run_voice_interaction() -> AssistantControlAction:
         print(f"Ты сказал: {user_text}")
         assistant_state.set(AssistantStateName.THINKING, _thinking_message_for(user_text))
         intent_started = time.perf_counter()
-        result = process_text_detailed(user_text)
+        result = _try_local_fast_lane(user_text)
+        if result is None:
+            result = process_text_detailed(user_text)
         metrics["intent_ms"] += (time.perf_counter() - intent_started) * 1000
         response = result.response
         if response:
@@ -119,6 +134,86 @@ def run_voice_interaction() -> AssistantControlAction:
         failure_reason=None,
     )
     return assistant_control.consume_action()
+
+
+@dataclass(frozen=True)
+class _FastLaneProcessResult:
+    intent: str
+    response: str
+    needs_followup: bool = False
+
+
+def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
+    # Не ускоряем, если ждем подтверждение или уже в активной игровой сессии:
+    # там важна последовательная логика оркестратора.
+    if confirmation_store.get() is not None:
+        return None
+    if game_store.get() is not None:
+        return None
+
+    system_intent = detect_system_intent(user_text)
+    intent_result = system_intent or detect_fast_intent(user_text)
+    if intent_result is None:
+        return None
+
+    if intent_result.intent == "chat":
+        local_chat_reply = generate_chat_reply_local_fast(user_text)
+        if local_chat_reply is None:
+            return None
+        log_interaction_event(
+            "routing_step",
+            {
+                "step": "voice_local_fast_lane_chat",
+                "user_text": user_text,
+                "resolved_intent": "chat",
+            },
+        )
+        return _FastLaneProcessResult(
+            intent="chat",
+            response=local_chat_reply,
+            needs_followup=True,
+        )
+
+    fast_lane_intents = {
+        "stop_speaking",
+        "exit_assistant",
+        "open_text_command",
+        "enable_child_mode",
+        "disable_child_mode",
+        "speed_report",
+        "create_task",
+        "get_tasks",
+        "delete_tasks",
+        "create_note",
+        "get_notes",
+        "export_notes",
+        "remember_user_profile",
+        "forget_user_profile",
+        "get_user_profile",
+        "sync_github_notion",
+        "read_notion_page",
+        "append_notion_page",
+        "get_events",
+        "create_event",
+        "delete_event",
+    }
+    if intent_result.intent not in fast_lane_intents:
+        return None
+
+    response = route_intent(intent_result, user_text)
+    log_interaction_event(
+        "routing_step",
+        {
+            "step": "voice_local_fast_lane",
+            "user_text": user_text,
+            "resolved_intent": intent_result.intent,
+        },
+    )
+    return _FastLaneProcessResult(
+        intent=intent_result.intent,
+        response=response,
+        needs_followup=False,
+    )
 
 
 def _capture_user_text() -> CaptureOutcome:

@@ -25,7 +25,7 @@ from utils.chat_fast_replies import generate_local_chat_reply
 from utils.logger import log_voice_event
 
 
-def generate_chat_reply(user_text: str) -> str:
+def generate_chat_reply_local_fast(user_text: str) -> str | None:
     user_profile_memory.observe_user_text(user_text)
     recent_history = conversation_memory.recent()
     history_size = len(recent_history)
@@ -35,6 +35,7 @@ def generate_chat_reply(user_text: str) -> str:
     )
     tone = conversation_tone.observe_user_text(user_text)
     child_mode = child_mode_store.is_enabled()
+
     if child_mode:
         safe_reply = _generate_child_safe_redirect(user_text)
         if safe_reply is not None:
@@ -49,10 +50,21 @@ def generate_chat_reply(user_text: str) -> str:
         child_mode=child_mode,
         last_assistant_reply=last_assistant_reply,
     )
+    if local_reply is None:
+        return None
+    conversation_memory.add_user(user_text)
+    conversation_memory.add_assistant(local_reply)
+    return local_reply
+
+
+def generate_chat_reply(user_text: str) -> str:
+    local_reply = generate_chat_reply_local_fast(user_text)
     if local_reply is not None:
-        conversation_memory.add_user(user_text)
-        conversation_memory.add_assistant(local_reply)
         return local_reply
+
+    recent_history = conversation_memory.recent()
+    tone = conversation_tone.current()
+    child_mode = child_mode_store.is_enabled()
 
     allow_greeting = _should_greet(user_text)
     memory_context = _build_memory_context(user_text)

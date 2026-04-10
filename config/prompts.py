@@ -18,6 +18,7 @@ INTENT_PROMPT_TEMPLATE = """
 - play_game
 - stop_speaking
 - exit_assistant
+- open_text_command
 - remember_user_profile
 - forget_user_profile
 - get_user_profile
@@ -68,27 +69,29 @@ INTENT_PROMPT_TEMPLATE = """
    - используй, если пользователь хочет поиграть, особенно в слова, прятки, загадки, угадай животное или повтори за мной
 15. Для exit_assistant:
    - используй, если пользователь просит закрыть, выключить или завершить работу помощника
-16. Для remember_user_profile:
+16. Для open_text_command:
+   - используй, если пользователь просит открыть текстовое окно, окно ввода или текстовый режим
+17. Для remember_user_profile:
    - memory: что запомнить о пользователе
    - используй для фраз вида "запомни, что мне нравится ...", "запомни про меня ..."
-17. Для forget_user_profile:
+18. Для forget_user_profile:
    - target: что забыть
    - используй для фраз вида "забудь это", "удали из памяти ..."
-18. Для get_user_profile:
+19. Для get_user_profile:
    - используй, если пользователь спрашивает "что ты обо мне помнишь" и похожие
-19. Для sync_github_notion:
+20. Для sync_github_notion:
    - repo: optional, owner/repo
    - используй для фраз "синхронизируй github в notion", "обнови notion по github"
-20. Для read_notion_page:
+21. Для read_notion_page:
    - page_id: optional
    - используй для фраз "прочитай notion", "что в notion"
-21. Для append_notion_page:
+22. Для append_notion_page:
    - text: что добавить в страницу Notion
    - page_id: optional
    - используй для фраз "запиши в notion ..."
-22. Для speed_report:
+23. Для speed_report:
    - используй, если пользователь просит показать скорость ответа или отчет по задержкам
-23. Для chat:
+24. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
    - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub синка
 
@@ -184,6 +187,11 @@ INTENT_PROMPT_TEMPLATE = """
 
 {{
   "intent": "exit_assistant",
+  "data": {{}}
+}}
+
+{{
+  "intent": "open_text_command",
   "data": {{}}
 }}
 

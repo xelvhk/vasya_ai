@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.5.7`
+Current version: `0.5.8`
 
 ## Overview
 
@@ -38,6 +38,8 @@ Vasya already supports:
 - faster conversational loop (quick chat profile + shorter follow-up delay)
 - voice latency metrics and a built-in speed report command
 - hotkey-based text command window for precise Notion/GitHub commands
+- voice command to open the text command window
+- morning show on first daily interaction (weather + quote)
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
@@ -426,6 +428,7 @@ This is still an MVP, so current limits include:
 - `v0.5.5`: faster conversational loop (quick chat profile, lower chat num_predict, shorter follow-up delay)
 - `v0.5.6`: voice latency instrumentation, `speed_report` command, and ultra-fast voice mode tuning
 - `v0.5.7`: hotkey-based text command window integrated into desktop shell and router
+- `v0.5.8`: voice-open text command window, first daily morning show, and fast-lane conversational/tool routing polish
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

@@ -86,6 +86,7 @@ Current status:
 - conversational speed profile (quick chat + shorter follow-up delay) landed in `v0.5.5`
 - voice latency instrumentation and speed report tooling landed in `v0.5.6`
 - hotkey-based text command window for precise command input landed in `v0.5.7`
+- voice-open text command window, first daily morning show, and faster local fast-lane routing landed in `v0.5.8`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -197,6 +198,7 @@ Good future exports:
 - `v0.5.5`: conversational speed profile with quick chat prompt/model routing and reduced follow-up latency
 - `v0.5.6`: voice performance metrics, speed report command, and ultra-fast voice mode tuning
 - `v0.5.7`: desktop text command window via hotkey with router integration for Notion/GitHub flows
+- `v0.5.8`: voice command for text input window, morning show (weather + quote), and faster local fast-lane routing
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

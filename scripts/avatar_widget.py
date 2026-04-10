@@ -37,6 +37,7 @@ from services.integration_settings_service import (
 )
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.notion_service import NotionServiceError, read_page_text
+from services.morning_show_service import get_morning_show_message, reset_morning_show_today
 from voice.profiles import get_active_voice_profile, list_voice_profiles
 from voice.recorder import record_audio
 from voice.session import run_voice_interaction
@@ -837,6 +838,15 @@ def main() -> None:
             self._morning_show_hour_limit.setRange(0, 23)
             self._morning_show_hour_limit.setValue(widget._morning_show_hour_limit)
             behavior_form.addRow("До какого часа", self._morning_show_hour_limit)
+            morning_actions = QHBoxLayout()
+            test_morning_show_button = QPushButton("Тест утреннего шоу", self)
+            test_morning_show_button.clicked.connect(self._test_morning_show)
+            morning_actions.addWidget(test_morning_show_button)
+            reset_morning_show_button = QPushButton("Сбросить на сегодня", self)
+            reset_morning_show_button.clicked.connect(self._reset_morning_show_today)
+            morning_actions.addWidget(reset_morning_show_button)
+            morning_actions.addStretch(1)
+            behavior_form.addRow("Проверка", morning_actions)
 
             self._github_repo_input = QLineEdit(
                 get_integration_setting("github_default_repo"),
@@ -1143,6 +1153,35 @@ def main() -> None:
                     checks.append(f"Notion: ошибка — {type(exc).__name__}: {exc}")
 
             QMessageBox.information(self, "Проверка интеграций", "\n".join(checks))
+
+        def _test_morning_show(self) -> None:
+            city = self._morning_show_city_input.text().strip() or MORNING_SHOW_CITY
+            hour_limit = int(self._morning_show_hour_limit.value())
+            enabled = self._morning_show_checkbox.isChecked()
+            preview = get_morning_show_message(
+                force=True,
+                city=city,
+                hour_limit=hour_limit,
+                enabled=enabled,
+                mark_delivered=False,
+            )
+            if not preview:
+                QMessageBox.information(
+                    self,
+                    "Утреннее шоу",
+                    "Не удалось сформировать утреннее шоу для теста.",
+                )
+                return
+            speak(preview)
+            QMessageBox.information(self, "Утреннее шоу (тест)", preview)
+
+        def _reset_morning_show_today(self) -> None:
+            reset_morning_show_today()
+            QMessageBox.information(
+                self,
+                "Утреннее шоу",
+                "Сбросила отметку показа на сегодня. Следующее обращение снова запустит шоу.",
+            )
 
     class OnboardingDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:

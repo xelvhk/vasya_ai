@@ -13,6 +13,7 @@ from config.settings import (
     MORNING_SHOW_HOUR_LIMIT,
     MORNING_SHOW_STATE_FILE,
 )
+from services.task_service import count_open_tasks
 
 
 _QUOTES: tuple[str, ...] = (
@@ -25,36 +26,70 @@ _QUOTES: tuple[str, ...] = (
 )
 
 
-def get_morning_show_message(now: datetime | None = None) -> str | None:
+def get_morning_show_message(
+    now: datetime | None = None,
+    *,
+    force: bool = False,
+    city: str | None = None,
+    hour_limit: int | None = None,
+    enabled: bool | None = None,
+    mark_delivered: bool = True,
+) -> str | None:
     runtime = _load_runtime_config()
-    enabled = bool(runtime.get("enabled", MORNING_SHOW_ENABLED))
-    city = str(runtime.get("city", MORNING_SHOW_CITY)).strip() or MORNING_SHOW_CITY
-    hour_limit = int(runtime.get("hour_limit", MORNING_SHOW_HOUR_LIMIT))
-    hour_limit = min(23, max(0, hour_limit))
+    resolved_enabled = (
+        bool(enabled)
+        if enabled is not None
+        else bool(runtime.get("enabled", MORNING_SHOW_ENABLED))
+    )
+    resolved_city = (
+        str(city).strip()
+        if city is not None
+        else str(runtime.get("city", MORNING_SHOW_CITY)).strip()
+    ) or MORNING_SHOW_CITY
+    raw_hour_limit = (
+        hour_limit
+        if hour_limit is not None
+        else runtime.get("hour_limit", MORNING_SHOW_HOUR_LIMIT)
+    )
+    try:
+        resolved_hour_limit = int(raw_hour_limit)
+    except (TypeError, ValueError):
+        resolved_hour_limit = int(MORNING_SHOW_HOUR_LIMIT)
+    resolved_hour_limit = min(23, max(0, resolved_hour_limit))
 
-    if not enabled:
+    if not force and not resolved_enabled:
         return None
 
     current = now or datetime.now()
-    if current.hour > hour_limit:
+    if not force and current.hour > resolved_hour_limit:
         return None
 
     today = current.date().isoformat()
     state = _load_state()
-    if state.get("last_show_date") == today:
+    if not force and state.get("last_show_date") == today:
         return None
 
-    weather_line = _fetch_weather_line(city)
+    weather_line = _fetch_weather_line(resolved_city)
+    tasks_line = _build_tasks_line()
     quote = _quote_for_day(today)
     parts = ["Доброе утро. Короткое утреннее шоу."]
     if weather_line:
         parts.append(weather_line)
+    if tasks_line:
+        parts.append(tasks_line)
     parts.append(f"Мысль дня: {quote}")
     message = " ".join(parts)
 
-    state["last_show_date"] = today
-    _save_state(state)
+    if mark_delivered:
+        state["last_show_date"] = today
+        _save_state(state)
     return message
+
+
+def reset_morning_show_today() -> None:
+    state = _load_state()
+    if state.pop("last_show_date", None) is not None:
+        _save_state(state)
 
 
 def _quote_for_day(day_iso: str) -> str:
@@ -87,6 +122,20 @@ def _fetch_weather_line(city: str) -> str | None:
     if temp_c and desc:
         return f"Погода в {city_name}: {desc}, {temp_c}°C."
     return None
+
+
+def _build_tasks_line() -> str | None:
+    try:
+        open_tasks = int(count_open_tasks())
+    except Exception:
+        return None
+    if open_tasks <= 0:
+        return "По задачам: открытых задач сейчас нет."
+    if open_tasks == 1:
+        return "По задачам: открыта 1 задача."
+    if 2 <= open_tasks <= 4:
+        return f"По задачам: открыто {open_tasks} задачи."
+    return f"По задачам: открыто {open_tasks} задач."
 
 
 def _load_state() -> dict:

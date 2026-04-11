@@ -5,6 +5,7 @@ import time
 
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event, Lock, Thread
 
 from assistant.confirmations import confirmation_store
 from assistant.child_mode import child_mode_store
@@ -22,6 +23,8 @@ from config.settings import (
     RECORD_SECONDS,
     STT_CONFIRMATION_LOGPROB_THRESHOLD,
     STT_CONFIRMATION_NO_SPEECH_THRESHOLD,
+    VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS,
+    VOICE_AUTO_INTERRUPT_TTS_ENABLED,
     VOICE_SMART_FOLLOWUP_ENABLED,
     VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
     VOICE_SMART_FOLLOWUP_RETRIES,
@@ -42,7 +45,7 @@ from utils.system_intents import detect_system_intent
 from voice.recorder import record_audio
 from voice.models import TranscriptionResult
 from voice.stt import transcribe
-from voice.tts import speak
+from voice.tts import is_speaking, speak, stop_speaking
 
 _PARTIAL_FAST_CHAT_PHRASES: dict[str, str] = {
     "да": "Понял, можно отвечать.",
@@ -67,6 +70,8 @@ _PARTIAL_FAST_GAME_PHRASES: dict[str, str] = {
     "давай другую": "Понял игру, можно отвечать.",
 }
 
+_BARGE_IN_SHORT_STOP = {"стоп", "замолчи", "хватит", "стоп вась", "вася стоп"}
+
 
 @dataclass(frozen=True)
 class CaptureOutcome:
@@ -88,25 +93,36 @@ def run_voice_interaction() -> AssistantControlAction:
     followup_turns_left = CHAT_FOLLOWUP_MAX_TURNS
     keep_conversation_open = False
     followup_config = _load_runtime_followup_config()
+    auto_interrupt_config = _load_runtime_auto_interrupt_config()
     morning_show_message = get_morning_show_message()
+    pending_user_text: str | None = None
     if morning_show_message:
         assistant_state.set(AssistantStateName.SPEAKING, morning_show_message)
-        tts_started = time.perf_counter()
-        speak(morning_show_message)
-        metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
+        interrupted_text, tts_ms = _speak_with_barge_in(
+            morning_show_message,
+            auto_interrupt_config,
+        )
+        metrics["tts_ms"] += tts_ms
+        if interrupted_text:
+            pending_user_text = interrupted_text
         time.sleep(0.25)
 
     while True:
-        if keep_conversation_open and followup_config["enabled"]:
-            assistant_state.set(AssistantStateName.LISTENING, "Если хочешь, ответь коротко…")
-            capture = _capture_user_text(
-                record_seconds=float(followup_config["listen_seconds"]),
-                max_retries=int(followup_config["retries"]),
-                allow_voice_feedback=False,
-            )
+        if pending_user_text:
+            user_text = pending_user_text
+            pending_user_text = None
+            capture = CaptureOutcome(text=user_text)
         else:
-            assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
-            capture = _capture_user_text()
+            if keep_conversation_open and followup_config["enabled"]:
+                assistant_state.set(AssistantStateName.LISTENING, "Если хочешь, ответь коротко…")
+                capture = _capture_user_text(
+                    record_seconds=float(followup_config["listen_seconds"]),
+                    max_retries=int(followup_config["retries"]),
+                    allow_voice_feedback=False,
+                )
+            else:
+                assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
+                capture = _capture_user_text()
         metrics["capture_ms"] += capture.capture_ms
         metrics["stt_ms"] += capture.stt_ms
         user_text = capture.text
@@ -143,9 +159,15 @@ def run_voice_interaction() -> AssistantControlAction:
         response = result.response
         if response:
             assistant_state.set(AssistantStateName.SPEAKING, response)
-            tts_started = time.perf_counter()
-            speak(response)
-            metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
+            interrupted_text, tts_ms = _speak_with_barge_in(
+                response,
+                auto_interrupt_config,
+            )
+            metrics["tts_ms"] += tts_ms
+            if interrupted_text:
+                pending_user_text = interrupted_text
+                keep_conversation_open = True
+                continue
 
         if not result.needs_followup or followup_turns_left <= 0:
             break
@@ -203,6 +225,122 @@ def _load_runtime_followup_config() -> dict[str, float | int | bool]:
         "listen_seconds": listen_seconds,
         "retries": retries,
     }
+
+
+def _load_runtime_auto_interrupt_config() -> dict[str, float | bool]:
+    defaults: dict[str, float | bool] = {
+        "enabled": VOICE_AUTO_INTERRUPT_TTS_ENABLED,
+        "sample_seconds": min(3.0, max(0.5, VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS)),
+    }
+
+    path = Path(AVATAR_STATE_FILE)
+    if not path.exists():
+        return defaults
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return defaults
+    if not isinstance(payload, dict):
+        return defaults
+
+    enabled = bool(payload.get("auto_interrupt_tts_enabled", defaults["enabled"]))
+    raw_sample_seconds = payload.get("auto_interrupt_sample_seconds", defaults["sample_seconds"])
+    try:
+        sample_seconds = float(raw_sample_seconds)
+    except (TypeError, ValueError):
+        sample_seconds = float(defaults["sample_seconds"])
+    sample_seconds = min(3.0, max(0.5, sample_seconds))
+
+    return {
+        "enabled": enabled,
+        "sample_seconds": sample_seconds,
+    }
+
+
+def _speak_with_barge_in(
+    text: str,
+    auto_interrupt_config: dict[str, float | bool],
+) -> tuple[str | None, float]:
+    if not bool(auto_interrupt_config.get("enabled", VOICE_AUTO_INTERRUPT_TTS_ENABLED)):
+        started = time.perf_counter()
+        speak(text)
+        return None, (time.perf_counter() - started) * 1000
+
+    stop_event = Event()
+    detected_lock = Lock()
+    detected_text: dict[str, str | None] = {"text": None}
+    sample_seconds = float(
+        auto_interrupt_config.get("sample_seconds", VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS)
+    )
+    sample_duration = max(1, int(round(max(0.5, sample_seconds))))
+
+    def _early_stop(partial_text: str) -> bool:
+        resolved = _resolve_barge_in_text(partial_text)
+        if not resolved:
+            return False
+        with detected_lock:
+            if detected_text["text"] is None:
+                detected_text["text"] = resolved
+        return True
+
+    def monitor() -> None:
+        while not stop_event.is_set():
+            if not is_speaking():
+                time.sleep(0.04)
+                continue
+            try:
+                record_audio(
+                    AUDIO_FILENAME,
+                    sample_duration,
+                    early_stop_callback=_early_stop,
+                )
+            except Exception:
+                time.sleep(0.05)
+                continue
+            with detected_lock:
+                has_detected = detected_text["text"] is not None
+            if has_detected:
+                stop_speaking()
+                assistant_state.set(AssistantStateName.LISTENING, "Понял, переключаюсь на новую команду…")
+                return
+            if not is_speaking():
+                return
+
+    monitor_thread = Thread(target=monitor, daemon=True)
+    monitor_thread.start()
+    started = time.perf_counter()
+    speak(text)
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    stop_event.set()
+    monitor_thread.join(timeout=0.25)
+    with detected_lock:
+        interrupted = detected_text["text"]
+    return interrupted, elapsed_ms
+
+
+def _resolve_barge_in_text(partial_text: str) -> str | None:
+    normalized = " ".join(partial_text.lower().strip().split())
+    if not normalized:
+        return None
+
+    if normalized in _BARGE_IN_SHORT_STOP or normalized.startswith("стоп "):
+        return normalized
+
+    if game_store.get() is not None and is_active_game_fast_phrase(normalized):
+        return normalized
+
+    system_intent = detect_system_intent(normalized)
+    if system_intent is not None:
+        return normalized
+
+    fast_intent = detect_early_fast_intent(normalized)
+    if fast_intent is None:
+        return None
+    if fast_intent.intent == "chat":
+        return None
+
+    return normalized
 
 
 @dataclass(frozen=True)

@@ -29,6 +29,8 @@ from config.settings import (
     VOICE_SMART_FOLLOWUP_ENABLED,
     VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
     VOICE_SMART_FOLLOWUP_RETRIES,
+    VOICE_AUTO_INTERRUPT_TTS_ENABLED,
+    VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS,
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
@@ -859,6 +861,17 @@ def main() -> None:
             self._smart_followup_retries.setValue(widget._smart_followup_retries)
             behavior_form.addRow("Повторы в follow-up", self._smart_followup_retries)
 
+            self._auto_interrupt_checkbox = QCheckBox("Прерывать озвучивание новой голосовой командой", self)
+            self._auto_interrupt_checkbox.setChecked(widget._auto_interrupt_tts_enabled)
+            behavior_form.addRow(self._auto_interrupt_checkbox)
+
+            self._auto_interrupt_sample_seconds = QDoubleSpinBox(self)
+            self._auto_interrupt_sample_seconds.setRange(0.5, 3.0)
+            self._auto_interrupt_sample_seconds.setSingleStep(0.1)
+            self._auto_interrupt_sample_seconds.setValue(widget._auto_interrupt_sample_seconds)
+            self._auto_interrupt_sample_seconds.setSuffix(" с")
+            behavior_form.addRow("Окно barge-in", self._auto_interrupt_sample_seconds)
+
             morning_actions = QHBoxLayout()
             test_morning_show_button = QPushButton("Тест утреннего шоу", self)
             test_morning_show_button.clicked.connect(self._test_morning_show)
@@ -976,6 +989,10 @@ def main() -> None:
             self._widget._smart_followup_enabled = self._smart_followup_checkbox.isChecked()
             self._widget._smart_followup_listen_seconds = float(self._smart_followup_seconds.value())
             self._widget._smart_followup_retries = int(self._smart_followup_retries.value())
+            self._widget._auto_interrupt_tts_enabled = self._auto_interrupt_checkbox.isChecked()
+            self._widget._auto_interrupt_sample_seconds = float(
+                self._auto_interrupt_sample_seconds.value()
+            )
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -1530,6 +1547,21 @@ def main() -> None:
             except (TypeError, ValueError):
                 self._smart_followup_retries = int(VOICE_SMART_FOLLOWUP_RETRIES)
             self._smart_followup_retries = min(3, max(1, self._smart_followup_retries))
+            self._auto_interrupt_tts_enabled = bool(
+                self._widget_state.get(
+                    "auto_interrupt_tts_enabled",
+                    VOICE_AUTO_INTERRUPT_TTS_ENABLED,
+                )
+            )
+            raw_auto_interrupt_sample = self._widget_state.get(
+                "auto_interrupt_sample_seconds",
+                VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS,
+            )
+            try:
+                self._auto_interrupt_sample_seconds = float(raw_auto_interrupt_sample)
+            except (TypeError, ValueError):
+                self._auto_interrupt_sample_seconds = float(VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS)
+            self._auto_interrupt_sample_seconds = min(3.0, max(0.5, self._auto_interrupt_sample_seconds))
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -2401,6 +2433,8 @@ def main() -> None:
                     "smart_followup_enabled": self._smart_followup_enabled,
                     "smart_followup_listen_seconds": self._smart_followup_listen_seconds,
                     "smart_followup_retries": self._smart_followup_retries,
+                    "auto_interrupt_tts_enabled": self._auto_interrupt_tts_enabled,
+                    "auto_interrupt_sample_seconds": self._auto_interrupt_sample_seconds,
                 }
             )
 

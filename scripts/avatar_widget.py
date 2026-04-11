@@ -26,6 +26,9 @@ from config.settings import (
     MORNING_SHOW_ENABLED,
     MORNING_SHOW_HOUR_LIMIT,
     MIN_AUDIO_RMS,
+    VOICE_SMART_FOLLOWUP_ENABLED,
+    VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
+    VOICE_SMART_FOLLOWUP_RETRIES,
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
@@ -69,6 +72,7 @@ def main() -> None:
             QComboBox,
             QDialog,
             QDialogButtonBox,
+            QDoubleSpinBox,
             QFileDialog,
             QFormLayout,
             QHBoxLayout,
@@ -838,6 +842,23 @@ def main() -> None:
             self._morning_show_hour_limit.setRange(0, 23)
             self._morning_show_hour_limit.setValue(widget._morning_show_hour_limit)
             behavior_form.addRow("До какого часа", self._morning_show_hour_limit)
+
+            self._smart_followup_checkbox = QCheckBox("Умный follow-up после ответа", self)
+            self._smart_followup_checkbox.setChecked(widget._smart_followup_enabled)
+            behavior_form.addRow(self._smart_followup_checkbox)
+
+            self._smart_followup_seconds = QDoubleSpinBox(self)
+            self._smart_followup_seconds.setRange(1.0, 8.0)
+            self._smart_followup_seconds.setSingleStep(0.5)
+            self._smart_followup_seconds.setValue(widget._smart_followup_listen_seconds)
+            self._smart_followup_seconds.setSuffix(" с")
+            behavior_form.addRow("Окно дослушивания", self._smart_followup_seconds)
+
+            self._smart_followup_retries = QSpinBox(self)
+            self._smart_followup_retries.setRange(1, 3)
+            self._smart_followup_retries.setValue(widget._smart_followup_retries)
+            behavior_form.addRow("Повторы в follow-up", self._smart_followup_retries)
+
             morning_actions = QHBoxLayout()
             test_morning_show_button = QPushButton("Тест утреннего шоу", self)
             test_morning_show_button.clicked.connect(self._test_morning_show)
@@ -952,6 +973,9 @@ def main() -> None:
                 self._morning_show_city_input.text().strip() or MORNING_SHOW_CITY
             )
             self._widget._morning_show_hour_limit = int(self._morning_show_hour_limit.value())
+            self._widget._smart_followup_enabled = self._smart_followup_checkbox.isChecked()
+            self._widget._smart_followup_listen_seconds = float(self._smart_followup_seconds.value())
+            self._widget._smart_followup_retries = int(self._smart_followup_retries.value())
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -1482,6 +1506,30 @@ def main() -> None:
             except (TypeError, ValueError):
                 self._morning_show_hour_limit = int(MORNING_SHOW_HOUR_LIMIT)
             self._morning_show_hour_limit = min(23, max(0, self._morning_show_hour_limit))
+            self._smart_followup_enabled = bool(
+                self._widget_state.get(
+                    "smart_followup_enabled",
+                    VOICE_SMART_FOLLOWUP_ENABLED,
+                )
+            )
+            raw_followup_seconds = self._widget_state.get(
+                "smart_followup_listen_seconds",
+                VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
+            )
+            try:
+                self._smart_followup_listen_seconds = float(raw_followup_seconds)
+            except (TypeError, ValueError):
+                self._smart_followup_listen_seconds = float(VOICE_SMART_FOLLOWUP_LISTEN_SECONDS)
+            self._smart_followup_listen_seconds = min(8.0, max(1.0, self._smart_followup_listen_seconds))
+            raw_followup_retries = self._widget_state.get(
+                "smart_followup_retries",
+                VOICE_SMART_FOLLOWUP_RETRIES,
+            )
+            try:
+                self._smart_followup_retries = int(raw_followup_retries)
+            except (TypeError, ValueError):
+                self._smart_followup_retries = int(VOICE_SMART_FOLLOWUP_RETRIES)
+            self._smart_followup_retries = min(3, max(1, self._smart_followup_retries))
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -2350,6 +2398,9 @@ def main() -> None:
                     "morning_show_enabled": self._morning_show_enabled,
                     "morning_show_city": self._morning_show_city,
                     "morning_show_hour_limit": self._morning_show_hour_limit,
+                    "smart_followup_enabled": self._smart_followup_enabled,
+                    "smart_followup_listen_seconds": self._smart_followup_listen_seconds,
+                    "smart_followup_retries": self._smart_followup_retries,
                 }
             )
 

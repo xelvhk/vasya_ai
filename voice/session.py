@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import time
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from assistant.confirmations import confirmation_store
 from assistant.child_mode import child_mode_store
@@ -13,13 +15,16 @@ from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
 from config.settings import (
     AUDIO_FILENAME,
+    AVATAR_STATE_FILE,
     CHAT_FOLLOWUP_MAX_TURNS,
-    INTERRUPT_LISTEN_DELAY_SECONDS,
     MAX_VOICE_RETRIES,
     MIN_AUDIO_RMS,
     RECORD_SECONDS,
     STT_CONFIRMATION_LOGPROB_THRESHOLD,
     STT_CONFIRMATION_NO_SPEECH_THRESHOLD,
+    VOICE_SMART_FOLLOWUP_ENABLED,
+    VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
+    VOICE_SMART_FOLLOWUP_RETRIES,
     VOICE_ULTRA_FAST_MAX_RECORD_SECONDS,
     VOICE_ULTRA_FAST_MODE,
     VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS,
@@ -59,6 +64,7 @@ def run_voice_interaction() -> AssistantControlAction:
     }
     followup_turns_left = CHAT_FOLLOWUP_MAX_TURNS
     keep_conversation_open = False
+    followup_config = _load_runtime_followup_config()
     morning_show_message = get_morning_show_message()
     if morning_show_message:
         assistant_state.set(AssistantStateName.SPEAKING, morning_show_message)
@@ -68,27 +74,26 @@ def run_voice_interaction() -> AssistantControlAction:
         time.sleep(0.25)
 
     while True:
-        assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
-        capture = _capture_user_text()
+        if keep_conversation_open and followup_config["enabled"]:
+            assistant_state.set(AssistantStateName.LISTENING, "Если хочешь, ответь коротко…")
+            capture = _capture_user_text(
+                record_seconds=float(followup_config["listen_seconds"]),
+                max_retries=int(followup_config["retries"]),
+                allow_voice_feedback=False,
+            )
+        else:
+            assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
+            capture = _capture_user_text()
         metrics["capture_ms"] += capture.capture_ms
         metrics["stt_ms"] += capture.stt_ms
         user_text = capture.text
         if not user_text:
             if keep_conversation_open:
-                reprompt = _followup_reprompt_for(capture.failure_reason)
-                if reprompt and followup_turns_left > 0:
-                    assistant_state.set(AssistantStateName.SPEAKING, reprompt)
-                    tts_started = time.perf_counter()
-                    speak(reprompt)
-                    metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
-                    followup_turns_left -= 1
-                    time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
-                    continue
                 assistant_state.set(AssistantStateName.IDLE)
                 _log_voice_perf(
                     metrics=metrics,
                     total_ms=(time.perf_counter() - interaction_started) * 1000,
-                    status="capture_failed_followup",
+                    status="followup_timeout",
                     failure_reason=capture.failure_reason,
                 )
                 return assistant_control.consume_action()
@@ -124,7 +129,7 @@ def run_voice_interaction() -> AssistantControlAction:
 
         keep_conversation_open = True
         followup_turns_left -= 1
-        time.sleep(INTERRUPT_LISTEN_DELAY_SECONDS)
+        time.sleep(0.18)
 
     assistant_state.set(AssistantStateName.IDLE)
     _log_voice_perf(
@@ -134,6 +139,47 @@ def run_voice_interaction() -> AssistantControlAction:
         failure_reason=None,
     )
     return assistant_control.consume_action()
+
+
+def _load_runtime_followup_config() -> dict[str, float | int | bool]:
+    defaults: dict[str, float | int | bool] = {
+        "enabled": VOICE_SMART_FOLLOWUP_ENABLED,
+        "listen_seconds": min(8.0, max(1.0, VOICE_SMART_FOLLOWUP_LISTEN_SECONDS)),
+        "retries": min(3, max(1, VOICE_SMART_FOLLOWUP_RETRIES)),
+    }
+
+    path = Path(AVATAR_STATE_FILE)
+    if not path.exists():
+        return defaults
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return defaults
+    if not isinstance(payload, dict):
+        return defaults
+
+    enabled = bool(payload.get("smart_followup_enabled", defaults["enabled"]))
+    raw_seconds = payload.get("smart_followup_listen_seconds", defaults["listen_seconds"])
+    raw_retries = payload.get("smart_followup_retries", defaults["retries"])
+
+    try:
+        listen_seconds = float(raw_seconds)
+    except (TypeError, ValueError):
+        listen_seconds = float(defaults["listen_seconds"])
+    listen_seconds = min(8.0, max(1.0, listen_seconds))
+
+    try:
+        retries = int(raw_retries)
+    except (TypeError, ValueError):
+        retries = int(defaults["retries"])
+    retries = min(3, max(1, retries))
+
+    return {
+        "enabled": enabled,
+        "listen_seconds": listen_seconds,
+        "retries": retries,
+    }
 
 
 @dataclass(frozen=True)
@@ -216,20 +262,31 @@ def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
     )
 
 
-def _capture_user_text() -> CaptureOutcome:
+def _capture_user_text(
+    *,
+    record_seconds: float | None = None,
+    max_retries: int | None = None,
+    allow_voice_feedback: bool = True,
+) -> CaptureOutcome:
     total_capture_ms = 0.0
     total_stt_ms = 0.0
-    max_record_seconds = (
-        min(float(RECORD_SECONDS), max(1.0, VOICE_ULTRA_FAST_MAX_RECORD_SECONDS))
-        if VOICE_ULTRA_FAST_MODE
-        else float(RECORD_SECONDS)
+    base_record_seconds = (
+        float(record_seconds)
+        if record_seconds is not None
+        else (
+            min(float(RECORD_SECONDS), max(1.0, VOICE_ULTRA_FAST_MAX_RECORD_SECONDS))
+            if VOICE_ULTRA_FAST_MODE
+            else float(RECORD_SECONDS)
+        )
     )
-    for attempt in range(1, MAX_VOICE_RETRIES + 1):
-        log_voice_event(f"capture_attempt={attempt}/{MAX_VOICE_RETRIES}")
+    retries = max(1, int(max_retries) if max_retries is not None else MAX_VOICE_RETRIES)
+
+    for attempt in range(1, retries + 1):
+        log_voice_event(f"capture_attempt={attempt}/{retries}")
         record_started = time.perf_counter()
         recording = record_audio(
             AUDIO_FILENAME,
-            int(max(1, round(max_record_seconds))),
+            int(max(1, round(base_record_seconds))),
             status_callback=_update_listening_status,
             partial_text_callback=_update_partial_transcript,
             early_stop_callback=_build_early_stop_callback(),
@@ -241,8 +298,9 @@ def _capture_user_text() -> CaptureOutcome:
             log_voice_event(
                 f"low_audio_level rms={recording.rms:.2f} threshold={MIN_AUDIO_RMS:.2f}"
             )
-            if attempt < MAX_VOICE_RETRIES:
-                speak("Слишком тихо. Повтори, пожалуйста, чуть громче.")
+            if attempt < retries:
+                if allow_voice_feedback:
+                    speak("Слишком тихо. Повтори, пожалуйста, чуть громче.")
                 continue
             log_voice_event("capture_failed reason=low_audio_level")
             return CaptureOutcome(
@@ -263,8 +321,9 @@ def _capture_user_text() -> CaptureOutcome:
                 f"avg_logprob={transcription.avg_logprob} "
                 f"no_speech_prob={transcription.no_speech_prob}"
             )
-            if attempt < MAX_VOICE_RETRIES:
-                speak("Я ничего не расслышал. Повтори, пожалуйста.")
+            if attempt < retries:
+                if allow_voice_feedback:
+                    speak("Я ничего не расслышал. Повтори, пожалуйста.")
                 continue
             log_voice_event("capture_failed reason=empty_transcription")
             return CaptureOutcome(
@@ -285,7 +344,7 @@ def _capture_user_text() -> CaptureOutcome:
             )
             confirmed_text = _confirm_transcription(transcription.text)
             if confirmed_text is None:
-                if attempt < MAX_VOICE_RETRIES:
+                if attempt < retries:
                     continue
                 return CaptureOutcome(
                     text=None,
@@ -322,7 +381,7 @@ def _capture_user_text() -> CaptureOutcome:
         failure_reason="retries_exhausted",
         capture_ms=total_capture_ms,
         stt_ms=total_stt_ms,
-        attempts=MAX_VOICE_RETRIES,
+        attempts=retries,
     )
 
 
@@ -493,16 +552,6 @@ def _failure_message_for(reason: str | None) -> str:
     if reason == "confirmation_failed":
         return "Я так и не разобрала фразу уверенно. Давай еще раз."
     return "Я так и не смогла нормально расслышать команду."
-
-
-def _followup_reprompt_for(reason: str | None) -> str | None:
-    if reason == "low_audio_level":
-        return "Не расслышала. Повтори чуть громче."
-    if reason == "empty_transcription":
-        return "Не расслышала. Повтори, пожалуйста."
-    if reason == "confirmation_failed":
-        return "Не уверена, что правильно услышала. Повтори коротко."
-    return None
 
 
 def _log_voice_perf(

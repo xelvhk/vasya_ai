@@ -44,6 +44,29 @@ from voice.models import TranscriptionResult
 from voice.stt import transcribe
 from voice.tts import speak
 
+_PARTIAL_FAST_CHAT_PHRASES: dict[str, str] = {
+    "да": "Понял, можно отвечать.",
+    "угу": "Понял, можно отвечать.",
+    "ага": "Понял, можно отвечать.",
+    "нет": "Понял, можно отвечать.",
+    "неа": "Понял, можно отвечать.",
+    "стоп": "Понял, этого уже достаточно.",
+    "замолчи": "Понял, этого уже достаточно.",
+}
+
+_PARTIAL_FAST_GAME_PHRASES: dict[str, str] = {
+    "еще": "Понял игру, можно отвечать.",
+    "ещё": "Понял игру, можно отвечать.",
+    "еще раз": "Понял игру, можно отвечать.",
+    "ещё раз": "Понял игру, можно отвечать.",
+    "дальше": "Понял игру, можно отвечать.",
+    "продолжай": "Понял игру, можно отвечать.",
+    "подсказка": "Понял игру, можно отвечать.",
+    "подскажи": "Понял игру, можно отвечать.",
+    "повтори": "Понял игру, можно отвечать.",
+    "давай другую": "Понял игру, можно отвечать.",
+}
+
 
 @dataclass(frozen=True)
 class CaptureOutcome:
@@ -398,6 +421,27 @@ def _build_early_stop_callback():
 
     def should_stop(partial_text: str) -> bool:
         nonlocal last_intent_key
+
+        normalized_partial = " ".join(partial_text.lower().strip().split())
+        if not normalized_partial:
+            last_intent_key = None
+            return False
+
+        game_active = game_store.get() is not None
+        if game_active:
+            fast_game_status = _PARTIAL_FAST_GAME_PHRASES.get(normalized_partial)
+            if fast_game_status is not None:
+                assistant_state.set(AssistantStateName.LISTENING, fast_game_status)
+                return True
+
+        fast_chat_status = _PARTIAL_FAST_CHAT_PHRASES.get(normalized_partial)
+        if fast_chat_status is not None:
+            assistant_state.set(AssistantStateName.LISTENING, fast_chat_status)
+            return True
+
+        if normalized_partial.startswith("стоп "):
+            assistant_state.set(AssistantStateName.LISTENING, "Понял, этого уже достаточно.")
+            return True
 
         if is_active_game_fast_phrase(partial_text):
             assistant_state.set(AssistantStateName.LISTENING, "Понял игру, можно отвечать.")

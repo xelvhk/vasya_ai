@@ -25,6 +25,12 @@ from config.settings import (
     STT_CONFIRMATION_NO_SPEECH_THRESHOLD,
     VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS,
     VOICE_AUTO_INTERRUPT_TTS_ENABLED,
+    VOICE_AUTO_INTERRUPT_ADAPTIVE_ENABLED,
+    VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD,
+    VOICE_AUTO_INTERRUPT_NOISY_RMS_THRESHOLD,
+    VOICE_AUTO_INTERRUPT_HITS_QUIET,
+    VOICE_AUTO_INTERRUPT_HITS_NORMAL,
+    VOICE_AUTO_INTERRUPT_HITS_NOISY,
     VOICE_SMART_FOLLOWUP_ENABLED,
     VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
     VOICE_SMART_FOLLOWUP_RETRIES,
@@ -71,6 +77,12 @@ _PARTIAL_FAST_GAME_PHRASES: dict[str, str] = {
 }
 
 _BARGE_IN_SHORT_STOP = {"стоп", "замолчи", "хватит", "стоп вась", "вася стоп"}
+_NOT_HEARD_REASONS = {
+    "low_audio_level",
+    "empty_transcription",
+    "confirmation_failed",
+    "retries_exhausted",
+}
 
 
 @dataclass(frozen=True)
@@ -80,6 +92,16 @@ class CaptureOutcome:
     capture_ms: float = 0.0
     stt_ms: float = 0.0
     attempts: int = 0
+
+
+@dataclass(frozen=True)
+class BargeInOutcome:
+    interrupted_text: str | None
+    tts_ms: float
+    likely_false: bool = False
+    noise_mode: str = "normal"
+    detect_rms: float | None = None
+    detect_hits: int = 0
 
 
 def run_voice_interaction() -> AssistantControlAction:
@@ -94,17 +116,26 @@ def run_voice_interaction() -> AssistantControlAction:
     keep_conversation_open = False
     followup_config = _load_runtime_followup_config()
     auto_interrupt_config = _load_runtime_auto_interrupt_config()
+    first_action_ms: float | None = None
+    first_response_ms: float | None = None
+    barge_in_count = 0
+    barge_in_false_count = 0
     morning_show_message = get_morning_show_message()
     pending_user_text: str | None = None
     if morning_show_message:
         assistant_state.set(AssistantStateName.SPEAKING, morning_show_message)
-        interrupted_text, tts_ms = _speak_with_barge_in(
+        if first_response_ms is None:
+            first_response_ms = (time.perf_counter() - interaction_started) * 1000
+        barge_in_outcome = _speak_with_barge_in(
             morning_show_message,
             auto_interrupt_config,
         )
-        metrics["tts_ms"] += tts_ms
-        if interrupted_text:
-            pending_user_text = interrupted_text
+        metrics["tts_ms"] += barge_in_outcome.tts_ms
+        if barge_in_outcome.interrupted_text:
+            pending_user_text = barge_in_outcome.interrupted_text
+            barge_in_count += 1
+            if barge_in_outcome.likely_false:
+                barge_in_false_count += 1
         time.sleep(0.25)
 
     while True:
@@ -134,6 +165,12 @@ def run_voice_interaction() -> AssistantControlAction:
                     total_ms=(time.perf_counter() - interaction_started) * 1000,
                     status="followup_timeout",
                     failure_reason=capture.failure_reason,
+                    first_action_ms=first_action_ms,
+                    first_response_ms=first_response_ms,
+                    barge_in_count=barge_in_count,
+                    barge_in_false_count=barge_in_false_count,
+                    not_heard_failure=_is_not_heard_failure(capture.failure_reason),
+                    auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
                 )
                 return assistant_control.consume_action()
             assistant_state.set(AssistantStateName.ERROR, "Не удалось распознать голосовую команду")
@@ -146,6 +183,12 @@ def run_voice_interaction() -> AssistantControlAction:
                 total_ms=(time.perf_counter() - interaction_started) * 1000,
                 status="capture_failed",
                 failure_reason=capture.failure_reason,
+                first_action_ms=first_action_ms,
+                first_response_ms=first_response_ms,
+                barge_in_count=barge_in_count,
+                barge_in_false_count=barge_in_false_count,
+                not_heard_failure=_is_not_heard_failure(capture.failure_reason),
+                auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
             )
             return assistant_control.consume_action()
 
@@ -156,17 +199,24 @@ def run_voice_interaction() -> AssistantControlAction:
         if result is None:
             result = process_text_detailed(user_text)
         metrics["intent_ms"] += (time.perf_counter() - intent_started) * 1000
+        if first_action_ms is None:
+            first_action_ms = (time.perf_counter() - interaction_started) * 1000
         response = result.response
         if response:
             assistant_state.set(AssistantStateName.SPEAKING, response)
-            interrupted_text, tts_ms = _speak_with_barge_in(
+            if first_response_ms is None:
+                first_response_ms = (time.perf_counter() - interaction_started) * 1000
+            barge_in_outcome = _speak_with_barge_in(
                 response,
                 auto_interrupt_config,
             )
-            metrics["tts_ms"] += tts_ms
-            if interrupted_text:
-                pending_user_text = interrupted_text
+            metrics["tts_ms"] += barge_in_outcome.tts_ms
+            if barge_in_outcome.interrupted_text:
+                pending_user_text = barge_in_outcome.interrupted_text
                 keep_conversation_open = True
+                barge_in_count += 1
+                if barge_in_outcome.likely_false:
+                    barge_in_false_count += 1
                 continue
 
         if not result.needs_followup or followup_turns_left <= 0:
@@ -182,6 +232,12 @@ def run_voice_interaction() -> AssistantControlAction:
         total_ms=(time.perf_counter() - interaction_started) * 1000,
         status="ok",
         failure_reason=None,
+        first_action_ms=first_action_ms,
+        first_response_ms=first_response_ms,
+        barge_in_count=barge_in_count,
+        barge_in_false_count=barge_in_false_count,
+        not_heard_failure=False,
+        auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
     )
     return assistant_control.consume_action()
 
@@ -231,6 +287,15 @@ def _load_runtime_auto_interrupt_config() -> dict[str, float | bool]:
     defaults: dict[str, float | bool] = {
         "enabled": VOICE_AUTO_INTERRUPT_TTS_ENABLED,
         "sample_seconds": min(3.0, max(0.5, VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS)),
+        "adaptive_enabled": VOICE_AUTO_INTERRUPT_ADAPTIVE_ENABLED,
+        "quiet_rms_threshold": max(50.0, VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD),
+        "noisy_rms_threshold": max(
+            max(50.0, VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD) + 20.0,
+            VOICE_AUTO_INTERRUPT_NOISY_RMS_THRESHOLD,
+        ),
+        "hits_quiet": max(1, VOICE_AUTO_INTERRUPT_HITS_QUIET),
+        "hits_normal": max(1, VOICE_AUTO_INTERRUPT_HITS_NORMAL),
+        "hits_noisy": max(1, VOICE_AUTO_INTERRUPT_HITS_NOISY),
     }
 
     path = Path(AVATAR_STATE_FILE)
@@ -255,21 +320,52 @@ def _load_runtime_auto_interrupt_config() -> dict[str, float | bool]:
     return {
         "enabled": enabled,
         "sample_seconds": sample_seconds,
+        "adaptive_enabled": bool(defaults["adaptive_enabled"]),
+        "quiet_rms_threshold": float(defaults["quiet_rms_threshold"]),
+        "noisy_rms_threshold": float(defaults["noisy_rms_threshold"]),
+        "hits_quiet": int(defaults["hits_quiet"]),
+        "hits_normal": int(defaults["hits_normal"]),
+        "hits_noisy": int(defaults["hits_noisy"]),
     }
 
 
 def _speak_with_barge_in(
     text: str,
     auto_interrupt_config: dict[str, float | bool],
-) -> tuple[str | None, float]:
+) -> BargeInOutcome:
     if not bool(auto_interrupt_config.get("enabled", VOICE_AUTO_INTERRUPT_TTS_ENABLED)):
         started = time.perf_counter()
         speak(text)
-        return None, (time.perf_counter() - started) * 1000
+        return BargeInOutcome(
+            interrupted_text=None,
+            tts_ms=(time.perf_counter() - started) * 1000,
+        )
 
     stop_event = Event()
     detected_lock = Lock()
-    detected_text: dict[str, str | None] = {"text": None}
+    adaptive_enabled = bool(auto_interrupt_config.get("adaptive_enabled", True))
+    quiet_rms_threshold = float(
+        auto_interrupt_config.get("quiet_rms_threshold", VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD)
+    )
+    noisy_rms_threshold = float(
+        auto_interrupt_config.get("noisy_rms_threshold", VOICE_AUTO_INTERRUPT_NOISY_RMS_THRESHOLD)
+    )
+    if noisy_rms_threshold <= quiet_rms_threshold:
+        noisy_rms_threshold = quiet_rms_threshold + 20.0
+    hits_quiet = int(max(1, auto_interrupt_config.get("hits_quiet", VOICE_AUTO_INTERRUPT_HITS_QUIET)))
+    hits_normal = int(max(1, auto_interrupt_config.get("hits_normal", VOICE_AUTO_INTERRUPT_HITS_NORMAL)))
+    hits_noisy = int(max(1, auto_interrupt_config.get("hits_noisy", VOICE_AUTO_INTERRUPT_HITS_NOISY)))
+
+    detected: dict[str, str | int | float | None] = {
+        "text": None,
+        "noise_mode": "normal",
+        "detect_rms": None,
+        "detect_hits": 0,
+        "required_hits": 1,
+    }
+    candidate: dict[str, str | int] = {"text": "", "hits": 0}
+    noise_ema_rms = max(0.0, quiet_rms_threshold * 0.8)
+
     sample_seconds = float(
         auto_interrupt_config.get("sample_seconds", VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS)
     )
@@ -279,18 +375,47 @@ def _speak_with_barge_in(
         resolved = _resolve_barge_in_text(partial_text)
         if not resolved:
             return False
+
+        noise_mode = _classify_noise_mode(
+            noise_ema_rms,
+            quiet_rms_threshold=quiet_rms_threshold,
+            noisy_rms_threshold=noisy_rms_threshold,
+            adaptive_enabled=adaptive_enabled,
+        )
+        required_hits = _required_barge_hits(
+            noise_mode,
+            hits_quiet=hits_quiet,
+            hits_normal=hits_normal,
+            hits_noisy=hits_noisy,
+            adaptive_enabled=adaptive_enabled,
+        )
+
         with detected_lock:
-            if detected_text["text"] is None:
-                detected_text["text"] = resolved
+            if candidate["text"] == resolved:
+                candidate["hits"] = int(candidate["hits"]) + 1
+            else:
+                candidate["text"] = resolved
+                candidate["hits"] = 1
+
+            hits = int(candidate["hits"])
+            if hits < required_hits:
+                return False
+
+            if detected["text"] is None:
+                detected["text"] = resolved
+                detected["noise_mode"] = noise_mode
+                detected["detect_hits"] = hits
+                detected["required_hits"] = required_hits
         return True
 
     def monitor() -> None:
+        nonlocal noise_ema_rms
         while not stop_event.is_set():
             if not is_speaking():
                 time.sleep(0.04)
                 continue
             try:
-                record_audio(
+                recording = record_audio(
                     AUDIO_FILENAME,
                     sample_duration,
                     early_stop_callback=_early_stop,
@@ -298,8 +423,13 @@ def _speak_with_barge_in(
             except Exception:
                 time.sleep(0.05)
                 continue
+
+            sample_rms = max(0.0, float(recording.rms))
+            noise_ema_rms = (noise_ema_rms * 0.65) + (sample_rms * 0.35)
             with detected_lock:
-                has_detected = detected_text["text"] is not None
+                has_detected = detected["text"] is not None
+                if has_detected and detected["detect_rms"] is None:
+                    detected["detect_rms"] = sample_rms
             if has_detected:
                 stop_speaking()
                 assistant_state.set(AssistantStateName.LISTENING, "Понял, переключаюсь на новую команду…")
@@ -315,8 +445,26 @@ def _speak_with_barge_in(
     stop_event.set()
     monitor_thread.join(timeout=0.25)
     with detected_lock:
-        interrupted = detected_text["text"]
-    return interrupted, elapsed_ms
+        interrupted = detected["text"]
+        noise_mode = str(detected["noise_mode"])
+        detect_rms = float(detected["detect_rms"]) if detected["detect_rms"] is not None else None
+        detect_hits = int(detected["detect_hits"])
+        required_hits = int(detected["required_hits"])
+
+    likely_false = _is_likely_false_barge_in(
+        interrupted_text=interrupted if isinstance(interrupted, str) else None,
+        noise_mode=noise_mode,
+        detect_hits=detect_hits,
+        required_hits=required_hits,
+    )
+    return BargeInOutcome(
+        interrupted_text=interrupted if isinstance(interrupted, str) else None,
+        tts_ms=elapsed_ms,
+        likely_false=likely_false,
+        noise_mode=noise_mode,
+        detect_rms=detect_rms,
+        detect_hits=detect_hits,
+    )
 
 
 def _resolve_barge_in_text(partial_text: str) -> str | None:
@@ -341,6 +489,60 @@ def _resolve_barge_in_text(partial_text: str) -> str | None:
         return None
 
     return normalized
+
+
+def _classify_noise_mode(
+    rms: float,
+    *,
+    quiet_rms_threshold: float,
+    noisy_rms_threshold: float,
+    adaptive_enabled: bool,
+) -> str:
+    if not adaptive_enabled:
+        return "normal"
+    if rms >= noisy_rms_threshold:
+        return "noisy"
+    if rms <= quiet_rms_threshold:
+        return "quiet"
+    return "normal"
+
+
+def _required_barge_hits(
+    noise_mode: str,
+    *,
+    hits_quiet: int,
+    hits_normal: int,
+    hits_noisy: int,
+    adaptive_enabled: bool,
+) -> int:
+    if not adaptive_enabled:
+        return max(1, hits_normal)
+    if noise_mode == "quiet":
+        return max(1, hits_quiet)
+    if noise_mode == "noisy":
+        return max(1, hits_noisy)
+    return max(1, hits_normal)
+
+
+def _is_likely_false_barge_in(
+    *,
+    interrupted_text: str | None,
+    noise_mode: str,
+    detect_hits: int,
+    required_hits: int,
+) -> bool:
+    if not interrupted_text:
+        return False
+    normalized = " ".join(interrupted_text.lower().strip().split())
+    if not normalized:
+        return True
+    if noise_mode != "noisy":
+        return False
+    if detect_hits > max(1, required_hits):
+        return False
+    if normalized in _BARGE_IN_SHORT_STOP or normalized.startswith("стоп "):
+        return True
+    return len(normalized) <= 5
 
 
 @dataclass(frozen=True)
@@ -736,12 +938,32 @@ def _failure_message_for(reason: str | None) -> str:
     return "Я так и не смогла нормально расслышать команду."
 
 
+def _is_not_heard_failure(reason: str | None) -> bool:
+    if reason is None:
+        return False
+    return reason in _NOT_HEARD_REASONS
+
+
+def _auto_interrupt_profile_name(auto_interrupt_config: dict[str, float | bool]) -> str:
+    if not bool(auto_interrupt_config.get("enabled", True)):
+        return "disabled"
+    if bool(auto_interrupt_config.get("adaptive_enabled", True)):
+        return "adaptive_v1"
+    return "fixed_v1"
+
+
 def _log_voice_perf(
     *,
     metrics: dict[str, float],
     total_ms: float,
     status: str,
     failure_reason: str | None,
+    first_action_ms: float | None = None,
+    first_response_ms: float | None = None,
+    barge_in_count: int = 0,
+    barge_in_false_count: int = 0,
+    not_heard_failure: bool = False,
+    auto_interrupt_profile: str = "adaptive_v1",
 ) -> None:
     payload = {
         "status": status,
@@ -751,5 +973,11 @@ def _log_voice_perf(
         "intent_ms": round(metrics.get("intent_ms", 0.0), 2),
         "tts_ms": round(metrics.get("tts_ms", 0.0), 2),
         "total_ms": round(total_ms, 2),
+        "first_action_ms": round(first_action_ms, 2) if first_action_ms is not None else None,
+        "first_response_ms": round(first_response_ms, 2) if first_response_ms is not None else None,
+        "barge_in_count": int(max(0, barge_in_count)),
+        "barge_in_false_count": int(max(0, barge_in_false_count)),
+        "not_heard_failure": bool(not_heard_failure),
+        "auto_interrupt_profile": auto_interrupt_profile,
     }
     log_interaction_event("voice_perf", payload)

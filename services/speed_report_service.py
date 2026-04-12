@@ -17,8 +17,28 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
     stt_values = [item.get("stt_ms", 0.0) for item in samples]
     intent_values = [item.get("intent_ms", 0.0) for item in samples]
     tts_values = [item.get("tts_ms", 0.0) for item in samples]
+    first_action_values = _collect_positive_metric(samples, "first_action_ms")
+    first_response_values = _collect_positive_metric(samples, "first_response_ms")
+    barge_in_values = [int(item.get("barge_in_count", 0) or 0) for item in samples]
+    barge_in_false_values = [int(item.get("barge_in_false_count", 0) or 0) for item in samples]
+    followup_timeout_count = sum(1 for item in samples if item.get("status") == "followup_timeout")
+    failed_count = sum(1 for item in samples if item.get("status") != "ok")
+    not_heard_count = sum(1 for item in samples if bool(item.get("not_heard_failure", False)))
+    barge_in_sessions = sum(1 for value in barge_in_values if value > 0)
+    total_barge_in_count = sum(barge_in_values)
+    total_barge_in_false_count = sum(barge_in_false_values)
+    timeout_rate = 100.0 * followup_timeout_count / len(samples)
+    fail_rate = 100.0 * failed_count / len(samples)
+    barge_in_rate = 100.0 * barge_in_sessions / len(samples)
+    not_heard_rate = 100.0 * not_heard_count / len(samples)
+    false_barge_rate = (
+        100.0 * total_barge_in_false_count / total_barge_in_count
+        if total_barge_in_count > 0
+        else 0.0
+    )
+    profile_distribution = _build_profile_distribution(samples)
 
-    return (
+    base = (
         f"Скорость по последним {len(samples)} запросам: "
         f"total avg {_avg(total_values):.0f} мс, p50 {_p50(total_values):.0f} мс; "
         f"capture avg {_avg(capture_values):.0f} мс; "
@@ -26,6 +46,26 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
         f"intent avg {_avg(intent_values):.0f} мс; "
         f"tts avg {_avg(tts_values):.0f} мс."
     )
+    extras: list[str] = []
+    if first_action_values:
+        extras.append(
+            f"first-action avg {_avg(first_action_values):.0f} мс, p50 {_p50(first_action_values):.0f} мс"
+        )
+    if first_response_values:
+        extras.append(
+            f"first-response avg {_avg(first_response_values):.0f} мс, p50 {_p50(first_response_values):.0f} мс"
+        )
+    extras.append(f"follow-up timeout {timeout_rate:.0f}%")
+    extras.append(f"неуспешные сессии {fail_rate:.0f}%")
+    extras.append(f"не расслышал {not_heard_rate:.0f}%")
+    extras.append(f"barge-in сессии {barge_in_rate:.0f}%")
+    if any(barge_in_values):
+        extras.append(f"barge-in avg {_avg(barge_in_values):.2f} на сессию")
+        extras.append(f"ложные barge-in {false_barge_rate:.0f}%")
+    if profile_distribution:
+        extras.append(f"A/B профиль: {profile_distribution}")
+
+    return f"{base} Дополнительно: " + "; ".join(extras) + "."
 
 
 def _load_recent_voice_perf(*, limit: int) -> list[dict]:
@@ -72,3 +112,36 @@ def _p50(values: list[float]) -> float:
     if len(ordered) % 2 == 1:
         return ordered[middle]
     return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _collect_positive_metric(samples: list[dict], key: str) -> list[float]:
+    values: list[float] = []
+    for item in samples:
+        value = item.get(key)
+        if value is None:
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if numeric > 0:
+            values.append(numeric)
+    return values
+
+
+def _build_profile_distribution(samples: list[dict]) -> str:
+    counts: dict[str, int] = {}
+    for item in samples:
+        raw_profile = item.get("auto_interrupt_profile")
+        profile = str(raw_profile).strip() if raw_profile is not None else ""
+        if not profile:
+            continue
+        counts[profile] = counts.get(profile, 0) + 1
+    if not counts:
+        return ""
+    chunks: list[str] = []
+    total = len(samples)
+    for profile, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0])):
+        rate = 100.0 * count / total
+        chunks.append(f"{profile} {count} ({rate:.0f}%)")
+    return ", ".join(chunks)

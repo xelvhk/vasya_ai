@@ -62,6 +62,21 @@ OPEN_TEXT_COMMAND_PHRASES = (
     "текстовый режим",
 )
 
+MIC_TEST_PHRASES = (
+    "проверь микрофон",
+    "тест микрофона",
+    "проверь мой микрофон",
+    "сделай тест микрофона",
+)
+
+AUTO_TUNE_VOICE_PHRASES = (
+    "подбери настройки голоса",
+    "подбери настройки голоса автоматически",
+    "авто тюнинг голоса",
+    "автотюнинг голоса",
+    "настрой голос автоматически",
+)
+
 
 def detect_system_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
@@ -85,5 +100,11 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
 
     if normalized in OPEN_TEXT_COMMAND_PHRASES:
         return IntentResult(intent="open_text_command", data={})
+
+    if normalized in MIC_TEST_PHRASES:
+        return IntentResult(intent="mic_test", data={})
+
+    if normalized in AUTO_TUNE_VOICE_PHRASES:
+        return IntentResult(intent="auto_tune_voice", data={})
 
     return None

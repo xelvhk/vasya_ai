@@ -25,6 +25,8 @@ class IntentResult(BaseModel):
         "remember_user_profile",
         "forget_user_profile",
         "get_user_profile",
+        "mic_test",
+        "auto_tune_voice",
         "sync_github_notion",
         "read_notion_page",
         "append_notion_page",

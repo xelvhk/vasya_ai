@@ -621,6 +621,8 @@ def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
         "stop_speaking",
         "exit_assistant",
         "open_text_command",
+        "mic_test",
+        "auto_tune_voice",
         "enable_child_mode",
         "disable_child_mode",
         "speed_report",

@@ -16,6 +16,7 @@ from services.github_notion_sync_service import (
     sync_project_updates_to_notion,
 )
 from services.speed_report_service import build_voice_diagnostics_report
+from services.voice_recovery_service import apply_voice_auto_tune_from_metrics, run_voice_mic_test
 from services.user_profile_service import (
     forget_user_profile,
     get_user_profile_summary,
@@ -120,6 +121,16 @@ def _run_speed_report_tool(intent_result: IntentResult) -> str:
     return build_voice_diagnostics_report(limit=24)
 
 
+def _run_mic_test_tool(intent_result: IntentResult) -> str:
+    _ = intent_result
+    return run_voice_mic_test(duration_seconds=2.0)
+
+
+def _run_auto_tune_voice_tool(intent_result: IntentResult) -> str:
+    _ = intent_result
+    return apply_voice_auto_tune_from_metrics(limit=40)
+
+
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="calendar",
@@ -192,6 +203,18 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Краткий отчет задержек голосового контура.",
         intents=("speed_report",),
         handler=_run_speed_report_tool,
+    ),
+    ToolSpec(
+        tool_id="mic_test",
+        description="Быстрая проверка микрофона.",
+        intents=("mic_test",),
+        handler=_run_mic_test_tool,
+    ),
+    ToolSpec(
+        tool_id="auto_tune_voice",
+        description="Автоматическая подстройка голосовых параметров по последним метрикам.",
+        intents=("auto_tune_voice",),
+        handler=_run_auto_tune_voice_tool,
     ),
 )
 

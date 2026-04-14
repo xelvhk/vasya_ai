@@ -104,6 +104,64 @@ def build_voice_health_snapshot(*, limit: int = 24) -> str:
     )
 
 
+def build_voice_tuning_hints(*, limit: int = 24) -> str:
+    samples = _load_recent_voice_perf(limit=max(8, int(limit)))
+    if not samples:
+        return "Сделай 8-10 голосовых запросов, и я дам рекомендации по ускорению."
+
+    total_values = [float(item.get("total_ms", 0.0) or 0.0) for item in samples]
+    failed_count = sum(1 for item in samples if item.get("status") != "ok")
+    not_heard_count = sum(1 for item in samples if bool(item.get("not_heard_failure", False)))
+    barge_in_values = [int(item.get("barge_in_count", 0) or 0) for item in samples]
+    barge_in_false_values = [int(item.get("barge_in_false_count", 0) or 0) for item in samples]
+
+    p50_ms = _p50(total_values)
+    fail_rate = 100.0 * failed_count / len(samples)
+    not_heard_rate = 100.0 * not_heard_count / len(samples)
+    total_barge_in_count = sum(barge_in_values)
+    total_barge_in_false_count = sum(barge_in_false_values)
+    false_barge_rate = (
+        100.0 * total_barge_in_false_count / total_barge_in_count
+        if total_barge_in_count > 0
+        else 0.0
+    )
+
+    hints: list[str] = []
+    if p50_ms > 4200:
+        hints.append("Скорость: попробуй уменьшить размер ответа модели (num_predict) и длину записи до 2.5-3.0с.")
+    elif p50_ms > 2800:
+        hints.append("Скорость: можно еще ускорить короткий контур через более агрессивный fast-path для частых фраз.")
+    else:
+        hints.append("Скорость: контур уже быстрый, лучше фокус на стабильности распознавания.")
+
+    if not_heard_rate >= 25.0:
+        hints.append("Распознавание: высокий процент 'не расслышал', проверь уровень микрофона и шум фона.")
+    elif not_heard_rate >= 15.0:
+        hints.append("Распознавание: умеренный процент 'не расслышал', стоит немного повысить громкость речи.")
+
+    if false_barge_rate >= 30.0:
+        hints.append("Barge-in: много ложных срабатываний, увеличь 'подтверждений (шумно)' или порог шумной среды.")
+    elif false_barge_rate >= 15.0:
+        hints.append("Barge-in: есть ложные срабатывания, можно слегка поднять порог шумной среды.")
+
+    if fail_rate >= 30.0:
+        hints.append("Надежность: много неуспешных сессий, стоит перепроверить микрофон и профили STT.")
+    elif fail_rate >= 18.0:
+        hints.append("Надежность: есть заметные сбои, полезно прогнать тест микрофона в настройках.")
+
+    if not hints:
+        hints.append("Метрики в норме: можно продолжать полировать разговорный UX.")
+
+    return "\n".join(hints[:4])
+
+
+def build_voice_diagnostics_report(*, limit: int = 24) -> str:
+    snapshot = build_voice_health_snapshot(limit=limit)
+    report = build_voice_speed_report(limit=limit)
+    hints = build_voice_tuning_hints(limit=limit)
+    return f"{snapshot}\n\n{report}\n\nРекомендации:\n{hints}"
+
+
 def _load_recent_voice_perf(*, limit: int) -> list[dict]:
     path = Path(INTERACTION_LOG_FILE)
     if not path.exists():

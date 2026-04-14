@@ -46,7 +46,11 @@ from services.integration_settings_service import (
     get_integration_setting,
     save_integration_settings,
 )
-from services.speed_report_service import build_voice_health_snapshot
+from services.speed_report_service import (
+    build_voice_health_snapshot,
+    build_voice_speed_report,
+    build_voice_tuning_hints,
+)
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.notion_service import NotionServiceError, read_page_text
 from services.morning_show_service import get_morning_show_message, reset_morning_show_today
@@ -412,6 +416,7 @@ def main() -> None:
     class QuickCommandsDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:
             super().__init__(widget)
+            self._widget = widget
             self.setWindowTitle("Быстрые команды")
             self.setModal(True)
             self.setMinimumWidth(420)
@@ -469,6 +474,7 @@ def main() -> None:
                 "«очисти личную память» — сбросить личную память (с подтверждением)\n"
                 "«синхронизируй github в notion» — обновить страницу проекта\n"
                 "«отчет скорости» — показать задержки голосового контура\n"
+                "«диагностика скорости» — дать быстрые рекомендации по ускорению\n"
                 "«выгрузи заметки в обсидиан»\n"
                 "«давай играть в слова» — детские игры"
             )
@@ -477,9 +483,18 @@ def main() -> None:
             body.setWordWrap(True)
             layout.addWidget(body)
 
+            buttons_row = QHBoxLayout()
+            diagnose_button = QPushButton("Диагностика скорости", self)
+            diagnose_button.clicked.connect(self._open_speed_diagnostics)
+            buttons_row.addWidget(diagnose_button)
+            buttons_row.addStretch(1)
             close_button = QPushButton("Понятно", self)
             close_button.clicked.connect(self.accept)
-            layout.addWidget(close_button, alignment=Qt.AlignmentFlag.AlignRight)
+            buttons_row.addWidget(close_button)
+            layout.addLayout(buttons_row)
+
+        def _open_speed_diagnostics(self) -> None:
+            self._widget._show_speed_diagnostics()
 
     class TextCommandDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:
@@ -2652,6 +2667,10 @@ def main() -> None:
             quick_action.triggered.connect(self._open_quick_commands)
             menu.addAction(quick_action)
 
+            diagnostics_action = QAction("Диагностика скорости...", self)
+            diagnostics_action.triggered.connect(self._show_speed_diagnostics)
+            menu.addAction(diagnostics_action)
+
             settings_action = QAction("Настройки...", self)
             settings_action.triggered.connect(self._open_settings_dialog)
             menu.addAction(settings_action)
@@ -2754,6 +2773,17 @@ def main() -> None:
         def _open_quick_commands(self) -> None:
             dialog = QuickCommandsDialog(self)
             dialog.exec()
+
+        def _show_speed_diagnostics(self) -> None:
+            snapshot = build_voice_health_snapshot(limit=24)
+            report = build_voice_speed_report(limit=24)
+            hints = build_voice_tuning_hints(limit=24)
+            text = (
+                f"{snapshot}\n\n"
+                f"{report}\n\n"
+                f"Рекомендации:\n{hints}"
+            )
+            QMessageBox.information(self, "Диагностика скорости", text)
 
         def _open_text_command_dialog(self) -> None:
             dialog = TextCommandDialog(self)

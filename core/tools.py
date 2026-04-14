@@ -15,7 +15,7 @@ from services.github_notion_sync_service import (
     read_notion_updates_page,
     sync_project_updates_to_notion,
 )
-from services.speed_report_service import build_voice_speed_report
+from services.speed_report_service import build_voice_diagnostics_report
 from services.user_profile_service import (
     forget_user_profile,
     get_user_profile_summary,
@@ -117,7 +117,7 @@ def _run_notion_github_sync_tool(intent_result: IntentResult) -> str:
 
 def _run_speed_report_tool(intent_result: IntentResult) -> str:
     _ = intent_result
-    return build_voice_speed_report()
+    return build_voice_diagnostics_report(limit=24)
 
 
 TOOL_SPECS: tuple[ToolSpec, ...] = (

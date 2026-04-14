@@ -311,21 +311,52 @@ def _load_runtime_auto_interrupt_config() -> dict[str, float | bool]:
 
     enabled = bool(payload.get("auto_interrupt_tts_enabled", defaults["enabled"]))
     raw_sample_seconds = payload.get("auto_interrupt_sample_seconds", defaults["sample_seconds"])
+    adaptive_enabled = bool(payload.get("auto_interrupt_adaptive_enabled", defaults["adaptive_enabled"]))
+    raw_quiet_rms = payload.get("auto_interrupt_quiet_rms_threshold", defaults["quiet_rms_threshold"])
+    raw_noisy_rms = payload.get("auto_interrupt_noisy_rms_threshold", defaults["noisy_rms_threshold"])
+    raw_hits_quiet = payload.get("auto_interrupt_hits_quiet", defaults["hits_quiet"])
+    raw_hits_normal = payload.get("auto_interrupt_hits_normal", defaults["hits_normal"])
+    raw_hits_noisy = payload.get("auto_interrupt_hits_noisy", defaults["hits_noisy"])
     try:
         sample_seconds = float(raw_sample_seconds)
     except (TypeError, ValueError):
         sample_seconds = float(defaults["sample_seconds"])
     sample_seconds = min(3.0, max(0.5, sample_seconds))
+    try:
+        quiet_rms_threshold = float(raw_quiet_rms)
+    except (TypeError, ValueError):
+        quiet_rms_threshold = float(defaults["quiet_rms_threshold"])
+    quiet_rms_threshold = max(50.0, quiet_rms_threshold)
+    try:
+        noisy_rms_threshold = float(raw_noisy_rms)
+    except (TypeError, ValueError):
+        noisy_rms_threshold = float(defaults["noisy_rms_threshold"])
+    noisy_rms_threshold = max(quiet_rms_threshold + 20.0, noisy_rms_threshold)
+    try:
+        hits_quiet = int(raw_hits_quiet)
+    except (TypeError, ValueError):
+        hits_quiet = int(defaults["hits_quiet"])
+    try:
+        hits_normal = int(raw_hits_normal)
+    except (TypeError, ValueError):
+        hits_normal = int(defaults["hits_normal"])
+    try:
+        hits_noisy = int(raw_hits_noisy)
+    except (TypeError, ValueError):
+        hits_noisy = int(defaults["hits_noisy"])
+    hits_quiet = min(6, max(1, hits_quiet))
+    hits_normal = min(6, max(1, hits_normal))
+    hits_noisy = min(6, max(1, hits_noisy))
 
     return {
         "enabled": enabled,
         "sample_seconds": sample_seconds,
-        "adaptive_enabled": bool(defaults["adaptive_enabled"]),
-        "quiet_rms_threshold": float(defaults["quiet_rms_threshold"]),
-        "noisy_rms_threshold": float(defaults["noisy_rms_threshold"]),
-        "hits_quiet": int(defaults["hits_quiet"]),
-        "hits_normal": int(defaults["hits_normal"]),
-        "hits_noisy": int(defaults["hits_noisy"]),
+        "adaptive_enabled": adaptive_enabled,
+        "quiet_rms_threshold": quiet_rms_threshold,
+        "noisy_rms_threshold": noisy_rms_threshold,
+        "hits_quiet": hits_quiet,
+        "hits_normal": hits_normal,
+        "hits_noisy": hits_noisy,
     }
 
 

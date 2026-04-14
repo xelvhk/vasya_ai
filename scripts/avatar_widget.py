@@ -31,6 +31,12 @@ from config.settings import (
     VOICE_SMART_FOLLOWUP_RETRIES,
     VOICE_AUTO_INTERRUPT_TTS_ENABLED,
     VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS,
+    VOICE_AUTO_INTERRUPT_ADAPTIVE_ENABLED,
+    VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD,
+    VOICE_AUTO_INTERRUPT_NOISY_RMS_THRESHOLD,
+    VOICE_AUTO_INTERRUPT_HITS_QUIET,
+    VOICE_AUTO_INTERRUPT_HITS_NORMAL,
+    VOICE_AUTO_INTERRUPT_HITS_NOISY,
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
@@ -40,6 +46,7 @@ from services.integration_settings_service import (
     get_integration_setting,
     save_integration_settings,
 )
+from services.speed_report_service import build_voice_health_snapshot
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.notion_service import NotionServiceError, read_page_text
 from services.morning_show_service import get_morning_show_message, reset_morning_show_today
@@ -872,6 +879,53 @@ def main() -> None:
             self._auto_interrupt_sample_seconds.setSuffix(" с")
             behavior_form.addRow("Окно barge-in", self._auto_interrupt_sample_seconds)
 
+            self._auto_interrupt_adaptive_checkbox = QCheckBox(
+                "Адаптивный auto-interrupt (тихо/шумно)",
+                self,
+            )
+            self._auto_interrupt_adaptive_checkbox.setChecked(widget._auto_interrupt_adaptive_enabled)
+            self._auto_interrupt_adaptive_checkbox.setToolTip(
+                "Рекомендуется: включено. В тихой среде прерывает быстрее, в шумной осторожнее."
+            )
+            behavior_form.addRow(self._auto_interrupt_adaptive_checkbox)
+
+            self._auto_interrupt_quiet_rms = QDoubleSpinBox(self)
+            self._auto_interrupt_quiet_rms.setRange(50.0, 600.0)
+            self._auto_interrupt_quiet_rms.setSingleStep(5.0)
+            self._auto_interrupt_quiet_rms.setValue(widget._auto_interrupt_quiet_rms_threshold)
+            self._auto_interrupt_quiet_rms.setSuffix(" RMS")
+            self._auto_interrupt_quiet_rms.setToolTip("Рекомендуется: 140 RMS")
+            behavior_form.addRow("Порог тихой среды", self._auto_interrupt_quiet_rms)
+
+            self._auto_interrupt_noisy_rms = QDoubleSpinBox(self)
+            self._auto_interrupt_noisy_rms.setRange(80.0, 900.0)
+            self._auto_interrupt_noisy_rms.setSingleStep(5.0)
+            self._auto_interrupt_noisy_rms.setValue(widget._auto_interrupt_noisy_rms_threshold)
+            self._auto_interrupt_noisy_rms.setSuffix(" RMS")
+            self._auto_interrupt_noisy_rms.setToolTip("Рекомендуется: 260 RMS")
+            behavior_form.addRow("Порог шумной среды", self._auto_interrupt_noisy_rms)
+
+            self._auto_interrupt_hits_quiet = QSpinBox(self)
+            self._auto_interrupt_hits_quiet.setRange(1, 6)
+            self._auto_interrupt_hits_quiet.setValue(widget._auto_interrupt_hits_quiet)
+            self._auto_interrupt_hits_quiet.setToolTip("Рекомендуется: 1 подтверждение")
+            behavior_form.addRow("Подтверждений (тихо)", self._auto_interrupt_hits_quiet)
+
+            self._auto_interrupt_hits_normal = QSpinBox(self)
+            self._auto_interrupt_hits_normal.setRange(1, 6)
+            self._auto_interrupt_hits_normal.setValue(widget._auto_interrupt_hits_normal)
+            self._auto_interrupt_hits_normal.setToolTip("Рекомендуется: 2 подтверждения")
+            behavior_form.addRow("Подтверждений (обычно)", self._auto_interrupt_hits_normal)
+
+            self._auto_interrupt_hits_noisy = QSpinBox(self)
+            self._auto_interrupt_hits_noisy.setRange(1, 6)
+            self._auto_interrupt_hits_noisy.setValue(widget._auto_interrupt_hits_noisy)
+            self._auto_interrupt_hits_noisy.setToolTip("Рекомендуется: 3 подтверждения")
+            behavior_form.addRow("Подтверждений (шумно)", self._auto_interrupt_hits_noisy)
+            self._auto_interrupt_adaptive_checkbox.toggled.connect(self._sync_auto_interrupt_controls)
+            self._auto_interrupt_quiet_rms.valueChanged.connect(self._sync_auto_interrupt_thresholds)
+            self._sync_auto_interrupt_controls()
+
             morning_actions = QHBoxLayout()
             test_morning_show_button = QPushButton("Тест утреннего шоу", self)
             test_morning_show_button.clicked.connect(self._test_morning_show)
@@ -993,6 +1047,18 @@ def main() -> None:
             self._widget._auto_interrupt_sample_seconds = float(
                 self._auto_interrupt_sample_seconds.value()
             )
+            self._widget._auto_interrupt_adaptive_enabled = (
+                self._auto_interrupt_adaptive_checkbox.isChecked()
+            )
+            quiet_threshold = float(self._auto_interrupt_quiet_rms.value())
+            noisy_threshold = float(self._auto_interrupt_noisy_rms.value())
+            if noisy_threshold <= quiet_threshold:
+                noisy_threshold = quiet_threshold + 20.0
+            self._widget._auto_interrupt_quiet_rms_threshold = quiet_threshold
+            self._widget._auto_interrupt_noisy_rms_threshold = noisy_threshold
+            self._widget._auto_interrupt_hits_quiet = int(self._auto_interrupt_hits_quiet.value())
+            self._widget._auto_interrupt_hits_normal = int(self._auto_interrupt_hits_normal.value())
+            self._widget._auto_interrupt_hits_noisy = int(self._auto_interrupt_hits_noisy.value())
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -1140,6 +1206,23 @@ def main() -> None:
                 opacity=self._opacity_slider.value() / 100.0,
                 idle_motion=self._idle_motion_checkbox.isChecked(),
             )
+
+        def _sync_auto_interrupt_controls(self) -> None:
+            enabled = self._auto_interrupt_adaptive_checkbox.isChecked()
+            self._auto_interrupt_quiet_rms.setEnabled(enabled)
+            self._auto_interrupt_noisy_rms.setEnabled(enabled)
+            self._auto_interrupt_hits_quiet.setEnabled(enabled)
+            self._auto_interrupt_hits_normal.setEnabled(enabled)
+            self._auto_interrupt_hits_noisy.setEnabled(enabled)
+
+        def _sync_auto_interrupt_thresholds(self) -> None:
+            quiet_threshold = float(self._auto_interrupt_quiet_rms.value())
+            current_noisy = float(self._auto_interrupt_noisy_rms.value())
+            min_noisy = quiet_threshold + 20.0
+            if current_noisy < min_noisy:
+                was_blocked = self._auto_interrupt_noisy_rms.blockSignals(True)
+                self._auto_interrupt_noisy_rms.setValue(min_noisy)
+                self._auto_interrupt_noisy_rms.blockSignals(was_blocked)
 
         def _clear_personal_memory(self) -> None:
             answer = QMessageBox.question(
@@ -1562,6 +1645,60 @@ def main() -> None:
             except (TypeError, ValueError):
                 self._auto_interrupt_sample_seconds = float(VOICE_AUTO_INTERRUPT_SAMPLE_SECONDS)
             self._auto_interrupt_sample_seconds = min(3.0, max(0.5, self._auto_interrupt_sample_seconds))
+            self._auto_interrupt_adaptive_enabled = bool(
+                self._widget_state.get(
+                    "auto_interrupt_adaptive_enabled",
+                    VOICE_AUTO_INTERRUPT_ADAPTIVE_ENABLED,
+                )
+            )
+            raw_auto_interrupt_quiet_rms = self._widget_state.get(
+                "auto_interrupt_quiet_rms_threshold",
+                VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD,
+            )
+            raw_auto_interrupt_noisy_rms = self._widget_state.get(
+                "auto_interrupt_noisy_rms_threshold",
+                VOICE_AUTO_INTERRUPT_NOISY_RMS_THRESHOLD,
+            )
+            try:
+                self._auto_interrupt_quiet_rms_threshold = float(raw_auto_interrupt_quiet_rms)
+            except (TypeError, ValueError):
+                self._auto_interrupt_quiet_rms_threshold = float(VOICE_AUTO_INTERRUPT_QUIET_RMS_THRESHOLD)
+            try:
+                self._auto_interrupt_noisy_rms_threshold = float(raw_auto_interrupt_noisy_rms)
+            except (TypeError, ValueError):
+                self._auto_interrupt_noisy_rms_threshold = float(VOICE_AUTO_INTERRUPT_NOISY_RMS_THRESHOLD)
+            self._auto_interrupt_quiet_rms_threshold = max(50.0, self._auto_interrupt_quiet_rms_threshold)
+            self._auto_interrupt_noisy_rms_threshold = max(
+                self._auto_interrupt_quiet_rms_threshold + 20.0,
+                self._auto_interrupt_noisy_rms_threshold,
+            )
+            raw_auto_interrupt_hits_quiet = self._widget_state.get(
+                "auto_interrupt_hits_quiet",
+                VOICE_AUTO_INTERRUPT_HITS_QUIET,
+            )
+            raw_auto_interrupt_hits_normal = self._widget_state.get(
+                "auto_interrupt_hits_normal",
+                VOICE_AUTO_INTERRUPT_HITS_NORMAL,
+            )
+            raw_auto_interrupt_hits_noisy = self._widget_state.get(
+                "auto_interrupt_hits_noisy",
+                VOICE_AUTO_INTERRUPT_HITS_NOISY,
+            )
+            try:
+                self._auto_interrupt_hits_quiet = int(raw_auto_interrupt_hits_quiet)
+            except (TypeError, ValueError):
+                self._auto_interrupt_hits_quiet = int(VOICE_AUTO_INTERRUPT_HITS_QUIET)
+            try:
+                self._auto_interrupt_hits_normal = int(raw_auto_interrupt_hits_normal)
+            except (TypeError, ValueError):
+                self._auto_interrupt_hits_normal = int(VOICE_AUTO_INTERRUPT_HITS_NORMAL)
+            try:
+                self._auto_interrupt_hits_noisy = int(raw_auto_interrupt_hits_noisy)
+            except (TypeError, ValueError):
+                self._auto_interrupt_hits_noisy = int(VOICE_AUTO_INTERRUPT_HITS_NOISY)
+            self._auto_interrupt_hits_quiet = min(6, max(1, self._auto_interrupt_hits_quiet))
+            self._auto_interrupt_hits_normal = min(6, max(1, self._auto_interrupt_hits_normal))
+            self._auto_interrupt_hits_noisy = min(6, max(1, self._auto_interrupt_hits_noisy))
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -1594,6 +1731,8 @@ def main() -> None:
             self._settings_focus: str | None = None
             self._hover_hint_active = False
             self._state_since = time.monotonic()
+            self._voice_health_cached_text = "Скорость: пока нет данных"
+            self._voice_health_cached_at = 0.0
 
             self._bridge.state_changed.connect(self._apply_state)
             self._bridge.exit_requested.connect(self.quit_application)
@@ -2378,7 +2517,19 @@ def main() -> None:
                 if "сомнева" in message:
                     return "Сомневаюсь — повтори"
                 return "Не понял — повтори"
-            return "Клик — говорить • ПКМ — меню"
+            return f"Клик — говорить • ПКМ — меню\n{self._voice_health_hint()}"
+
+        def _voice_health_hint(self) -> str:
+            now = time.monotonic()
+            if (now - self._voice_health_cached_at) < 12.0 and self._voice_health_cached_text:
+                return self._voice_health_cached_text
+            try:
+                hint = build_voice_health_snapshot(limit=24)
+            except Exception:
+                hint = "Скорость: нет данных"
+            self._voice_health_cached_text = " ".join(str(hint).split())
+            self._voice_health_cached_at = now
+            return self._voice_health_cached_text
 
         def _update_bubble_position(self) -> None:
             if not self._bubble.isVisible():
@@ -2435,6 +2586,12 @@ def main() -> None:
                     "smart_followup_retries": self._smart_followup_retries,
                     "auto_interrupt_tts_enabled": self._auto_interrupt_tts_enabled,
                     "auto_interrupt_sample_seconds": self._auto_interrupt_sample_seconds,
+                    "auto_interrupt_adaptive_enabled": self._auto_interrupt_adaptive_enabled,
+                    "auto_interrupt_quiet_rms_threshold": self._auto_interrupt_quiet_rms_threshold,
+                    "auto_interrupt_noisy_rms_threshold": self._auto_interrupt_noisy_rms_threshold,
+                    "auto_interrupt_hits_quiet": self._auto_interrupt_hits_quiet,
+                    "auto_interrupt_hits_normal": self._auto_interrupt_hits_normal,
+                    "auto_interrupt_hits_noisy": self._auto_interrupt_hits_noisy,
                 }
             )
 
@@ -2580,6 +2737,8 @@ def main() -> None:
                     if len(detail) > 56:
                         detail = f"{detail[:53]}..."
                     suffix = f"{suffix} • {detail}"
+            else:
+                suffix = f" • {self._voice_health_hint()}"
             self._tray.setToolTip(f"Вася AI{suffix}")
 
         def _open_settings_dialog(self, *, focus: str | None = None) -> None:

@@ -68,6 +68,42 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
     return f"{base} Дополнительно: " + "; ".join(extras) + "."
 
 
+def build_voice_health_snapshot(*, limit: int = 24) -> str:
+    samples = _load_recent_voice_perf(limit=max(8, int(limit)))
+    if not samples:
+        return "Скорость: пока нет данных"
+
+    total_values = [float(item.get("total_ms", 0.0) or 0.0) for item in samples]
+    failed_count = sum(1 for item in samples if item.get("status") != "ok")
+    not_heard_count = sum(1 for item in samples if bool(item.get("not_heard_failure", False)))
+    barge_in_values = [int(item.get("barge_in_count", 0) or 0) for item in samples]
+    barge_in_false_values = [int(item.get("barge_in_false_count", 0) or 0) for item in samples]
+
+    p50_ms = _p50(total_values)
+    fail_rate = 100.0 * failed_count / len(samples)
+    not_heard_rate = 100.0 * not_heard_count / len(samples)
+    total_barge_in_count = sum(barge_in_values)
+    total_barge_in_false_count = sum(barge_in_false_values)
+    false_barge_rate = (
+        100.0 * total_barge_in_false_count / total_barge_in_count
+        if total_barge_in_count > 0
+        else 0.0
+    )
+
+    if fail_rate <= 10.0 and p50_ms <= 2600:
+        grade = "Быстро и стабильно"
+    elif fail_rate <= 20.0 and p50_ms <= 4200:
+        grade = "Нормально"
+    else:
+        grade = "Нужно подтюнить"
+
+    return (
+        f"{grade}: p50 {p50_ms / 1000:.1f}с, "
+        f"не расслышал {not_heard_rate:.0f}%, "
+        f"ложные barge-in {false_barge_rate:.0f}%"
+    )
+
+
 def _load_recent_voice_perf(*, limit: int) -> list[dict]:
     path = Path(INTERACTION_LOG_FILE)
     if not path.exists():

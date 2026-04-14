@@ -194,6 +194,7 @@ GITHUB_SYNC_STATE_FILE = os.getenv(
     "storage/github_notion_sync_state.json",
 ).strip()
 GITHUB_SYNC_DEFAULT_HOURS = int(os.getenv("GITHUB_SYNC_DEFAULT_HOURS", "24"))
+VASYA_API_AUTH_TOKEN = os.getenv("VASYA_API_AUTH_TOKEN", "").strip()
 INTEGRATIONS_STATE_FILE = os.getenv(
     "INTEGRATIONS_STATE_FILE",
     "storage/integrations.json",

@@ -112,6 +112,10 @@ python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 - `POST /v1/recovery/mic-test`
 - `POST /v1/recovery/auto-tune`
 
+Опциональная защита API:
+- задай `VASYA_API_AUTH_TOKEN` в `.env`
+- и передавай заголовок `X-API-Key: <token>` для маршрутов `/v1/*`
+
 ## Архитектура
 
 Текущий pipeline:

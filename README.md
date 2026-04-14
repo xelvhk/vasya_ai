@@ -196,6 +196,10 @@ Main endpoints:
 - `POST /v1/recovery/mic-test`
 - `POST /v1/recovery/auto-tune`
 
+Optional API auth:
+- set `VASYA_API_AUTH_TOKEN` in `.env`
+- then send header `X-API-Key: <token>` for `/v1/*` routes
+
 ## Run
 
 Fast macOS setup:

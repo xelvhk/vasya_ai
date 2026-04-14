@@ -7,7 +7,7 @@ Language: **English** | [Русский](README.ru.md)
 Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
 Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
 
-Current version: `0.5.9`
+Current version: `0.5.10`
 
 ## Overview
 
@@ -40,9 +40,11 @@ Vasya already supports:
 - hotkey-based text command window for precise Notion/GitHub commands
 - voice command to open the text command window
 - morning show on first daily interaction (weather + quote)
+- API gateway foundation for mobile/web clients (`apps/api`)
 
 Roadmap:
 - see [ROADMAP.md](ROADMAP.md)
+- mobile monorepo migration notes: [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 
 ## Current MVP
 
@@ -91,6 +93,7 @@ Example commands:
 - scipy
 - pydantic
 - SQLite
+- FastAPI
 
 ## Architecture
 
@@ -107,6 +110,10 @@ Storage model:
 
 ```text
 ai_pal/
+├── apps/
+│   └── api/
+│       └── main.py
+│
 ├── main.py
 ├── test_text.py
 ├── requirements.txt
@@ -171,6 +178,23 @@ ai_pal/
     ├── json_utils.py
     └── logger.py
 ```
+
+## API (mobile foundation)
+
+Run API server:
+
+```bash
+python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
+```
+
+Main endpoints:
+- `GET /health`
+- `POST /v1/chat`
+- `GET/POST /v1/tasks`
+- `GET/POST /v1/notes`
+- `GET/POST /v1/events`
+- `POST /v1/recovery/mic-test`
+- `POST /v1/recovery/auto-tune`
 
 ## Run
 
@@ -430,6 +454,7 @@ This is still an MVP, so current limits include:
 - `v0.5.7`: hotkey-based text command window integrated into desktop shell and router
 - `v0.5.8`: voice-open text command window, first daily morning show, and fast-lane conversational/tool routing polish
 - `v0.5.9`: A/B voice contour metrics, adaptive auto-interrupt thresholds for noisy/quiet environments, and shell health hint in hover/tray
+- `v0.5.10`: API gateway foundation (`apps/api`) for future iOS/Android clients over shared core logic
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

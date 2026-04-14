@@ -88,6 +88,7 @@ Current status:
 - hotkey-based text command window for precise command input landed in `v0.5.7`
 - voice-open text command window, first daily morning show, and faster local fast-lane routing landed in `v0.5.8`
 - A/B voice contour metrics, adaptive auto-interrupt thresholds, and hover/tray health hints landed in `v0.5.9`
+- API gateway foundation for future mobile/web clients landed in `v0.5.10`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -201,6 +202,7 @@ Good future exports:
 - `v0.5.7`: desktop text command window via hotkey with router integration for Notion/GitHub flows
 - `v0.5.8`: voice command for text input window, morning show (weather + quote), and faster local fast-lane routing
 - `v0.5.9`: A/B voice contour metrics, adaptive auto-interrupt thresholds, and shell health hints in hover/tray
+- `v0.5.10`: API gateway foundation (`apps/api`) for future iOS/Android clients over shared core logic
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

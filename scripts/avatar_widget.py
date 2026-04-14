@@ -47,6 +47,7 @@ from services.integration_settings_service import (
     save_integration_settings,
 )
 from services.speed_report_service import (
+    build_voice_auto_tune_plan,
     build_voice_health_snapshot,
     build_voice_speed_report,
     build_voice_tuning_hints,
@@ -941,6 +942,13 @@ def main() -> None:
             self._auto_interrupt_quiet_rms.valueChanged.connect(self._sync_auto_interrupt_thresholds)
             self._sync_auto_interrupt_controls()
 
+            tuning_actions = QHBoxLayout()
+            auto_tune_button = QPushButton("Подобрать автоматически", self)
+            auto_tune_button.clicked.connect(self._run_voice_auto_tune)
+            tuning_actions.addWidget(auto_tune_button)
+            tuning_actions.addStretch(1)
+            behavior_form.addRow("Auto-tune", tuning_actions)
+
             morning_actions = QHBoxLayout()
             test_morning_show_button = QPushButton("Тест утреннего шоу", self)
             test_morning_show_button.clicked.connect(self._test_morning_show)
@@ -1238,6 +1246,75 @@ def main() -> None:
                 was_blocked = self._auto_interrupt_noisy_rms.blockSignals(True)
                 self._auto_interrupt_noisy_rms.setValue(min_noisy)
                 self._auto_interrupt_noisy_rms.blockSignals(was_blocked)
+
+        def _run_voice_auto_tune(self) -> None:
+            current = {
+                "smart_followup_enabled": self._smart_followup_checkbox.isChecked(),
+                "smart_followup_listen_seconds": float(self._smart_followup_seconds.value()),
+                "smart_followup_retries": int(self._smart_followup_retries.value()),
+                "auto_interrupt_tts_enabled": self._auto_interrupt_checkbox.isChecked(),
+                "auto_interrupt_sample_seconds": float(self._auto_interrupt_sample_seconds.value()),
+                "auto_interrupt_adaptive_enabled": self._auto_interrupt_adaptive_checkbox.isChecked(),
+                "auto_interrupt_quiet_rms_threshold": float(self._auto_interrupt_quiet_rms.value()),
+                "auto_interrupt_noisy_rms_threshold": float(self._auto_interrupt_noisy_rms.value()),
+                "auto_interrupt_hits_quiet": int(self._auto_interrupt_hits_quiet.value()),
+                "auto_interrupt_hits_normal": int(self._auto_interrupt_hits_normal.value()),
+                "auto_interrupt_hits_noisy": int(self._auto_interrupt_hits_noisy.value()),
+            }
+            plan = build_voice_auto_tune_plan(current=current, limit=40)
+            settings = plan.get("settings")
+            if not isinstance(settings, dict) or not settings:
+                QMessageBox.information(
+                    self,
+                    "Auto-tune",
+                    str(plan.get("summary", "Недостаточно данных для авто-тюнинга.")),
+                )
+                return
+
+            self._smart_followup_checkbox.setChecked(bool(settings.get("smart_followup_enabled", True)))
+            self._smart_followup_seconds.setValue(float(settings.get("smart_followup_listen_seconds", 3.0)))
+            self._smart_followup_retries.setValue(int(settings.get("smart_followup_retries", 1)))
+            self._auto_interrupt_checkbox.setChecked(bool(settings.get("auto_interrupt_tts_enabled", True)))
+            self._auto_interrupt_sample_seconds.setValue(float(settings.get("auto_interrupt_sample_seconds", 1.0)))
+            self._auto_interrupt_adaptive_checkbox.setChecked(
+                bool(settings.get("auto_interrupt_adaptive_enabled", True))
+            )
+            self._auto_interrupt_quiet_rms.setValue(
+                float(settings.get("auto_interrupt_quiet_rms_threshold", 140.0))
+            )
+            self._auto_interrupt_noisy_rms.setValue(
+                float(settings.get("auto_interrupt_noisy_rms_threshold", 260.0))
+            )
+            self._auto_interrupt_hits_quiet.setValue(int(settings.get("auto_interrupt_hits_quiet", 1)))
+            self._auto_interrupt_hits_normal.setValue(int(settings.get("auto_interrupt_hits_normal", 2)))
+            self._auto_interrupt_hits_noisy.setValue(int(settings.get("auto_interrupt_hits_noisy", 3)))
+            self._sync_auto_interrupt_thresholds()
+            self._sync_auto_interrupt_controls()
+
+            changed = plan.get("changed")
+            labels = {
+                "smart_followup_enabled": "Умный follow-up",
+                "smart_followup_listen_seconds": "Окно дослушивания",
+                "smart_followup_retries": "Повторы в follow-up",
+                "auto_interrupt_tts_enabled": "Прерывание озвучивания",
+                "auto_interrupt_sample_seconds": "Окно barge-in",
+                "auto_interrupt_adaptive_enabled": "Адаптивный auto-interrupt",
+                "auto_interrupt_quiet_rms_threshold": "Порог тихой среды",
+                "auto_interrupt_noisy_rms_threshold": "Порог шумной среды",
+                "auto_interrupt_hits_quiet": "Подтверждений (тихо)",
+                "auto_interrupt_hits_normal": "Подтверждений (обычно)",
+                "auto_interrupt_hits_noisy": "Подтверждений (шумно)",
+            }
+            if isinstance(changed, dict) and changed:
+                changed_lines = []
+                for key in changed:
+                    label = labels.get(str(key), str(key))
+                    changed_lines.append(f"• {label}")
+                changed_text = "\n".join(changed_lines[:8])
+                text = f"{plan.get('summary', 'Авто-тюнинг применен.')}\n\nИзменено:\n{changed_text}"
+            else:
+                text = str(plan.get("summary", "Авто-тюнинг завершен."))
+            QMessageBox.information(self, "Auto-tune", text)
 
         def _clear_personal_memory(self) -> None:
             answer = QMessageBox.question(

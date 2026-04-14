@@ -162,6 +162,145 @@ def build_voice_diagnostics_report(*, limit: int = 24) -> str:
     return f"{snapshot}\n\n{report}\n\nРекомендации:\n{hints}"
 
 
+def build_voice_auto_tune_plan(
+    *,
+    current: dict[str, float | int | bool],
+    limit: int = 40,
+) -> dict[str, object]:
+    samples = _load_recent_voice_perf(limit=max(8, int(limit)))
+    if len(samples) < 8:
+        return {
+            "applied": False,
+            "summary": "Нужно минимум 8 голосовых сессий для авто-тюнинга.",
+            "sample_count": len(samples),
+            "settings": {},
+        }
+
+    total_values = [float(item.get("total_ms", 0.0) or 0.0) for item in samples]
+    failed_count = sum(1 for item in samples if item.get("status") != "ok")
+    not_heard_count = sum(1 for item in samples if bool(item.get("not_heard_failure", False)))
+    barge_in_values = [int(item.get("barge_in_count", 0) or 0) for item in samples]
+    barge_in_false_values = [int(item.get("barge_in_false_count", 0) or 0) for item in samples]
+    followup_timeout_count = sum(1 for item in samples if item.get("status") == "followup_timeout")
+
+    p50_ms = _p50(total_values)
+    fail_rate = 100.0 * failed_count / len(samples)
+    not_heard_rate = 100.0 * not_heard_count / len(samples)
+    timeout_rate = 100.0 * followup_timeout_count / len(samples)
+    total_barge_in_count = sum(barge_in_values)
+    total_barge_in_false_count = sum(barge_in_false_values)
+    false_barge_rate = (
+        100.0 * total_barge_in_false_count / total_barge_in_count
+        if total_barge_in_count > 0
+        else 0.0
+    )
+
+    tuned = {
+        "smart_followup_enabled": bool(current.get("smart_followup_enabled", True)),
+        "smart_followup_listen_seconds": float(current.get("smart_followup_listen_seconds", 3.0)),
+        "smart_followup_retries": int(current.get("smart_followup_retries", 1)),
+        "auto_interrupt_tts_enabled": bool(current.get("auto_interrupt_tts_enabled", True)),
+        "auto_interrupt_sample_seconds": float(current.get("auto_interrupt_sample_seconds", 1.0)),
+        "auto_interrupt_adaptive_enabled": bool(current.get("auto_interrupt_adaptive_enabled", True)),
+        "auto_interrupt_quiet_rms_threshold": float(current.get("auto_interrupt_quiet_rms_threshold", 140.0)),
+        "auto_interrupt_noisy_rms_threshold": float(current.get("auto_interrupt_noisy_rms_threshold", 260.0)),
+        "auto_interrupt_hits_quiet": int(current.get("auto_interrupt_hits_quiet", 1)),
+        "auto_interrupt_hits_normal": int(current.get("auto_interrupt_hits_normal", 2)),
+        "auto_interrupt_hits_noisy": int(current.get("auto_interrupt_hits_noisy", 3)),
+    }
+
+    # Надежность: если часто "не расслышал", чуть увеличиваем окно follow-up и количество повторов.
+    if not_heard_rate >= 22.0:
+        tuned["smart_followup_enabled"] = True
+        tuned["smart_followup_listen_seconds"] = min(6.0, tuned["smart_followup_listen_seconds"] + 0.7)
+        tuned["smart_followup_retries"] = max(2, tuned["smart_followup_retries"])
+        tuned["auto_interrupt_sample_seconds"] = min(1.6, tuned["auto_interrupt_sample_seconds"] + 0.2)
+    elif not_heard_rate >= 14.0:
+        tuned["smart_followup_listen_seconds"] = min(5.0, tuned["smart_followup_listen_seconds"] + 0.4)
+        tuned["smart_followup_retries"] = max(2, tuned["smart_followup_retries"])
+
+    # Ложные прерывания: делаем шумный режим более консервативным.
+    if false_barge_rate >= 28.0:
+        tuned["auto_interrupt_adaptive_enabled"] = True
+        tuned["auto_interrupt_noisy_rms_threshold"] = min(
+            520.0,
+            tuned["auto_interrupt_noisy_rms_threshold"] + 30.0,
+        )
+        tuned["auto_interrupt_hits_noisy"] = min(6, tuned["auto_interrupt_hits_noisy"] + 1)
+        tuned["auto_interrupt_hits_normal"] = min(5, tuned["auto_interrupt_hits_normal"] + 1)
+    elif false_barge_rate >= 16.0:
+        tuned["auto_interrupt_adaptive_enabled"] = True
+        tuned["auto_interrupt_noisy_rms_threshold"] = min(
+            460.0,
+            tuned["auto_interrupt_noisy_rms_threshold"] + 15.0,
+        )
+        tuned["auto_interrupt_hits_noisy"] = min(5, tuned["auto_interrupt_hits_noisy"] + 1)
+
+    # Скорость: если контур медленный и надежность приемлемая, чуть агрессивнее ускоряем.
+    if p50_ms >= 4200 and fail_rate <= 20.0 and not_heard_rate <= 18.0:
+        tuned["smart_followup_enabled"] = True
+        tuned["smart_followup_listen_seconds"] = max(1.8, tuned["smart_followup_listen_seconds"] - 0.5)
+        tuned["smart_followup_retries"] = 1
+        tuned["auto_interrupt_sample_seconds"] = max(0.8, tuned["auto_interrupt_sample_seconds"] - 0.1)
+    elif p50_ms >= 3000 and fail_rate <= 14.0 and not_heard_rate <= 14.0:
+        tuned["smart_followup_listen_seconds"] = max(2.2, tuned["smart_followup_listen_seconds"] - 0.3)
+
+    # Если много follow-up timeout, не держим слишком длинное окно.
+    if timeout_rate >= 28.0:
+        tuned["smart_followup_listen_seconds"] = max(1.8, tuned["smart_followup_listen_seconds"] - 0.4)
+
+    # Нормализация и границы.
+    tuned["smart_followup_listen_seconds"] = round(
+        min(8.0, max(1.0, float(tuned["smart_followup_listen_seconds"]))),
+        1,
+    )
+    tuned["smart_followup_retries"] = min(3, max(1, int(tuned["smart_followup_retries"])))
+    tuned["auto_interrupt_sample_seconds"] = round(
+        min(3.0, max(0.5, float(tuned["auto_interrupt_sample_seconds"]))),
+        1,
+    )
+    tuned["auto_interrupt_quiet_rms_threshold"] = round(
+        min(600.0, max(50.0, float(tuned["auto_interrupt_quiet_rms_threshold"]))),
+        1,
+    )
+    tuned["auto_interrupt_noisy_rms_threshold"] = round(
+        max(
+            float(tuned["auto_interrupt_quiet_rms_threshold"]) + 20.0,
+            min(900.0, float(tuned["auto_interrupt_noisy_rms_threshold"])),
+        ),
+        1,
+    )
+    tuned["auto_interrupt_hits_quiet"] = min(6, max(1, int(tuned["auto_interrupt_hits_quiet"])))
+    tuned["auto_interrupt_hits_normal"] = min(6, max(1, int(tuned["auto_interrupt_hits_normal"])))
+    tuned["auto_interrupt_hits_noisy"] = min(6, max(1, int(tuned["auto_interrupt_hits_noisy"])))
+
+    changed = {
+        key: value
+        for key, value in tuned.items()
+        if current.get(key) != value
+    }
+    if not changed:
+        return {
+            "applied": False,
+            "summary": "Авто-тюнинг проверил метрики: текущие значения уже близки к оптимальным.",
+            "sample_count": len(samples),
+            "settings": tuned,
+        }
+
+    summary = (
+        f"Авто-тюнинг применён по {len(samples)} сессиям: "
+        f"p50 {p50_ms / 1000:.1f}с, не расслышал {not_heard_rate:.0f}%, "
+        f"ложные barge-in {false_barge_rate:.0f}%."
+    )
+    return {
+        "applied": True,
+        "summary": summary,
+        "sample_count": len(samples),
+        "settings": tuned,
+        "changed": changed,
+    }
+
+
 def _load_recent_voice_perf(*, limit: int) -> list[dict]:
     path = Path(INTERACTION_LOG_FILE)
     if not path.exists():

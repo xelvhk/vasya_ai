@@ -83,6 +83,7 @@ _NOT_HEARD_REASONS = {
     "confirmation_failed",
     "retries_exhausted",
 }
+_CONSECUTIVE_NOT_HEARD_FAILURES = 0
 
 
 @dataclass(frozen=True)
@@ -173,9 +174,10 @@ def run_voice_interaction() -> AssistantControlAction:
                     auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
                 )
                 return assistant_control.consume_action()
+            streak = _register_capture_failure(capture.failure_reason)
             assistant_state.set(AssistantStateName.ERROR, "Не удалось распознать голосовую команду")
             tts_started = time.perf_counter()
-            speak(_failure_message_for(capture.failure_reason))
+            speak(_failure_message_for(capture.failure_reason, streak=streak))
             metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
             assistant_state.set(AssistantStateName.IDLE)
             _log_voice_perf(
@@ -191,6 +193,7 @@ def run_voice_interaction() -> AssistantControlAction:
                 auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
             )
             return assistant_control.consume_action()
+        _reset_capture_failure_streak()
 
         print(f"Ты сказал: {user_text}")
         assistant_state.set(AssistantStateName.THINKING, _thinking_message_for(user_text))
@@ -959,14 +962,33 @@ def _is_safe_low_confidence_fast_path(transcription: TranscriptionResult) -> boo
     }
 
 
-def _failure_message_for(reason: str | None) -> str:
+def _failure_message_for(reason: str | None, *, streak: int = 0) -> str:
+    recovery_hint = (
+        " Давай коротко, 2-4 слова. И можно запустить тест микрофона в меню Васи."
+        if streak >= 2
+        else ""
+    )
     if reason == "low_audio_level":
-        return "Было слишком тихо. Скажи еще раз чуть громче."
+        return f"Было слишком тихо. Скажи еще раз чуть громче.{recovery_hint}"
     if reason == "empty_transcription":
-        return "Я не расслышала фразу. Попробуй сказать еще раз."
+        return f"Я не расслышала фразу. Попробуй сказать еще раз.{recovery_hint}"
     if reason == "confirmation_failed":
-        return "Я так и не разобрала фразу уверенно. Давай еще раз."
-    return "Я так и не смогла нормально расслышать команду."
+        return f"Я так и не разобрала фразу уверенно. Давай еще раз.{recovery_hint}"
+    return f"Я так и не смогла нормально расслышать команду.{recovery_hint}"
+
+
+def _register_capture_failure(reason: str | None) -> int:
+    global _CONSECUTIVE_NOT_HEARD_FAILURES
+    if _is_not_heard_failure(reason):
+        _CONSECUTIVE_NOT_HEARD_FAILURES += 1
+    else:
+        _CONSECUTIVE_NOT_HEARD_FAILURES = 0
+    return _CONSECUTIVE_NOT_HEARD_FAILURES
+
+
+def _reset_capture_failure_streak() -> None:
+    global _CONSECUTIVE_NOT_HEARD_FAILURES
+    _CONSECUTIVE_NOT_HEARD_FAILURES = 0
 
 
 def _is_not_heard_failure(reason: str | None) -> bool:

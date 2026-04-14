@@ -15,6 +15,16 @@ def generate_local_chat_reply(
     if not normalized:
         return None
 
+    micro_reply = _generate_exact_micro_reply(
+        normalized,
+        history_size=history_size,
+        tone=tone,
+        child_mode=child_mode,
+        last_assistant_reply=last_assistant_reply,
+    )
+    if micro_reply is not None:
+        return micro_reply
+
     if re.match(r"^(привет|здравствуй|хай)\b", normalized):
         return _pick_variant(
             history_size + _tone_offset(tone),
@@ -667,6 +677,87 @@ def generate_local_chat_reply(
                 ),
             ),
         )
+
+    return None
+
+
+def _generate_exact_micro_reply(
+    normalized: str,
+    *,
+    history_size: int,
+    tone: str,
+    child_mode: bool,
+    last_assistant_reply: str | None,
+) -> str | None:
+    if normalized in {"ку", "хэй", "хей"}:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            last_reply=last_assistant_reply,
+            *_tone_options(
+                "child" if child_mode else tone,
+                default=("Ку. Я рядом.", "Ку. Слушаю тебя."),
+                warm=("Ку. Я рядом.",),
+                supportive=("Ку. Я с тобой.",),
+                playful=("Ку. Чем займемся?",),
+                child=("Ку. Хочешь поболтать или поиграть?",),
+            ),
+        )
+
+    if normalized in {"спс", "спасибо", "пасиб"}:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            last_reply=last_assistant_reply,
+            *_tone_options(
+                "child" if child_mode else tone,
+                default=("Пожалуйста.", "Всегда пожалуйста."),
+                supportive=("Пожалуйста. Я рядом.",),
+                playful=("Пожалуйста. Идем дальше?",),
+                child=("Пожалуйста.",),
+            ),
+        )
+
+    if normalized in {"ок", "окей", "окей.", "ладно", "ясно"} and history_size > 0:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            last_reply=last_assistant_reply,
+            *_tone_options(
+                "child" if child_mode else tone,
+                default=("Окей. Что дальше?", "Хорошо. Продолжай."),
+                supportive=("Окей. Давай спокойно дальше.",),
+                playful=("Окей. Что дальше придумал?",),
+                child=("Окей. Что дальше?",),
+            ),
+        )
+
+    if normalized in {"да", "ага", "угу"} and history_size > 0:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            last_reply=last_assistant_reply,
+            *_tone_options(
+                "child" if child_mode else tone,
+                default=("Угу. Продолжай.", "Да, слушаю."),
+                supportive=("Да. Я с тобой, продолжай.",),
+                child=("Да. Продолжай.",),
+            ),
+        )
+
+    if normalized in {"нет", "неа"} and history_size > 0:
+        return _pick_variant(
+            history_size + _tone_offset(tone),
+            last_reply=last_assistant_reply,
+            *_tone_options(
+                "child" if child_mode else tone,
+                default=("Окей. Тогда по-другому.",),
+                supportive=("Хорошо. Тогда попробуем иначе.",),
+                child=("Хорошо. Тогда попробуем иначе.",),
+            ),
+        )
+
+    if normalized in {"ты тут", "ты здесь"}:
+        return "Да, я здесь."
+
+    if normalized in {"слышишь меня", "ты меня слышишь"}:
+        return "Да, слышу."
 
     return None
 

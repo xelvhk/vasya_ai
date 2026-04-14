@@ -61,6 +61,16 @@ from voice.session import run_voice_interaction
 from voice.tts import set_voice_profile, speak, stop_speaking
 
 
+def _run_mic_health_check(duration_seconds: float = 2.0) -> tuple[bool, str]:
+    try:
+        recording = record_audio(AUDIO_FILENAME, duration_seconds)
+        if recording.rms < MIN_AUDIO_RMS:
+            return False, "Слышу очень тихо. Попробуй говорить громче или поднести микрофон ближе."
+        return True, "Микрофон работает. Слышу тебя."
+    except Exception:
+        return False, "Не получилось проверить микрофон."
+
+
 def main() -> None:
     try:
         from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal
@@ -1530,16 +1540,7 @@ def main() -> None:
             self._mic_status.setText("Слушаю 2 секунды…")
 
             def worker():
-                message = "Микрофон работает. Слышу тебя."
-                ok = True
-                try:
-                    recording = record_audio(AUDIO_FILENAME, 2.0)
-                    if recording.rms < MIN_AUDIO_RMS:
-                        message = "Слышу очень тихо. Попробуй говорить громче."
-                        ok = False
-                except Exception:
-                    message = "Не получилось проверить микрофон."
-                    ok = False
+                ok, message = _run_mic_health_check(2.0)
 
                 def finish():
                     self._mic_status.setText(message)
@@ -1965,6 +1966,7 @@ def main() -> None:
                 listen_action = interaction_menu.addAction("Начать слушать")
                 text_action = interaction_menu.addAction("Текстовая команда...")
                 quick_action = interaction_menu.addAction("Быстрые команды")
+                mic_test_action = interaction_menu.addAction("Тест микрофона")
 
                 settings_menu = menu.addMenu("Настройки")
                 settings_action = settings_menu.addAction("Открыть настройки...")
@@ -1981,6 +1983,7 @@ def main() -> None:
                     listen_action: self._activate_interaction,
                     text_action: self._open_text_command_dialog,
                     quick_action: self._open_quick_commands,
+                    mic_test_action: self._run_quick_mic_test,
                     settings_action: self._open_settings_dialog,
                     clear_memory_action: self._clear_personal_memory,
                     quit_action: self.quit_application,
@@ -2744,6 +2747,10 @@ def main() -> None:
             quick_action.triggered.connect(self._open_quick_commands)
             menu.addAction(quick_action)
 
+            mic_test_action = QAction("Тест микрофона", self)
+            mic_test_action.triggered.connect(self._run_quick_mic_test)
+            menu.addAction(mic_test_action)
+
             diagnostics_action = QAction("Диагностика скорости...", self)
             diagnostics_action.triggered.connect(self._show_speed_diagnostics)
             menu.addAction(diagnostics_action)
@@ -2861,6 +2868,31 @@ def main() -> None:
                 f"Рекомендации:\n{hints}"
             )
             QMessageBox.information(self, "Диагностика скорости", text)
+
+        def _run_quick_mic_test(self) -> None:
+            if self._interaction_lock.locked():
+                QMessageBox.information(
+                    self,
+                    "Тест микрофона",
+                    "Сначала дождись завершения текущего голосового запроса.",
+                )
+                return
+
+            assistant_state.set(AssistantStateName.THINKING, "Проверяю микрофон...")
+
+            def worker() -> None:
+                ok, message = _run_mic_health_check(2.0)
+
+                def finish() -> None:
+                    assistant_state.set(
+                        AssistantStateName.IDLE if ok else AssistantStateName.ERROR,
+                        message,
+                    )
+                    QMessageBox.information(self, "Тест микрофона", message)
+
+                QTimer.singleShot(0, finish)
+
+            threading.Thread(target=worker, daemon=True).start()
 
         def _open_text_command_dialog(self) -> None:
             dialog = TextCommandDialog(self)

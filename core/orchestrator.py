@@ -2,8 +2,10 @@ from assistant.confirmations import classify_confirmation_reply, confirmation_st
 from assistant.games import game_store
 from agents.task_agent import confirm_delete_all_tasks
 from core.handoffs import build_handoffs
+from core.agent_policy import role_for_intent
 from core.models import IntentResult
 from services.game_service import handle_active_game_turn
+from services.os_action_service import confirm_os_action
 from services.user_profile_service import confirm_clear_user_profile
 from core.intent_parser import parse_intent
 from core.router import route_intent
@@ -18,6 +20,7 @@ from typing import Callable
 class ProcessResult:
     intent: str
     response: str
+    role: str = "chat_agent"
     needs_followup: bool = False
 
 
@@ -50,7 +53,7 @@ def _run_routing_policy(user_text: str) -> ProcessResult:
         return result
     # Defensive fallback: currently unreachable, but keeps the routing contract explicit.
     response = "Не удалось обработать команду. Попробуй еще раз."
-    return ProcessResult(intent="unknown", response=response)
+    return ProcessResult(intent="unknown", response=response, role="chat_agent")
 
 
 def _handle_system_intent(user_text: str) -> ProcessResult | None:
@@ -58,17 +61,19 @@ def _handle_system_intent(user_text: str) -> ProcessResult | None:
     if system_intent is None:
         return None
 
+    role = role_for_intent(system_intent.intent)
     response = route_intent(system_intent, user_text)
     log_interaction_event(
         "interaction",
         {
             "user_text": user_text,
             "intent": system_intent.intent,
+            "role": role,
             "intent_data": system_intent.data,
             "response": response,
         },
     )
-    return ProcessResult(intent=system_intent.intent, response=response)
+    return ProcessResult(intent=system_intent.intent, response=response, role=role)
 
 
 def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
@@ -84,7 +89,7 @@ def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
                 "response": response,
             },
         )
-        return ProcessResult(intent="unknown", response=response)
+        return ProcessResult(intent="unknown", response=response, role="chat_agent")
     except Exception as exc:
         response = "Не удалось обработать команду. Попробуй еще раз."
         log_interaction_event(
@@ -96,8 +101,9 @@ def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
                 "response": response,
             },
         )
-        return ProcessResult(intent="unknown", response=response)
+        return ProcessResult(intent="unknown", response=response, role="chat_agent")
 
+    role = role_for_intent(intent_result.intent)
     response = route_intent(intent_result, user_text)
     handoff_responses = _run_handoffs(intent_result, user_text)
     if handoff_responses:
@@ -107,6 +113,7 @@ def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
         {
             "user_text": user_text,
             "intent": intent_result.intent,
+            "role": role,
             "intent_data": intent_result.data,
             "response": response,
         },
@@ -114,6 +121,7 @@ def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
     return ProcessResult(
         intent=intent_result.intent,
         response=response,
+        role=role,
         needs_followup=_should_follow_up(intent_result.intent, response),
     )
 
@@ -126,22 +134,27 @@ def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
     decision = classify_confirmation_reply(user_text)
     if decision is None:
         response = "Нужно коротко подтвердить: скажи да или нет."
-        return ProcessResult(intent="unknown", response=response, needs_followup=True)
+        return ProcessResult(intent="unknown", response=response, role="chat_agent", needs_followup=True)
 
     confirmation_store.clear()
     if decision == "cancel":
         if pending.kind == "clear_user_profile":
-            return ProcessResult(intent="unknown", response="Хорошо, не очищаю личную память.")
-        return ProcessResult(intent="unknown", response="Хорошо, не удаляю.")
+            return ProcessResult(intent="unknown", response="Хорошо, не очищаю личную память.", role="profile_agent")
+        if pending.kind == "os_action":
+            return ProcessResult(intent="unknown", response="Хорошо, отменяю действие.", role="os_operator_agent")
+        return ProcessResult(intent="unknown", response="Хорошо, не удаляю.", role="task_agent")
 
     if pending.kind == "delete_all_tasks":
         response = confirm_delete_all_tasks()
-        return ProcessResult(intent="delete_tasks", response=response)
+        return ProcessResult(intent="delete_tasks", response=response, role="task_agent")
     if pending.kind == "clear_user_profile":
         response = confirm_clear_user_profile()
-        return ProcessResult(intent="forget_user_profile", response=response)
+        return ProcessResult(intent="forget_user_profile", response=response, role="profile_agent")
+    if pending.kind == "os_action":
+        response = confirm_os_action(pending.payload)
+        return ProcessResult(intent="unknown", response=response, role="os_operator_agent")
 
-    return ProcessResult(intent="unknown", response="Подтверждение сброшено.")
+    return ProcessResult(intent="unknown", response="Подтверждение сброшено.", role="chat_agent")
 
 
 def _handle_active_game(user_text: str) -> ProcessResult | None:
@@ -151,7 +164,7 @@ def _handle_active_game(user_text: str) -> ProcessResult | None:
     response = handle_active_game_turn(user_text)
     if response is None:
         return None
-    return ProcessResult(intent="play_game", response=response, needs_followup=True)
+    return ProcessResult(intent="play_game", response=response, role="game_agent", needs_followup=True)
 
 
 def _should_follow_up(intent: str, response: str) -> bool:

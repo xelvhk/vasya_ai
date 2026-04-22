@@ -21,6 +21,7 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
     first_response_values = _collect_positive_metric(samples, "first_response_ms")
     barge_in_values = [int(item.get("barge_in_count", 0) or 0) for item in samples]
     barge_in_false_values = [int(item.get("barge_in_false_count", 0) or 0) for item in samples]
+    local_fast_lane_values = [int(item.get("local_fast_lane_hits", 0) or 0) for item in samples]
     followup_timeout_count = sum(1 for item in samples if item.get("status") == "followup_timeout")
     failed_count = sum(1 for item in samples if item.get("status") != "ok")
     not_heard_count = sum(1 for item in samples if bool(item.get("not_heard_failure", False)))
@@ -36,7 +37,14 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
         if total_barge_in_count > 0
         else 0.0
     )
-    profile_distribution = _build_profile_distribution(samples)
+    interrupt_profile_distribution = _build_field_distribution(samples, "auto_interrupt_profile")
+    routing_profile_distribution = _build_field_distribution(samples, "routing_profile")
+    prompt_pack_profile_distribution = _build_field_distribution(samples, "prompt_pack_profile")
+    primary_role_distribution = _build_primary_role_distribution(samples)
+    primary_intent_distribution = _build_field_distribution(samples, "primary_intent")
+    routing_ab_ttfr = _build_ab_latency_summary(samples, "routing_profile", "first_response_ms")
+    routing_ab_tta = _build_ab_latency_summary(samples, "routing_profile", "first_action_ms")
+    fast_lane_rate = 100.0 * sum(1 for value in local_fast_lane_values if value > 0) / len(samples)
 
     base = (
         f"Скорость по последним {len(samples)} запросам: "
@@ -62,8 +70,23 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
     if any(barge_in_values):
         extras.append(f"barge-in avg {_avg(barge_in_values):.2f} на сессию")
         extras.append(f"ложные barge-in {false_barge_rate:.0f}%")
-    if profile_distribution:
-        extras.append(f"A/B профиль: {profile_distribution}")
+    extras.append(f"local fast-lane сессии {fast_lane_rate:.0f}%")
+    if any(local_fast_lane_values):
+        extras.append(f"local fast-lane avg {_avg(local_fast_lane_values):.2f} на сессию")
+    if interrupt_profile_distribution:
+        extras.append(f"auto-interrupt профили: {interrupt_profile_distribution}")
+    if routing_profile_distribution:
+        extras.append(f"routing профили: {routing_profile_distribution}")
+    if prompt_pack_profile_distribution:
+        extras.append(f"prompt-pack профили: {prompt_pack_profile_distribution}")
+    if primary_role_distribution:
+        extras.append(f"роли (primary): {primary_role_distribution}")
+    if primary_intent_distribution:
+        extras.append(f"intents (primary): {primary_intent_distribution}")
+    if routing_ab_ttfr:
+        extras.append(f"A/B TTFR: {routing_ab_ttfr}")
+    if routing_ab_tta:
+        extras.append(f"A/B TTA: {routing_ab_tta}")
 
     return f"{base} Дополнительно: " + "; ".join(extras) + "."
 
@@ -362,19 +385,78 @@ def _collect_positive_metric(samples: list[dict], key: str) -> list[float]:
     return values
 
 
-def _build_profile_distribution(samples: list[dict]) -> str:
+def _build_field_distribution(samples: list[dict], field: str) -> str:
     counts: dict[str, int] = {}
     for item in samples:
-        raw_profile = item.get("auto_interrupt_profile")
-        profile = str(raw_profile).strip() if raw_profile is not None else ""
-        if not profile:
+        raw_value = item.get(field)
+        value = str(raw_value).strip() if raw_value is not None else ""
+        if not value:
             continue
-        counts[profile] = counts.get(profile, 0) + 1
+        counts[value] = counts.get(value, 0) + 1
     if not counts:
         return ""
     chunks: list[str] = []
     total = len(samples)
-    for profile, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0])):
+    for value, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0])):
         rate = 100.0 * count / total
-        chunks.append(f"{profile} {count} ({rate:.0f}%)")
+        chunks.append(f"{value} {count} ({rate:.0f}%)")
     return ", ".join(chunks)
+
+
+def _build_primary_role_distribution(samples: list[dict]) -> str:
+    counts: dict[str, int] = {}
+    for item in samples:
+        role = str(item.get("primary_role", "")).strip()
+        if role:
+            counts[role] = counts.get(role, 0) + 1
+
+        role_counts_payload = item.get("role_counts")
+        if not isinstance(role_counts_payload, dict):
+            continue
+        for raw_role, raw_count in role_counts_payload.items():
+            role_name = str(raw_role).strip()
+            if not role_name:
+                continue
+            try:
+                numeric_count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if numeric_count <= 0:
+                continue
+            counts[role_name] = counts.get(role_name, 0) + numeric_count
+
+    if not counts:
+        return ""
+    total = sum(counts.values())
+    chunks: list[str] = []
+    for role_name, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0])):
+        rate = 100.0 * count / total if total > 0 else 0.0
+        chunks.append(f"{role_name} {count} ({rate:.0f}%)")
+    return ", ".join(chunks)
+
+
+def _build_ab_latency_summary(samples: list[dict], profile_key: str, metric_key: str) -> str:
+    buckets: dict[str, list[float]] = {}
+    for item in samples:
+        profile = str(item.get(profile_key, "")).strip()
+        if not profile:
+            continue
+        metric = item.get(metric_key)
+        try:
+            metric_value = float(metric)
+        except (TypeError, ValueError):
+            continue
+        if metric_value <= 0:
+            continue
+        buckets.setdefault(profile, []).append(metric_value)
+
+    if len(buckets) < 2:
+        return ""
+
+    parts: list[str] = []
+    for profile, values in sorted(
+        buckets.items(),
+        key=lambda pair: (_avg(pair[1]), pair[0]),
+    ):
+        parts.append(f"{profile} p50 {_p50(values):.0f}мс (n={len(values)})")
+    return ", ".join(parts)

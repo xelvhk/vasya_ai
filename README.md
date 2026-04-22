@@ -363,6 +363,14 @@ GITHUB_API_TOKEN=
 GITHUB_DEFAULT_REPO=owner/repo
 GITHUB_SYNC_DEFAULT_HOURS=24
 GITHUB_SYNC_STATE_FILE=storage/github_notion_sync_state.json
+
+OS_ACTIONS_ENABLED=true
+OS_ALLOWED_URL_DOMAINS=github.com,notion.so,obsidian.md,google.com,yandex.ru,openweathermap.org
+OS_ALLOWED_APPS=Safari,Google Chrome,Firefox,Notion,Obsidian,Calendar,Notes,TextEdit,Terminal
+OS_REQUIRE_CONFIRM_FOR_INPUT=true
+OS_REQUIRE_CONFIRM_FOR_OPEN_EXTERNAL=false
+AGENT_ROUTING_PROFILE=rolepack_v1
+CHAT_PROMPT_PACK_PROFILE=dynamic_v1
 ```
 
 For faster intent parsing:
@@ -401,6 +409,14 @@ System voice commands:
 - `Stop speaking`
 - `Exit`
 - `Close assistant`
+
+OS action voice commands:
+- `Open site github.com`
+- `Open browser`
+- `Type text ...`
+- `Press Enter`
+- `Right click`
+- `Scroll down`
 
 Alternative TTS path:
 - `say` is still the simplest built-in macOS option
@@ -459,6 +475,9 @@ This is still an MVP, so current limits include:
 - `v0.5.8`: voice-open text command window, first daily morning show, and fast-lane conversational/tool routing polish
 - `v0.5.9`: A/B voice contour metrics, adaptive auto-interrupt thresholds for noisy/quiet environments, and shell health hint in hover/tray
 - `v0.5.10`: API gateway foundation (`apps/api`) for future iOS/Android clients over shared core logic
+- `v0.5.11`: context/action layer inspiration (selected text context, screenshot-aware prompts, slash-style quick actions)
+- `v0.5.12`: OS action tools with safety policy plus role-spec routing and chat prompt packs (`default/work/concise/child`)
+- `v0.5.13`: A/B voice metrics extended with routing/prompt profiles, role distribution, TTFR/TTA by profile, and local fast-lane coverage
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows
@@ -471,6 +490,7 @@ Near-term goals:
 - a more polished desktop shell around the current widget MVP
 - richer avatar personalization and user-imported visual styles
 - continued improvements to voice understanding and recovery UX
+- context-aware actions: selected text, screenshot prompts, and quick slash-style commands
 - easier installation, starting with a Windows setup path
 - Notion as a second adapter on top of the local-first core
 

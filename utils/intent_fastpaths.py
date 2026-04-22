@@ -33,6 +33,16 @@ _COMMAND_MARKERS = (
     "гитхаб",
     "github",
     "репозитори",
+    "браузер",
+    "сайт",
+    "ссылк",
+    "окно",
+    "введи",
+    "нажми",
+    "клик",
+    "прокрут",
+    "скрол",
+    "приложени",
     "обсидиан",
     "выгрузи",
     "экспорт",
@@ -296,6 +306,64 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
             if text:
                 return IntentResult(intent="append_notion_page", data={"text": text})
 
+    open_url_prefixes = (
+        "открой сайт ",
+        "открой ссылку ",
+        "перейди на ",
+    )
+    for prefix in open_url_prefixes:
+        if normalized.startswith(prefix):
+            url = normalized[len(prefix):].strip(" .,:;!-")
+            if url:
+                return IntentResult(intent="os_open_url", data={"url": url})
+
+    open_app_patterns = (
+        (r"^открой браузер\b", "Safari"),
+        (r"^открой сафари\b", "Safari"),
+        (r"^открой chrome\b", "Google Chrome"),
+        (r"^открой хром\b", "Google Chrome"),
+        (r"^открой notion\b", "Notion"),
+        (r"^открой obsidian\b", "Obsidian"),
+        (r"^открой терминал\b", "Terminal"),
+        (r"^открой calendar\b", "Calendar"),
+    )
+    for pattern, app_name in open_app_patterns:
+        if re.search(pattern, normalized):
+            return IntentResult(intent="os_open_app", data={"app": app_name})
+
+    type_prefixes = (
+        "введи текст ",
+        "напечатай ",
+        "впиши ",
+    )
+    for prefix in type_prefixes:
+        if normalized.startswith(prefix):
+            text = normalized[len(prefix):].strip()
+            if text:
+                return IntentResult(intent="os_type_text", data={"text": text})
+
+    keypress_map = {
+        "нажми enter": "enter",
+        "нажми энтер": "enter",
+        "нажми escape": "escape",
+        "нажми esc": "esc",
+        "нажми tab": "tab",
+        "нажми пробел": "space",
+        "нажми backspace": "backspace",
+    }
+    for phrase, key_name in keypress_map.items():
+        if normalized == phrase:
+            return IntentResult(intent="os_keypress", data={"keys": [key_name]})
+
+    if normalized in {"кликни", "сделай клик", "нажми мышкой"}:
+        return IntentResult(intent="os_click", data={"button": "left"})
+    if normalized in {"правый клик", "кликни правой кнопкой"}:
+        return IntentResult(intent="os_click", data={"button": "right"})
+    if normalized in {"прокрути вниз", "скролл вниз"}:
+        return IntentResult(intent="os_scroll", data={"amount": -700})
+    if normalized in {"прокрути вверх", "скролл вверх"}:
+        return IntentResult(intent="os_scroll", data={"amount": 700})
+
     list_tasks_patterns = (
         r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",
     )
@@ -376,6 +444,12 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "sync_github_notion",
         "read_notion_page",
         "append_notion_page",
+        "os_open_url",
+        "os_open_app",
+        "os_type_text",
+        "os_keypress",
+        "os_click",
+        "os_scroll",
     }:
         return fast_intent
 

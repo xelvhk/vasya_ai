@@ -1,4 +1,5 @@
 from agents.chat_agent import handle_chat_intent
+from core.agent_policy import role_for_intent
 from core.models import IntentResult
 from core.tools import dispatch_tool
 
@@ -27,9 +28,18 @@ _COMMAND_HINT_MARKERS = (
     "экспорт",
     "игр",
     "обсидиан",
+    "браузер",
+    "сайт",
+    "ссылк",
+    "введи",
+    "нажми",
+    "клик",
+    "прокрут",
+    "скрол",
 )
 
 def route_intent(intent_result: IntentResult, user_text: str) -> str:
+    role = role_for_intent(intent_result.intent)
     tool_response = dispatch_tool(intent_result)
     if tool_response is not None:
         return tool_response
@@ -40,7 +50,7 @@ def route_intent(intent_result: IntentResult, user_text: str) -> str:
             return command_clarification
         return handle_chat_intent(user_text)
 
-    if intent_result.intent == "chat":
+    if intent_result.intent == "chat" or role == "chat_agent":
         return handle_chat_intent(user_text)
 
     return "Я пока не понял команду. Попробуй сказать по-другому."

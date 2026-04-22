@@ -16,6 +16,7 @@ from services.github_notion_sync_service import (
     sync_project_updates_to_notion,
 )
 from services.speed_report_service import build_voice_diagnostics_report
+from services.os_action_service import execute_os_action
 from services.voice_recovery_service import apply_voice_auto_tune_from_metrics, run_voice_mic_test
 from services.user_profile_service import (
     forget_user_profile,
@@ -131,6 +132,23 @@ def _run_auto_tune_voice_tool(intent_result: IntentResult) -> str:
     return apply_voice_auto_tune_from_metrics(limit=40)
 
 
+def _run_os_action_tool(intent_result: IntentResult) -> str:
+    try:
+        if intent_result.intent == "os_open_url":
+            return execute_os_action("open_url", intent_result.data)
+        if intent_result.intent == "os_open_app":
+            return execute_os_action("open_app", intent_result.data)
+        if intent_result.intent == "os_type_text":
+            return execute_os_action("type_text", intent_result.data)
+        if intent_result.intent == "os_keypress":
+            return execute_os_action("keypress", intent_result.data)
+        if intent_result.intent == "os_click":
+            return execute_os_action("click", intent_result.data)
+        return execute_os_action("scroll", intent_result.data)
+    except Exception as exc:
+        return f"Не удалось выполнить OS-действие: {exc}"
+
+
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="calendar",
@@ -215,6 +233,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Автоматическая подстройка голосовых параметров по последним метрикам.",
         intents=("auto_tune_voice",),
         handler=_run_auto_tune_voice_tool,
+    ),
+    ToolSpec(
+        tool_id="os_actions",
+        description="OS-действия: открыть URL/приложение, ввод текста, клавиши, клик и скролл.",
+        intents=("os_open_url", "os_open_app", "os_type_text", "os_keypress", "os_click", "os_scroll"),
+        handler=_run_os_action_tool,
     ),
 )
 

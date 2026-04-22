@@ -13,12 +13,14 @@ from assistant.control import AssistantControlAction, assistant_control
 from assistant.state import AssistantState, AssistantStateName, assistant_state
 from core.orchestrator import process_text_detailed
 from config.settings import (
+    AGENT_ROUTING_PROFILE,
     AUDIO_FILENAME,
     AVATAR_CUSTOM_SKIN_FILE,
     AVATAR_IMAGE_PATH,
     AVATAR_SKIN,
     AVATAR_SIZE,
     AVATAR_STATE_FILE,
+    CHAT_PROMPT_PACK_PROFILE,
     HOTKEY_COMBINATION,
     HOTKEY_EXIT_COMBINATION,
     HOTKEY_TEXT_COMBINATION,
@@ -954,6 +956,18 @@ def main() -> None:
             self._auto_interrupt_quiet_rms.valueChanged.connect(self._sync_auto_interrupt_thresholds)
             self._sync_auto_interrupt_controls()
 
+            self._routing_profile_combo = QComboBox(self)
+            self._routing_profile_combo.addItem("RolePack v1 (рекомендуется)", "rolepack_v1")
+            self._routing_profile_combo.addItem("Classic", "classic_v1")
+            self._select_combo_value(self._routing_profile_combo, widget._agent_routing_profile)
+            behavior_form.addRow("A/B: Routing профиль", self._routing_profile_combo)
+
+            self._prompt_pack_profile_combo = QComboBox(self)
+            self._prompt_pack_profile_combo.addItem("Dynamic v1 (рекомендуется)", "dynamic_v1")
+            self._prompt_pack_profile_combo.addItem("Classic", "classic_v1")
+            self._select_combo_value(self._prompt_pack_profile_combo, widget._chat_prompt_pack_profile)
+            behavior_form.addRow("A/B: Prompt pack профиль", self._prompt_pack_profile_combo)
+
             tuning_actions = QHBoxLayout()
             auto_tune_button = QPushButton("Подобрать автоматически", self)
             auto_tune_button.clicked.connect(self._run_voice_auto_tune)
@@ -1094,6 +1108,8 @@ def main() -> None:
             self._widget._auto_interrupt_hits_quiet = int(self._auto_interrupt_hits_quiet.value())
             self._widget._auto_interrupt_hits_normal = int(self._auto_interrupt_hits_normal.value())
             self._widget._auto_interrupt_hits_noisy = int(self._auto_interrupt_hits_noisy.value())
+            self._widget._agent_routing_profile = str(self._routing_profile_combo.currentData())
+            self._widget._chat_prompt_pack_profile = str(self._prompt_pack_profile_combo.currentData())
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -1794,6 +1810,12 @@ def main() -> None:
             self._auto_interrupt_hits_quiet = min(6, max(1, self._auto_interrupt_hits_quiet))
             self._auto_interrupt_hits_normal = min(6, max(1, self._auto_interrupt_hits_normal))
             self._auto_interrupt_hits_noisy = min(6, max(1, self._auto_interrupt_hits_noisy))
+            self._agent_routing_profile = str(
+                self._widget_state.get("agent_routing_profile", AGENT_ROUTING_PROFILE)
+            ).strip() or AGENT_ROUTING_PROFILE
+            self._chat_prompt_pack_profile = str(
+                self._widget_state.get("chat_prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)
+            ).strip() or CHAT_PROMPT_PACK_PROFILE
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -2689,6 +2711,8 @@ def main() -> None:
                     "auto_interrupt_hits_quiet": self._auto_interrupt_hits_quiet,
                     "auto_interrupt_hits_normal": self._auto_interrupt_hits_normal,
                     "auto_interrupt_hits_noisy": self._auto_interrupt_hits_noisy,
+                    "agent_routing_profile": self._agent_routing_profile,
+                    "chat_prompt_pack_profile": self._chat_prompt_pack_profile,
                 }
             )
 

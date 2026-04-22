@@ -8,6 +8,7 @@ from assistant.conversation import conversation_memory
 from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
 from assistant.user_profile import user_profile_memory
+from core.agent_policy import chat_prompt_pack_rules, resolve_chat_prompt_pack, role_spec_block
 from config.settings import (
     OLLAMA_CHAT_QUICK_ENABLED,
     OLLAMA_CHAT_QUICK_MAX_WORDS,
@@ -24,8 +25,15 @@ from services.ollama_client import generate, generate_stream, resolve_chat_model
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.logger import log_voice_event
 
+_LAST_CHAT_PROMPT_PACK = "default_mode"
+
+
+def get_last_chat_prompt_pack() -> str:
+    return _LAST_CHAT_PROMPT_PACK
+
 
 def generate_chat_reply_local_fast(user_text: str) -> str | None:
+    global _LAST_CHAT_PROMPT_PACK
     user_profile_memory.observe_user_text(user_text)
     recent_history = conversation_memory.recent()
     history_size = len(recent_history)
@@ -43,6 +51,12 @@ def generate_chat_reply_local_fast(user_text: str) -> str | None:
             conversation_memory.add_assistant(safe_reply)
             return safe_reply
 
+    prompt_pack = resolve_chat_prompt_pack(
+        user_text,
+        child_mode=child_mode,
+        compact=True,
+    )
+    _LAST_CHAT_PROMPT_PACK = prompt_pack
     local_reply = generate_local_chat_reply(
         user_text,
         history_size=history_size,
@@ -126,6 +140,15 @@ def _build_chat_prompt(
     user_profile_hint: str | None = None,
     compact: bool = False,
 ) -> str:
+    global _LAST_CHAT_PROMPT_PACK
+    chat_role_spec = role_spec_block("chat_agent")
+    prompt_pack = resolve_chat_prompt_pack(
+        user_text,
+        child_mode=child_mode,
+        compact=compact,
+    )
+    _LAST_CHAT_PROMPT_PACK = prompt_pack
+    pack_rules = chat_prompt_pack_rules(prompt_pack)
     history_lines = []
     for message in conversation_memory.recent():
         role_label = "Пользователь" if message.role == "user" else "Вася"
@@ -171,6 +194,10 @@ def _build_chat_prompt(
 - {child_rule}
 - {memory_rule}
 - {profile_rule}
+- {pack_rules}
+
+Role spec:
+{chat_role_spec}
 
 Недавняя история:
 {history_block}
@@ -213,6 +240,10 @@ def _build_chat_prompt(
 - {child_rule}
 - {memory_rule}
 - {profile_rule}
+- {pack_rules}
+
+Role spec:
+{chat_role_spec}
 
 Недавняя история:
 {history_block}

@@ -42,6 +42,8 @@ VOICE_ULTRA_FAST_MAX_RECORD_SECONDS = float(
     os.getenv("VOICE_ULTRA_FAST_MAX_RECORD_SECONDS", "3.2")
 )
 VOICE_SPEED_REPORT_WINDOW = int(os.getenv("VOICE_SPEED_REPORT_WINDOW", "30"))
+AGENT_ROUTING_PROFILE = os.getenv("AGENT_ROUTING_PROFILE", "rolepack_v1").strip()
+CHAT_PROMPT_PACK_PROFILE = os.getenv("CHAT_PROMPT_PACK_PROFILE", "dynamic_v1").strip()
 MORNING_SHOW_ENABLED = os.getenv("MORNING_SHOW_ENABLED", "true").lower() == "true"
 MORNING_SHOW_CITY = os.getenv("MORNING_SHOW_CITY", "Moscow").strip()
 MORNING_SHOW_HOUR_LIMIT = int(os.getenv("MORNING_SHOW_HOUR_LIMIT", "12"))
@@ -194,6 +196,23 @@ GITHUB_SYNC_STATE_FILE = os.getenv(
     "storage/github_notion_sync_state.json",
 ).strip()
 GITHUB_SYNC_DEFAULT_HOURS = int(os.getenv("GITHUB_SYNC_DEFAULT_HOURS", "24"))
+OS_ACTIONS_ENABLED = os.getenv("OS_ACTIONS_ENABLED", "true").lower() == "true"
+OS_ALLOWED_URL_DOMAINS = os.getenv(
+    "OS_ALLOWED_URL_DOMAINS",
+    "github.com,notion.so,obsidian.md,google.com,yandex.ru,openweathermap.org",
+).strip()
+OS_ALLOWED_APPS = os.getenv(
+    "OS_ALLOWED_APPS",
+    "Safari,Google Chrome,Firefox,Notion,Obsidian,Calendar,Notes,TextEdit,Terminal",
+).strip()
+OS_REQUIRE_CONFIRM_FOR_INPUT = os.getenv(
+    "OS_REQUIRE_CONFIRM_FOR_INPUT",
+    "true",
+).lower() == "true"
+OS_REQUIRE_CONFIRM_FOR_OPEN_EXTERNAL = os.getenv(
+    "OS_REQUIRE_CONFIRM_FOR_OPEN_EXTERNAL",
+    "false",
+).lower() == "true"
 VASYA_API_AUTH_TOKEN = os.getenv("VASYA_API_AUTH_TOKEN", "").strip()
 INTEGRATIONS_STATE_FILE = os.getenv(
     "INTEGRATIONS_STATE_FILE",

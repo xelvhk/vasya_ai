@@ -31,6 +31,12 @@ class IntentResult(BaseModel):
         "read_notion_page",
         "append_notion_page",
         "speed_report",
+        "os_open_url",
+        "os_open_app",
+        "os_type_text",
+        "os_keypress",
+        "os_click",
+        "os_scroll",
         "chat",
         "unknown",
     ]

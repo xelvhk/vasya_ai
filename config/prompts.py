@@ -3,6 +3,9 @@ INTENT_PROMPT_TEMPLATE = """
 
 Твоя задача: определить намерение пользователя и вернуть строго JSON без пояснений.
 
+Role spec:
+{router_role_spec}
+
 Доступные intent:
 - create_event
 - get_events
@@ -26,6 +29,12 @@ INTENT_PROMPT_TEMPLATE = """
 - read_notion_page
 - append_notion_page
 - speed_report
+- os_open_url
+- os_open_app
+- os_type_text
+- os_keypress
+- os_click
+- os_scroll
 - chat
 - unknown
 
@@ -91,7 +100,26 @@ INTENT_PROMPT_TEMPLATE = """
    - используй для фраз "запиши в notion ..."
 23. Для speed_report:
    - используй, если пользователь просит показать скорость ответа или отчет по задержкам
-24. Для chat:
+24. Для os_open_url:
+   - url: ссылка, которую нужно открыть
+   - используй для фраз "открой сайт ...", "перейди на ..."
+25. Для os_open_app:
+   - app: название приложения
+   - используй для фраз "открой браузер", "открой Notion"
+26. Для os_type_text:
+   - text: текст, который нужно напечатать
+   - используй для фраз "введи текст ...", "напечатай ..."
+27. Для os_keypress:
+   - keys: список клавиш или строка сочетания, например ["cmd","k"] или "enter"
+   - используй для фраз "нажми Enter", "нажми cmd+k"
+28. Для os_click:
+   - button: left/right/middle (optional, default left)
+   - clicks: число кликов (optional)
+   - используй для фраз "кликни", "правый клик"
+29. Для os_scroll:
+   - amount: число (optional), отрицательное вниз, положительное вверх
+   - используй для фраз "прокрути вниз/вверх"
+30. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
    - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub синка
 
@@ -236,6 +264,48 @@ INTENT_PROMPT_TEMPLATE = """
 {{
   "intent": "speed_report",
   "data": {{}}
+}}
+
+{{
+  "intent": "os_open_url",
+  "data": {{
+    "url": "https://github.com"
+  }}
+}}
+
+{{
+  "intent": "os_open_app",
+  "data": {{
+    "app": "Safari"
+  }}
+}}
+
+{{
+  "intent": "os_type_text",
+  "data": {{
+    "text": "Привет, мир"
+  }}
+}}
+
+{{
+  "intent": "os_keypress",
+  "data": {{
+    "keys": ["enter"]
+  }}
+}}
+
+{{
+  "intent": "os_click",
+  "data": {{
+    "button": "right"
+  }}
+}}
+
+{{
+  "intent": "os_scroll",
+  "data": {{
+    "amount": -700
+  }}
 }}
 
 {{

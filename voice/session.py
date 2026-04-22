@@ -15,6 +15,7 @@ from assistant.games import game_store
 from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
 from config.settings import (
+    AGENT_ROUTING_PROFILE,
     AUDIO_FILENAME,
     AVATAR_STATE_FILE,
     CHAT_FOLLOWUP_MAX_TURNS,
@@ -37,11 +38,13 @@ from config.settings import (
     VOICE_ULTRA_FAST_MAX_RECORD_SECONDS,
     VOICE_ULTRA_FAST_MODE,
     VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS,
+    CHAT_PROMPT_PACK_PROFILE,
 )
+from core.agent_policy import role_for_intent
 from core.models import IntentResult
 from core.orchestrator import process_text_detailed
 from core.router import route_intent
-from services.chat_service import generate_chat_reply_local_fast
+from services.chat_service import generate_chat_reply_local_fast, get_last_chat_prompt_pack
 from services.game_service import is_active_game_fast_phrase
 from services.morning_show_service import get_morning_show_message
 from utils.chat_fast_replies import generate_local_chat_reply
@@ -117,10 +120,16 @@ def run_voice_interaction() -> AssistantControlAction:
     keep_conversation_open = False
     followup_config = _load_runtime_followup_config()
     auto_interrupt_config = _load_runtime_auto_interrupt_config()
+    ab_profile_config = _load_runtime_ab_profiles()
     first_action_ms: float | None = None
     first_response_ms: float | None = None
     barge_in_count = 0
     barge_in_false_count = 0
+    primary_intent: str | None = None
+    primary_role: str | None = None
+    role_counts: dict[str, int] = {}
+    chat_pack_counts: dict[str, int] = {}
+    local_fast_lane_hits = 0
     morning_show_message = get_morning_show_message()
     pending_user_text: str | None = None
     if morning_show_message:
@@ -172,6 +181,13 @@ def run_voice_interaction() -> AssistantControlAction:
                     barge_in_false_count=barge_in_false_count,
                     not_heard_failure=_is_not_heard_failure(capture.failure_reason),
                     auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
+                    routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
+                    prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
+                    primary_intent=primary_intent,
+                    primary_role=primary_role,
+                    role_counts=role_counts,
+                    chat_pack_counts=chat_pack_counts,
+                    local_fast_lane_hits=local_fast_lane_hits,
                 )
                 return assistant_control.consume_action()
             streak = _register_capture_failure(capture.failure_reason)
@@ -191,6 +207,13 @@ def run_voice_interaction() -> AssistantControlAction:
                 barge_in_false_count=barge_in_false_count,
                 not_heard_failure=_is_not_heard_failure(capture.failure_reason),
                 auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
+                routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
+                prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
+                primary_intent=primary_intent,
+                primary_role=primary_role,
+                role_counts=role_counts,
+                chat_pack_counts=chat_pack_counts,
+                local_fast_lane_hits=local_fast_lane_hits,
             )
             return assistant_control.consume_action()
         _reset_capture_failure_streak()
@@ -201,7 +224,20 @@ def run_voice_interaction() -> AssistantControlAction:
         result = _try_local_fast_lane(user_text)
         if result is None:
             result = process_text_detailed(user_text)
+        else:
+            local_fast_lane_hits += 1
         metrics["intent_ms"] += (time.perf_counter() - intent_started) * 1000
+        current_intent = str(getattr(result, "intent", "unknown") or "unknown")
+        current_role = str(getattr(result, "role", "chat_agent") or "chat_agent")
+        if primary_intent is None:
+            primary_intent = current_intent
+        if primary_role is None:
+            primary_role = current_role
+        role_counts[current_role] = role_counts.get(current_role, 0) + 1
+        if current_intent == "chat":
+            chat_pack = get_last_chat_prompt_pack()
+            if chat_pack:
+                chat_pack_counts[chat_pack] = chat_pack_counts.get(chat_pack, 0) + 1
         if first_action_ms is None:
             first_action_ms = (time.perf_counter() - interaction_started) * 1000
         response = result.response
@@ -241,6 +277,13 @@ def run_voice_interaction() -> AssistantControlAction:
         barge_in_false_count=barge_in_false_count,
         not_heard_failure=False,
         auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
+        routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
+        prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
+        primary_intent=primary_intent,
+        primary_role=primary_role,
+        role_counts=role_counts,
+        chat_pack_counts=chat_pack_counts,
+        local_fast_lane_hits=local_fast_lane_hits,
     )
     return assistant_control.consume_action()
 
@@ -360,6 +403,31 @@ def _load_runtime_auto_interrupt_config() -> dict[str, float | bool]:
         "hits_quiet": hits_quiet,
         "hits_normal": hits_normal,
         "hits_noisy": hits_noisy,
+    }
+
+
+def _load_runtime_ab_profiles() -> dict[str, str]:
+    defaults = {
+        "routing_profile": AGENT_ROUTING_PROFILE,
+        "prompt_pack_profile": CHAT_PROMPT_PACK_PROFILE,
+    }
+
+    path = Path(AVATAR_STATE_FILE)
+    if not path.exists():
+        return defaults
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return defaults
+    if not isinstance(payload, dict):
+        return defaults
+
+    routing_profile = str(payload.get("agent_routing_profile", AGENT_ROUTING_PROFILE)).strip()
+    prompt_pack_profile = str(payload.get("chat_prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)).strip()
+    return {
+        "routing_profile": routing_profile or AGENT_ROUTING_PROFILE,
+        "prompt_pack_profile": prompt_pack_profile or CHAT_PROMPT_PACK_PROFILE,
     }
 
 
@@ -582,6 +650,7 @@ def _is_likely_false_barge_in(
 @dataclass(frozen=True)
 class _FastLaneProcessResult:
     intent: str
+    role: str
     response: str
     needs_followup: bool = False
 
@@ -613,6 +682,7 @@ def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
         )
         return _FastLaneProcessResult(
             intent="chat",
+            role="chat_agent",
             response=local_chat_reply,
             needs_followup=True,
         )
@@ -656,6 +726,7 @@ def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
     )
     return _FastLaneProcessResult(
         intent=intent_result.intent,
+        role=role_for_intent(intent_result.intent),
         response=response,
         needs_followup=False,
     )
@@ -1019,6 +1090,13 @@ def _log_voice_perf(
     barge_in_false_count: int = 0,
     not_heard_failure: bool = False,
     auto_interrupt_profile: str = "adaptive_v1",
+    routing_profile: str = AGENT_ROUTING_PROFILE,
+    prompt_pack_profile: str = CHAT_PROMPT_PACK_PROFILE,
+    primary_intent: str | None = None,
+    primary_role: str | None = None,
+    role_counts: dict[str, int] | None = None,
+    chat_pack_counts: dict[str, int] | None = None,
+    local_fast_lane_hits: int = 0,
 ) -> None:
     payload = {
         "status": status,
@@ -1034,5 +1112,12 @@ def _log_voice_perf(
         "barge_in_false_count": int(max(0, barge_in_false_count)),
         "not_heard_failure": bool(not_heard_failure),
         "auto_interrupt_profile": auto_interrupt_profile,
+        "routing_profile": routing_profile,
+        "prompt_pack_profile": prompt_pack_profile,
+        "primary_intent": primary_intent or "",
+        "primary_role": primary_role or "",
+        "role_counts": dict(role_counts or {}),
+        "chat_pack_counts": dict(chat_pack_counts or {}),
+        "local_fast_lane_hits": int(max(0, local_fast_lane_hits)),
     }
     log_interaction_event("voice_perf", payload)

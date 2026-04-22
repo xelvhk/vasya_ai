@@ -5,6 +5,7 @@ from config.settings import (
     OLLAMA_FAST_THINK,
 )
 from config.prompts import INTENT_PROMPT_TEMPLATE
+from core.agent_policy import role_spec_block
 from core.models import IntentResult
 from services.ollama_client import generate
 from utils.intent_fastpaths import detect_fast_intent
@@ -22,7 +23,10 @@ def parse_intent(user_text: str) -> IntentResult:
     if fast_intent is not None:
         return fast_intent
 
-    prompt = INTENT_PROMPT_TEMPLATE.format(user_text=user_text)
+    prompt = INTENT_PROMPT_TEMPLATE.format(
+        user_text=user_text,
+        router_role_spec=role_spec_block("router_agent"),
+    )
     started = time.perf_counter()
     raw_response = generate(
         prompt,

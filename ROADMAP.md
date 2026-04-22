@@ -203,6 +203,9 @@ Good future exports:
 - `v0.5.8`: voice command for text input window, morning show (weather + quote), and faster local fast-lane routing
 - `v0.5.9`: A/B voice contour metrics, adaptive auto-interrupt thresholds, and shell health hints in hover/tray
 - `v0.5.10`: API gateway foundation (`apps/api`) for future iOS/Android clients over shared core logic
+- `v0.5.11`: context/action layer (selected text context, screenshot-aware prompts, and slash-style quick actions)
+- `v0.5.12`: OS action tools with allowlist/confirmation safety, plus role-spec routing and prompt packs for agent behavior
+- `v0.5.13`: A/B voice metrics for routing/prompt profiles, role mix visibility, and TTFR/TTA comparison by profile
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter
@@ -216,8 +219,9 @@ If choosing one practical path from here, the best next order is:
 1. Make the desktop shell feel more product-like
 2. Deepen avatar personalization and user theme import
 3. Continue improving speech understanding and recovery UX
-4. Simplify setup and first-run experience, starting with Windows setup
-5. Deepen adapters such as Obsidian and later Notion
+4. Add context-aware actions (selected text, screenshot prompts, quick slash actions)
+5. Simplify setup and first-run experience, starting with Windows setup
+6. Deepen adapters such as Obsidian and later Notion
 
 ## What 1.0 Means
 

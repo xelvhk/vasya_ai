@@ -272,7 +272,6 @@ def run_voice_interaction() -> AssistantControlAction:
                 tts_started = time.perf_counter()
                 speak(response)
                 metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
-                continue
             barge_in_outcome = _speak_with_barge_in(
                 response,
                 auto_interrupt_config,

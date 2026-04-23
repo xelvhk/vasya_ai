@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from assistant.child_mode import child_mode_store
-from config.settings import PIPER_MODEL_PATH, TTS_PROFILE, TTS_STATE_FILE
+from config.settings import PIPER_MODEL_PATH, TTS_PROFILE, TTS_STATE_FILE, XTTS_SPEAKER_WAV
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,8 @@ class VoiceProfile:
     character: str
     piper_model_name: str | None = None
     piper_length_scale: float | None = None
+    xtts_speaker_wav: str | None = None
+    xtts_language: str | None = None
     say_voice: str | None = None
     say_rate: int | None = None
 
@@ -43,6 +45,17 @@ VOICE_PROFILES: tuple[VoiceProfile, ...] = (
         piper_length_scale=0.88,
         say_voice="Milena",
         say_rate=205,
+    ),
+    VoiceProfile(
+        profile_id="alexa_natural_xtts",
+        label="Алекса — натуральный XTTS",
+        backend="xtts",
+        gender="женский",
+        character="более живой, мягкий, разговорный",
+        xtts_speaker_wav=XTTS_SPEAKER_WAV or None,
+        xtts_language="ru",
+        say_voice="Milena",
+        say_rate=195,
     ),
 )
 
@@ -98,8 +111,24 @@ def get_profile_model_path(profile: VoiceProfile | None = None) -> Path | None:
     return None
 
 
+def get_profile_speaker_wav(profile: VoiceProfile | None = None) -> Path | None:
+    resolved_profile = profile or get_active_voice_profile()
+    speaker = (resolved_profile.xtts_speaker_wav or "").strip()
+    if not speaker:
+        return None
+    candidate = Path(speaker).expanduser()
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def is_profile_installed(profile: VoiceProfile | None = None) -> bool:
-    return get_profile_model_path(profile) is not None
+    resolved_profile = profile or get_active_voice_profile()
+    if resolved_profile.backend == "piper":
+        return get_profile_model_path(resolved_profile) is not None
+    if resolved_profile.backend == "xtts":
+        return get_profile_speaker_wav(resolved_profile) is not None
+    return True
 
 
 def _load_tts_state() -> dict:

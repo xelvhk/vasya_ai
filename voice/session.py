@@ -32,6 +32,7 @@ from config.settings import (
     VOICE_AUTO_INTERRUPT_HITS_QUIET,
     VOICE_AUTO_INTERRUPT_HITS_NORMAL,
     VOICE_AUTO_INTERRUPT_HITS_NOISY,
+    VOICE_EARLY_FAST_IMMEDIATE_INTENTS,
     VOICE_SMART_FOLLOWUP_ENABLED,
     VOICE_SMART_FOLLOWUP_LISTEN_SECONDS,
     VOICE_SMART_FOLLOWUP_RETRIES,
@@ -47,6 +48,7 @@ from core.router import route_intent
 from services.chat_service import generate_chat_reply_local_fast, get_last_chat_prompt_pack
 from services.game_service import is_active_game_fast_phrase
 from services.morning_show_service import get_morning_show_message
+from services.runtime_prewarm_service import start_runtime_prewarm_async
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 from utils.logger import log_interaction_event, log_voice_event
@@ -79,6 +81,24 @@ _PARTIAL_FAST_GAME_PHRASES: dict[str, str] = {
     "давай другую": "Понял игру, можно отвечать.",
 }
 
+_EARLY_IMMEDIATE_INTENTS = {
+    "stop_speaking",
+    "exit_assistant",
+    "open_text_command",
+    "mic_test",
+    "auto_tune_voice",
+    "enable_child_mode",
+    "disable_child_mode",
+    "speed_report",
+    "get_tasks",
+    "get_events",
+    "delete_tasks",
+    "get_notes",
+    "get_user_profile",
+    "read_notion_page",
+    "play_game",
+}
+
 _BARGE_IN_SHORT_STOP = {"стоп", "замолчи", "хватит", "стоп вась", "вася стоп"}
 _NOT_HEARD_REASONS = {
     "low_audio_level",
@@ -109,6 +129,7 @@ class BargeInOutcome:
 
 
 def run_voice_interaction() -> AssistantControlAction:
+    start_runtime_prewarm_async()
     interaction_started = time.perf_counter()
     metrics = {
         "capture_ms": 0.0,
@@ -902,6 +923,12 @@ def _build_early_stop_callback():
         intent_key = _intent_key(intent)
         if intent.intent in {"stop_speaking", "exit_assistant"}:
             assistant_state.set(AssistantStateName.LISTENING, "Понял, этого уже достаточно.")
+            return True
+        if VOICE_EARLY_FAST_IMMEDIATE_INTENTS and intent.intent in _EARLY_IMMEDIATE_INTENTS:
+            if intent.intent == "chat":
+                assistant_state.set(AssistantStateName.LISTENING, "Понял, можно отвечать сразу.")
+            else:
+                assistant_state.set(AssistantStateName.LISTENING, "Понял запрос, можно отвечать.")
             return True
 
         if intent_key == last_intent_key:

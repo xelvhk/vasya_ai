@@ -1,4 +1,5 @@
 .venv/
+.venv_xtts/
 __pycache__/
 *.pyc
 .env
@@ -8,6 +9,9 @@ input.wav
 
 storage/*.json
 storage/*.db
+storage/*.log
 storage/voices/
 storage/google_token.json
+storage/xtts_cache/
+storage/mpl_cache/
 storage/.gitkeep

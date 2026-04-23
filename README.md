@@ -318,6 +318,13 @@ VOICE_ULTRA_FAST_MODE=true
 VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS=true
 VOICE_ULTRA_FAST_MAX_RECORD_SECONDS=3.2
 VOICE_SPEED_REPORT_WINDOW=30
+VOICE_RUNTIME_PREWARM_ENABLED=true
+VOICE_RUNTIME_PREWARM_ON_WIDGET_START=true
+VOICE_RUNTIME_PREWARM_STT=true
+VOICE_RUNTIME_PREWARM_OLLAMA=true
+VOICE_RUNTIME_PREWARM_OLLAMA_CHAT=false
+VOICE_RUNTIME_PREWARM_OLLAMA_TIMEOUT_SECONDS=7.0
+VOICE_EARLY_FAST_IMMEDIATE_INTENTS=true
 WHISPER_MODEL=base
 WHISPER_PARTIAL_MODEL=base
 WHISPER_FINAL_MODEL=large-v3-turbo
@@ -332,6 +339,12 @@ PIPER_COMMAND=piper
 PIPER_MODEL_PATH=storage/voices/ru_RU-ruslan-medium.onnx
 PIPER_SPEAKER=
 PIPER_LENGTH_SCALE=1.0
+XTTS_COMMAND=tts
+XTTS_MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
+XTTS_LANGUAGE=ru
+XTTS_SPEAKER_WAV=
+XTTS_SPEED=1.0
+TTS_HYBRID_SHORT_TEXT_MAX_WORDS=6
 TTS_STATE_FILE=storage/tts_settings.json
 VOICE_INPUT_BACKEND=auto
 HOTKEY_COMBINATION=<cmd>+<option>+<space>
@@ -403,6 +416,7 @@ python -m voice.tts --profile ruslan_direct --text "Hello, this is a voice test"
 
 Voice profiles:
 - `ruslan_direct` — male, fast and direct
+- `alexa_natural_xtts` — female, more natural XTTS voice clone (requires `XTTS_SPEAKER_WAV`)
 
 System voice commands:
 - `Be quiet`
@@ -420,9 +434,12 @@ OS action voice commands:
 
 Alternative TTS path:
 - `say` is still the simplest built-in macOS option
-- `auto` now prefers `piper` if the command is installed and `PIPER_MODEL_PATH` is configured
+- `auto` uses `piper` for piper profiles and can switch to `hybrid (XTTS + Piper)` for XTTS profiles
 - `piper` can be forced explicitly with `TTS_BACKEND=piper`
+- `xtts` can be forced explicitly with `TTS_BACKEND=xtts`
+- `hybrid` can be forced explicitly with `TTS_BACKEND=hybrid` (short replies faster, longer replies more natural)
 - for `piper`, configure at least `PIPER_MODEL_PATH`
+- for XTTS, configure `XTTS_SPEAKER_WAV` (a short clean speaker sample)
 - on first speech, Vasya prints which TTS backend is actually active
 - for Russian local TTS, you can fetch the current voice with `python scripts/setup_piper_ru.py --voices ruslan`
 
@@ -478,6 +495,8 @@ This is still an MVP, so current limits include:
 - `v0.5.11`: context/action layer inspiration (selected text context, screenshot-aware prompts, slash-style quick actions)
 - `v0.5.12`: OS action tools with safety policy plus role-spec routing and chat prompt packs (`default/work/concise/child`)
 - `v0.5.13`: A/B voice metrics extended with routing/prompt profiles, role distribution, TTFR/TTA by profile, and local fast-lane coverage
+- `v0.5.14`: optional XTTS backend with hybrid mode (fast short replies + more natural long replies)
+- `v0.5.15`: runtime prewarm (STT/Ollama) and more aggressive early fast-path for low-risk voice intents
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

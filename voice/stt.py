@@ -68,6 +68,28 @@ def transcribe_partial(audio_path: str) -> str:
     return " ".join(words[:STT_PARTIAL_MAX_WORDS]).strip()
 
 
+def prewarm_stt_models(*, include_final: bool = True) -> None:
+    try:
+        _get_model_with_fallback(
+            preferred_model_name=WHISPER_PARTIAL_MODEL,
+            fallback_model_name=WHISPER_PARTIAL_MODEL,
+            purpose="partial",
+        )
+        if include_final:
+            _get_model_with_fallback(
+                preferred_model_name=WHISPER_FINAL_MODEL,
+                fallback_model_name=WHISPER_PARTIAL_MODEL,
+                purpose="final",
+            )
+        log_voice_event(
+            "stt_prewarm_done "
+            f"partial={WHISPER_PARTIAL_MODEL!r} final={WHISPER_FINAL_MODEL!r} "
+            f"include_final={str(include_final).lower()}"
+        )
+    except Exception as exc:
+        log_voice_event(f"stt_prewarm_failed error={type(exc).__name__}: {exc}")
+
+
 def _get_model(model_name: str) -> WhisperModel:
     model = _MODEL_CACHE.get(model_name)
     if model is not None:

@@ -39,6 +39,7 @@ from config.settings import (
     VOICE_AUTO_INTERRUPT_HITS_QUIET,
     VOICE_AUTO_INTERRUPT_HITS_NORMAL,
     VOICE_AUTO_INTERRUPT_HITS_NOISY,
+    VOICE_RUNTIME_PREWARM_ON_WIDGET_START,
 )
 from utils.hotkeys import normalize_hotkey_combination
 from utils.logger import log, log_voice_event
@@ -57,6 +58,7 @@ from services.speed_report_service import (
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.notion_service import NotionServiceError, read_page_text
 from services.morning_show_service import get_morning_show_message, reset_morning_show_today
+from services.runtime_prewarm_service import start_runtime_prewarm_async
 from voice.profiles import get_active_voice_profile, list_voice_profiles
 from voice.recorder import record_audio
 from voice.session import run_voice_interaction
@@ -1865,6 +1867,8 @@ def main() -> None:
             self._start_hotkey_listener()
             self._setup_tray()
             self._maybe_run_onboarding()
+            if VOICE_RUNTIME_PREWARM_ON_WIDGET_START:
+                start_runtime_prewarm_async()
 
         def _resolve_avatar_path(self) -> Path | None:
             override_path = str(self._widget_state.get("avatar_image_path", "")).strip()

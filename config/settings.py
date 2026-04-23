@@ -42,6 +42,33 @@ VOICE_ULTRA_FAST_MAX_RECORD_SECONDS = float(
     os.getenv("VOICE_ULTRA_FAST_MAX_RECORD_SECONDS", "3.2")
 )
 VOICE_SPEED_REPORT_WINDOW = int(os.getenv("VOICE_SPEED_REPORT_WINDOW", "30"))
+VOICE_RUNTIME_PREWARM_ENABLED = os.getenv(
+    "VOICE_RUNTIME_PREWARM_ENABLED",
+    "true",
+).lower() == "true"
+VOICE_RUNTIME_PREWARM_ON_WIDGET_START = os.getenv(
+    "VOICE_RUNTIME_PREWARM_ON_WIDGET_START",
+    "true",
+).lower() == "true"
+VOICE_RUNTIME_PREWARM_STT = os.getenv(
+    "VOICE_RUNTIME_PREWARM_STT",
+    "true",
+).lower() == "true"
+VOICE_RUNTIME_PREWARM_OLLAMA = os.getenv(
+    "VOICE_RUNTIME_PREWARM_OLLAMA",
+    "true",
+).lower() == "true"
+VOICE_RUNTIME_PREWARM_OLLAMA_CHAT = os.getenv(
+    "VOICE_RUNTIME_PREWARM_OLLAMA_CHAT",
+    "false",
+).lower() == "true"
+VOICE_RUNTIME_PREWARM_OLLAMA_TIMEOUT_SECONDS = float(
+    os.getenv("VOICE_RUNTIME_PREWARM_OLLAMA_TIMEOUT_SECONDS", "7.0")
+)
+VOICE_EARLY_FAST_IMMEDIATE_INTENTS = os.getenv(
+    "VOICE_EARLY_FAST_IMMEDIATE_INTENTS",
+    "true",
+).lower() == "true"
 AGENT_ROUTING_PROFILE = os.getenv("AGENT_ROUTING_PROFILE", "rolepack_v1").strip()
 CHAT_PROMPT_PACK_PROFILE = os.getenv("CHAT_PROMPT_PACK_PROFILE", "dynamic_v1").strip()
 MORNING_SHOW_ENABLED = os.getenv("MORNING_SHOW_ENABLED", "true").lower() == "true"
@@ -225,6 +252,16 @@ PIPER_MODEL_PATH = os.getenv(
 )
 PIPER_SPEAKER = os.getenv("PIPER_SPEAKER", "")
 PIPER_LENGTH_SCALE = os.getenv("PIPER_LENGTH_SCALE", "1.0")
+XTTS_COMMAND = os.getenv("XTTS_COMMAND", "tts")
+XTTS_MODEL_NAME = os.getenv(
+    "XTTS_MODEL_NAME",
+    "tts_models/multilingual/multi-dataset/xtts_v2",
+).strip()
+XTTS_LANGUAGE = os.getenv("XTTS_LANGUAGE", "ru").strip()
+XTTS_SPEAKER_WAV = os.getenv("XTTS_SPEAKER_WAV", "").strip()
+XTTS_SPEED = float(os.getenv("XTTS_SPEED", "1.0"))
+XTTS_TIMEOUT_SECONDS = int(os.getenv("XTTS_TIMEOUT_SECONDS", "600"))
+TTS_HYBRID_SHORT_TEXT_MAX_WORDS = int(os.getenv("TTS_HYBRID_SHORT_TEXT_MAX_WORDS", "6"))
 
 STORAGE_DB_FILE = os.getenv("STORAGE_DB_FILE", "storage/vasya.db")
 CALENDAR_STORAGE_FILE = os.getenv("CALENDAR_STORAGE_FILE", "storage/calendar.json")

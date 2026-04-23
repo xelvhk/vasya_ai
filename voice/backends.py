@@ -23,6 +23,7 @@ from config.settings import (
     PIPER_MODEL_PATH,
     PIPER_SPEAKER,
     TTS_BACKEND,
+    TTS_HYBRID_SHORT_TEXT_MAX_WORDS,
     TTS_RATE,
     TTS_VOICE,
     VOICE_EARLY_FAST_INTENT_ENABLED,
@@ -34,12 +35,18 @@ from config.settings import (
     VOICE_SILENCE_RMS,
     VOICE_START_TIMEOUT_SECONDS,
     VOICE_INPUT_BACKEND,
+    XTTS_COMMAND,
+    XTTS_LANGUAGE,
+    XTTS_MODEL_NAME,
+    XTTS_TIMEOUT_SECONDS,
+    XTTS_SPEED,
 )
 from utils.platform_runtime import get_platform_name
 from voice.profiles import (
     VoiceProfile,
     get_active_voice_profile,
     get_profile_model_path,
+    get_profile_speaker_wav,
     get_voice_profile,
     is_profile_installed,
     list_voice_profiles,
@@ -218,6 +225,8 @@ class PiperTTSBackend(BaseTTSBackend):
     def list_voices(self) -> list[str]:
         voices = []
         for profile in list_voice_profiles():
+            if profile.backend != "piper":
+                continue
             suffix = "" if is_profile_installed(profile) else " (нужно скачать)"
             voices.append(f"{profile.label}{suffix}")
         return voices
@@ -298,6 +307,213 @@ class PiperTTSBackend(BaseTTSBackend):
         finally:
             with self._lock:
                 self._play_process = None
+
+
+class XTTSBackend(BaseTTSBackend):
+    name = "xtts"
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._tts_process: subprocess.Popen[str] | None = None
+        self._play_process: subprocess.Popen[str] | None = None
+        self._is_playing = False
+
+    def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
+        _ = rate
+        profile = _resolve_voice_profile(voice)
+        if profile.backend != "xtts":
+            raise RuntimeError("XTTS backend expects an xtts profile.")
+        command_path = _resolve_command(XTTS_COMMAND)
+        if command_path is None:
+            raise RuntimeError(f"XTTS command '{XTTS_COMMAND}' was not found.")
+        speaker_wav = get_profile_speaker_wav(profile)
+        if speaker_wav is None:
+            raise RuntimeError(
+                f"XTTS speaker sample for profile '{profile.label}' is not configured. "
+                "Set XTTS_SPEAKER_WAV in .env or choose a piper profile."
+            )
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            output_path = Path(temp_file.name)
+        xtts_cache_dir = Path("storage/xtts_cache").resolve()
+        mpl_cache_dir = Path("storage/mpl_cache").resolve()
+        xtts_cache_dir.mkdir(parents=True, exist_ok=True)
+        mpl_cache_dir.mkdir(parents=True, exist_ok=True)
+
+        language = (profile.xtts_language or XTTS_LANGUAGE or "ru").strip() or "ru"
+        command = [
+            command_path,
+            "--model_name",
+            XTTS_MODEL_NAME,
+            "--text",
+            text,
+            "--speaker_wav",
+            str(speaker_wav),
+            "--language_idx",
+            language,
+            "--out_path",
+            str(output_path),
+        ]
+
+        tts_process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={
+                **os.environ,
+                "TTS_HOME": str(xtts_cache_dir),
+                "XDG_DATA_HOME": str(xtts_cache_dir),
+                "MPLCONFIGDIR": str(mpl_cache_dir),
+                "COQUI_TOS_AGREED": "1",
+            },
+        )
+        with self._lock:
+            self._tts_process = tts_process
+        try:
+            _stdout, stderr = tts_process.communicate(timeout=max(120, XTTS_TIMEOUT_SECONDS))
+            if tts_process.returncode != 0:
+                raise RuntimeError((stderr or "").strip() or "XTTS synthesis failed.")
+        finally:
+            with self._lock:
+                if self._tts_process is tts_process:
+                    self._tts_process = None
+
+        if not output_path.exists():
+            return
+
+        try:
+            self._play_audio_file(output_path)
+        finally:
+            with self._lock:
+                self._is_playing = False
+            output_path.unlink(missing_ok=True)
+
+    def list_voices(self) -> list[str]:
+        voices = []
+        for profile in list_voice_profiles():
+            if profile.backend != "xtts":
+                continue
+            suffix = "" if is_profile_installed(profile) else " (нужно указать XTTS_SPEAKER_WAV)"
+            voices.append(f"{profile.label}{suffix}")
+        return voices
+
+    def stop(self) -> None:
+        with self._lock:
+            tts_process = self._tts_process
+        if tts_process is not None and tts_process.poll() is None:
+            tts_process.terminate()
+            try:
+                tts_process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                tts_process.kill()
+        sd.stop()
+        with self._lock:
+            play_process = self._play_process
+        if play_process is not None and play_process.poll() is None:
+            play_process.terminate()
+            try:
+                play_process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                play_process.kill()
+        with self._lock:
+            self._tts_process = None
+            self._play_process = None
+            self._is_playing = False
+
+    def is_speaking(self) -> bool:
+        with self._lock:
+            tts_process = self._tts_process
+            play_process = self._play_process
+            is_playing = self._is_playing
+        return (
+            (tts_process is not None and tts_process.poll() is None)
+            or (play_process is not None and play_process.poll() is None)
+            or is_playing
+        )
+
+    def _play_audio_file(self, output_path: Path) -> None:
+        if get_platform_name() == "macos" and self._play_with_afplay(output_path):
+            return
+
+        try:
+            sample_rate, audio_data = read_wav(str(output_path))
+            if audio_data.dtype.kind in ("i", "u"):
+                max_value = max(abs(np.iinfo(audio_data.dtype).min), np.iinfo(audio_data.dtype).max)
+                audio_data = audio_data.astype(np.float32) / float(max_value)
+            else:
+                audio_data = audio_data.astype(np.float32)
+
+            if audio_data.ndim > 1 and audio_data.shape[1] == 1:
+                audio_data = audio_data.reshape(-1)
+
+            with self._lock:
+                self._is_playing = True
+            sd.play(audio_data, sample_rate)
+            sd.wait()
+            return
+        except Exception:
+            sd.stop()
+
+        if self._play_with_afplay(output_path):
+            return
+
+        print("[XTTS playback error] Unable to play generated audio")
+
+    def _play_with_afplay(self, output_path: Path) -> bool:
+        try:
+            play_process = subprocess.Popen(["afplay", str(output_path)])
+            with self._lock:
+                self._play_process = play_process
+                self._is_playing = True
+            play_process.wait(timeout=120)
+            return play_process.returncode == 0
+        except Exception as exc:
+            print(f"[XTTS playback error] {exc}")
+            return False
+        finally:
+            with self._lock:
+                self._play_process = None
+
+
+class HybridTTSBackend(BaseTTSBackend):
+    name = "hybrid"
+
+    def __init__(self) -> None:
+        self._piper = PiperTTSBackend()
+        self._xtts = XTTSBackend()
+
+    def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
+        words = [word for word in text.split() if word.strip()]
+        use_fast = len(words) <= max(1, TTS_HYBRID_SHORT_TEXT_MAX_WORDS)
+        profile = _resolve_voice_profile(voice)
+        if profile.backend == "piper":
+            self._piper.speak(text, voice=voice, rate=rate)
+            return
+        if profile.backend == "xtts":
+            if use_fast and is_piper_available():
+                try:
+                    self._piper.speak(text, voice="ruslan_direct", rate=rate)
+                    return
+                except Exception:
+                    pass
+            self._xtts.speak(text, voice=voice, rate=rate)
+            return
+
+        if use_fast and is_piper_available():
+            self._piper.speak(text, voice=voice, rate=rate)
+            return
+        self._xtts.speak(text, voice=voice, rate=rate)
+
+    def list_voices(self) -> list[str]:
+        return self._piper.list_voices() + self._xtts.list_voices()
+
+    def stop(self) -> None:
+        self._piper.stop()
+        self._xtts.stop()
+
+    def is_speaking(self) -> bool:
+        return self._piper.is_speaking() or self._xtts.is_speaking()
 
 
 _TTS_BACKEND: BaseTTSBackend | None = None
@@ -463,12 +679,25 @@ def get_tts_backend() -> BaseTTSBackend:
     if backend_name == "piper":
         _TTS_BACKEND = PiperTTSBackend()
         return _TTS_BACKEND
+    if backend_name == "xtts":
+        _TTS_BACKEND = XTTSBackend()
+        return _TTS_BACKEND
+    if backend_name == "hybrid":
+        _TTS_BACKEND = HybridTTSBackend()
+        return _TTS_BACKEND
     if backend_name == "say":
         _TTS_BACKEND = MacOSTTSBackend()
         return _TTS_BACKEND
     if backend_name == "auto":
+        active_profile = get_active_voice_profile()
+        if active_profile.backend == "xtts" and is_xtts_available(active_profile):
+            _TTS_BACKEND = HybridTTSBackend()
+            return _TTS_BACKEND
         if is_piper_available():
             _TTS_BACKEND = PiperTTSBackend()
+            return _TTS_BACKEND
+        if active_profile.backend == "xtts" and is_xtts_command_available():
+            _TTS_BACKEND = XTTSBackend()
             return _TTS_BACKEND
         if platform_name == "macos":
             _TTS_BACKEND = MacOSTTSBackend()
@@ -493,6 +722,14 @@ def is_piper_available() -> bool:
     return get_profile_model_path() is not None and _resolve_piper_command() is not None
 
 
+def is_xtts_command_available() -> bool:
+    return _resolve_command(XTTS_COMMAND) is not None
+
+
+def is_xtts_available(profile: VoiceProfile | None = None) -> bool:
+    return is_xtts_command_available() and get_profile_speaker_wav(profile) is not None
+
+
 def get_tts_backend_name() -> str:
     return get_tts_backend().name
 
@@ -503,10 +740,26 @@ def get_tts_backend_status() -> str:
     active_profile = get_active_voice_profile()
 
     if configured_backend == "auto":
+        if active_profile.backend == "xtts" and active_backend == "piper":
+            return (
+                f"TTS backend: piper fallback (XTTS profile '{active_profile.label}' is unavailable; "
+                "check XTTS_SPEAKER_WAV and XTTS_COMMAND)"
+            )
+        if active_backend == "hybrid":
+            speaker = get_profile_speaker_wav(active_profile)
+            speaker_name = speaker.name if speaker is not None else "missing speaker wav"
+            return (
+                f"TTS backend: hybrid (XTTS + Piper, {active_profile.label}, "
+                f"speaker={speaker_name})"
+            )
         if active_backend == "piper":
             model_path = get_profile_model_path(active_profile)
             model_name = model_path.name if model_path is not None else "missing model"
             return f"TTS backend: piper ({active_profile.label}, {model_name})"
+        if active_backend == "xtts":
+            speaker = get_profile_speaker_wav(active_profile)
+            speaker_name = speaker.name if speaker is not None else "missing speaker wav"
+            return f"TTS backend: xtts ({active_profile.label}, speaker={speaker_name})"
         if active_backend == "say":
             return f"TTS backend: say ({active_profile.label})"
         return f"TTS backend: {active_backend}"
@@ -515,11 +768,26 @@ def get_tts_backend_status() -> str:
         if get_profile_model_path(active_profile) is None:
             return f"TTS backend: piper is selected, but the model for '{active_profile.label}' is not installed"
         return f"TTS backend: piper is selected, but command '{PIPER_COMMAND}' was not found"
+    if configured_backend == "xtts" and not is_xtts_available(active_profile):
+        if get_profile_speaker_wav(active_profile) is None:
+            return (
+                f"TTS backend: xtts is selected, but speaker sample for "
+                f"'{active_profile.label}' is not configured"
+            )
+        return f"TTS backend: xtts is selected, but command '{XTTS_COMMAND}' was not found"
 
+    if active_backend == "hybrid":
+        speaker = get_profile_speaker_wav(active_profile)
+        speaker_name = speaker.name if speaker is not None else "missing speaker wav"
+        return f"TTS backend: hybrid (XTTS + Piper, {active_profile.label}, speaker={speaker_name})"
     if active_backend == "piper":
         model_path = get_profile_model_path(active_profile)
         model_name = model_path.name if model_path is not None else "missing model"
         return f"TTS backend: piper ({active_profile.label}, {model_name})"
+    if active_backend == "xtts":
+        speaker = get_profile_speaker_wav(active_profile)
+        speaker_name = speaker.name if speaker is not None else "missing speaker wav"
+        return f"TTS backend: xtts ({active_profile.label}, speaker={speaker_name})"
     if active_backend == "say":
         return f"TTS backend: say ({active_profile.label})"
     return f"TTS backend: {active_backend}"
@@ -534,20 +802,24 @@ def reset_tts_backend() -> None:
 
 
 def _resolve_piper_command() -> str | None:
-    if Path(PIPER_COMMAND).expanduser().exists():
-        return str(Path(PIPER_COMMAND).expanduser())
+    return _resolve_command(PIPER_COMMAND)
 
-    command_from_path = shutil.which(PIPER_COMMAND)
+
+def _resolve_command(command_name: str) -> str | None:
+    if Path(command_name).expanduser().exists():
+        return str(Path(command_name).expanduser())
+
+    command_from_path = shutil.which(command_name)
     if command_from_path is not None:
         return command_from_path
 
     virtual_env = os.getenv("VIRTUAL_ENV")
     if virtual_env:
-        sibling_command = Path(virtual_env) / "bin" / "piper"
+        sibling_command = Path(virtual_env) / "bin" / command_name
         if sibling_command.exists():
             return str(sibling_command)
 
-    sibling_command = Path(sys.executable).parent / "piper"
+    sibling_command = Path(sys.executable).parent / command_name
     if sibling_command.exists():
         return str(sibling_command)
 

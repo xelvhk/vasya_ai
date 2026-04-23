@@ -190,6 +190,10 @@ python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 Main endpoints:
 - `GET /health`
 - `POST /v1/chat`
+- `POST /v1/pipeline` (stage-based text pipeline, optional TTS)
+- `GET /v1/backends` (registered STT/TTS/LLM modules)
+- `GET /v1/bench/voice` (benchmark snapshot from logs)
+- `WS /v1/ws/voice` (realtime text->intent->response events)
 - `GET/POST /v1/tasks`
 - `GET/POST /v1/notes`
 - `GET/POST /v1/events`
@@ -513,6 +517,7 @@ This is still an MVP, so current limits include:
 - `v0.5.15`: runtime prewarm (STT/Ollama) and more aggressive early fast-path for low-risk voice intents
 - `v0.5.16`: voice intents for Obsidian note updates and GitHub project sync to Obsidian (README-adapted notes)
 - `v0.5.17`: instant weather small-talk and pre-generated morning show cache for near-zero wait on first “good morning”
+- `v0.5.18`: streaming pipeline layer, WebSocket realtime mode, modular STT/TTS/LLM registry, and benchmark harness
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

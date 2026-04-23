@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+import re
+import time
+from dataclasses import asdict, dataclass, field
+from typing import Generator
+
+from core.orchestrator import process_text_detailed
+from utils.logger import log_interaction_event
+from voice.backend_registry import get_tts_backend
+
+
+@dataclass(frozen=True)
+class PipelineEvent:
+    type: str
+    stage: str
+    ts_ms: float
+    data: dict[str, object] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PipelineResult:
+    intent: str
+    response: str
+    needs_followup: bool
+    metrics: dict[str, float]
+
+
+def run_text_pipeline(
+    user_text: str,
+    *,
+    speak_response: bool = False,
+    tts_backend_name: str = "default",
+) -> Generator[PipelineEvent, None, PipelineResult]:
+    started = time.perf_counter()
+    text = " ".join(str(user_text).split())
+    if not text:
+        raise ValueError("Text is empty.")
+
+    yield _event("stage", "input_received", started, {"text": text})
+
+    intent_started = time.perf_counter()
+    result = process_text_detailed(text)
+    intent_ms = (time.perf_counter() - intent_started) * 1000
+    yield _event(
+        "intent",
+        "intent_resolved",
+        started,
+        {
+            "intent": result.intent,
+            "needs_followup": bool(result.needs_followup),
+            "intent_ms": round(intent_ms, 2),
+        },
+    )
+
+    first_chunk_ms = (time.perf_counter() - started) * 1000
+    chunks = _chunk_response(result.response)
+    if not chunks:
+        chunks = [result.response.strip()] if result.response.strip() else []
+
+    for idx, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        yield _event(
+            "response_chunk",
+            "response_stream",
+            started,
+            {
+                "text": chunk,
+                "index": idx,
+                "is_final": idx == len(chunks) - 1,
+            },
+        )
+
+    tts_ms = 0.0
+    if speak_response and result.response.strip():
+        tts_backend = get_tts_backend(tts_backend_name)
+        tts_started = time.perf_counter()
+        tts_backend.speak(result.response)
+        tts_ms = (time.perf_counter() - tts_started) * 1000
+        yield _event(
+            "stage",
+            "tts_done",
+            started,
+            {"tts_ms": round(tts_ms, 2), "tts_backend": getattr(tts_backend, "backend_id", "unknown")},
+        )
+
+    total_ms = (time.perf_counter() - started) * 1000
+    metrics = {
+        "intent_ms": round(intent_ms, 2),
+        "ttfr_ms": round(first_chunk_ms, 2),
+        "tts_ms": round(tts_ms, 2),
+        "total_ms": round(total_ms, 2),
+    }
+    yield _event("done", "pipeline_done", started, {"metrics": metrics})
+
+    log_interaction_event(
+        "pipeline_text_perf",
+        {
+            "intent": result.intent,
+            "needs_followup": bool(result.needs_followup),
+            **metrics,
+        },
+    )
+    return PipelineResult(
+        intent=result.intent,
+        response=result.response,
+        needs_followup=bool(result.needs_followup),
+        metrics=metrics,
+    )
+
+
+def _event(event_type: str, stage: str, started: float, data: dict[str, object]) -> PipelineEvent:
+    return PipelineEvent(
+        type=event_type,
+        stage=stage,
+        ts_ms=round((time.perf_counter() - started) * 1000, 2),
+        data=data,
+    )
+
+
+def _chunk_response(text: str) -> list[str]:
+    normalized = str(text).strip()
+    if not normalized:
+        return []
+    parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", normalized) if part.strip()]
+    if parts:
+        return parts
+    return [normalized]

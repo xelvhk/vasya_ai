@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import Header, HTTPException
+from fastapi import WebSocket
 
 from config.settings import VASYA_API_AUTH_TOKEN
 
@@ -13,3 +14,10 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
         return
     raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
+
+def is_ws_authorized(websocket: WebSocket) -> bool:
+    if not VASYA_API_AUTH_TOKEN:
+        return True
+    query_token = websocket.query_params.get("api_key")
+    header_token = websocket.headers.get("x-api-key")
+    return query_token == VASYA_API_AUTH_TOKEN or header_token == VASYA_API_AUTH_TOKEN

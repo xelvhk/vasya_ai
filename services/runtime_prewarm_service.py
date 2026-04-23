@@ -16,6 +16,7 @@ from services.ollama_client import (
     generate,
     resolve_chat_model,
 )
+from services.morning_show_service import prewarm_morning_show_async
 from utils.logger import log_voice_event
 from voice.stt import prewarm_stt_models
 
@@ -37,6 +38,7 @@ def start_runtime_prewarm_async() -> None:
 
 def _run_prewarm() -> None:
     log_voice_event("runtime_prewarm_start")
+    prewarm_morning_show_async()
     if VOICE_RUNTIME_PREWARM_STT:
         prewarm_stt_models(include_final=True)
 

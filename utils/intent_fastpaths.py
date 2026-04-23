@@ -269,6 +269,56 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     }:
         return IntentResult(intent="export_notes", data={})
 
+    append_obsidian_patterns = (
+        r"^(?:добавь|запиши)\s+(?:в\s+)?обсидиан(?:\s+в\s+заметк[еу]\s+(.+?))?\s*[:\-]\s*(.+)$",
+        r"^(?:добавь|запиши)\s+в\s+заметк[еу]\s+(.+?)\s+в\s+обсидиан\s*[:\-]\s*(.+)$",
+    )
+    for pattern in append_obsidian_patterns:
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        title = str(match.group(1) or "").strip(" .,:;!-") or "Vasya Note"
+        text = str(match.group(2) or "").strip()
+        if text:
+            return IntentResult(intent="append_obsidian_note", data={"title": title, "text": text})
+
+    replace_obsidian_patterns = (
+        r"^(?:обнови|замени|перезапиши)\s+(?:заметк[ау]\s+)?(?:в\s+)?обсидиан(?:\s+(.+?))?\s*[:\-]\s*(.+)$",
+        r"^(?:обнови|замени|перезапиши)\s+заметк[ау]\s+(.+?)\s+в\s+обсидиан\s*[:\-]\s*(.+)$",
+    )
+    for pattern in replace_obsidian_patterns:
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        title = str(match.group(1) or "").strip(" .,:;!-") or "Vasya Note"
+        text = str(match.group(2) or "").strip()
+        if text:
+            return IntentResult(intent="replace_obsidian_note", data={"title": title, "text": text})
+
+    sync_obsidian_patterns = (
+        r"^(?:добавь|синхронизируй|обнови|сделай)\s+(?:проект\s+)?(?:github|гитхаб)\s+([\w.\-]+/[\w.\-]+)\s+(?:в|с)\s+обсидиан\b",
+        r"^(?:добавь|синхронизируй|обнови)\s+проект\s+в\s+обсидиан\s+из\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\b",
+    )
+    for pattern in sync_obsidian_patterns:
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        repo = ""
+        for group_value in match.groups():
+            if group_value:
+                repo = str(group_value).strip()
+                break
+        data = {"repo": repo} if repo else {}
+        return IntentResult(intent="sync_github_obsidian_project", data=data)
+
+    if normalized in {
+        "добавь проект github в обсидиан",
+        "добавь проект гитхаб в обсидиан",
+        "синхронизируй github в обсидиан",
+        "синхронизируй гитхаб в обсидиан",
+    }:
+        return IntentResult(intent="sync_github_obsidian_project", data={})
+
     sync_notion_patterns = (
         r"^(?:синхронизируй|обнови)\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\s+(?:в|с)\s+(?:notion|ноушн)\b",
         r"^(?:синхронизируй|обнови)\s+(?:notion|ноушн)\s+по\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\b",
@@ -442,8 +492,11 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "remember_user_profile",
         "forget_user_profile",
         "sync_github_notion",
+        "sync_github_obsidian_project",
         "read_notion_page",
         "append_notion_page",
+        "append_obsidian_note",
+        "replace_obsidian_note",
         "os_open_url",
         "os_open_app",
         "os_type_text",

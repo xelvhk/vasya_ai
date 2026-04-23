@@ -74,6 +74,13 @@ CHAT_PROMPT_PACK_PROFILE = os.getenv("CHAT_PROMPT_PACK_PROFILE", "dynamic_v1").s
 MORNING_SHOW_ENABLED = os.getenv("MORNING_SHOW_ENABLED", "true").lower() == "true"
 MORNING_SHOW_CITY = os.getenv("MORNING_SHOW_CITY", "Moscow").strip()
 MORNING_SHOW_HOUR_LIMIT = int(os.getenv("MORNING_SHOW_HOUR_LIMIT", "12"))
+MORNING_SHOW_PREWARM_ENABLED = os.getenv(
+    "MORNING_SHOW_PREWARM_ENABLED",
+    "true",
+).lower() == "true"
+MORNING_SHOW_WEATHER_CACHE_MINUTES = int(
+    os.getenv("MORNING_SHOW_WEATHER_CACHE_MINUTES", "30")
+)
 MORNING_SHOW_STATE_FILE = os.getenv(
     "MORNING_SHOW_STATE_FILE",
     "storage/morning_show_state.json",
@@ -210,6 +217,14 @@ OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "").strip()
 OBSIDIAN_EXPORT_NOTES_DIR = os.getenv(
     "OBSIDIAN_EXPORT_NOTES_DIR",
     "Vasya Inbox",
+).strip()
+OBSIDIAN_EDIT_NOTES_DIR = os.getenv(
+    "OBSIDIAN_EDIT_NOTES_DIR",
+    OBSIDIAN_EXPORT_NOTES_DIR or "Vasya Inbox",
+).strip()
+OBSIDIAN_PROJECTS_DIR = os.getenv(
+    "OBSIDIAN_PROJECTS_DIR",
+    "Projects",
 ).strip()
 NOTION_API_TOKEN = os.getenv("NOTION_API_TOKEN", "").strip()
 NOTION_API_BASE_URL = os.getenv("NOTION_API_BASE_URL", "https://api.notion.com/v1").strip()

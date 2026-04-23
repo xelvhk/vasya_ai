@@ -15,6 +15,10 @@ from services.github_notion_sync_service import (
     read_notion_updates_page,
     sync_project_updates_to_notion,
 )
+from services.github_obsidian_sync_service import (
+    sync_github_project_to_obsidian,
+    update_obsidian_note,
+)
 from services.speed_report_service import build_voice_diagnostics_report
 from services.os_action_service import execute_os_action
 from services.voice_recovery_service import apply_voice_auto_tune_from_metrics, run_voice_mic_test
@@ -117,6 +121,16 @@ def _run_notion_github_sync_tool(intent_result: IntentResult) -> str:
     return append_note_to_notion(text, page_id=page_id)
 
 
+def _run_obsidian_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "sync_github_obsidian_project":
+        repo = str(intent_result.data.get("repo", "")).strip() or None
+        return sync_github_project_to_obsidian(repo=repo)
+    mode = "replace" if intent_result.intent == "replace_obsidian_note" else "append"
+    title = str(intent_result.data.get("title", "")).strip()
+    text = str(intent_result.data.get("text", "")).strip()
+    return update_obsidian_note(title=title, content=text, mode=mode)
+
+
 def _run_speed_report_tool(intent_result: IntentResult) -> str:
     _ = intent_result
     return build_voice_diagnostics_report(limit=24)
@@ -215,6 +229,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Чтение/запись в Notion и синхронизация последних изменений из GitHub.",
         intents=("sync_github_notion", "read_notion_page", "append_notion_page"),
         handler=_run_notion_github_sync_tool,
+    ),
+    ToolSpec(
+        tool_id="obsidian_sync",
+        description="Обновление заметок Obsidian и создание проектной заметки из GitHub README.",
+        intents=("append_obsidian_note", "replace_obsidian_note", "sync_github_obsidian_project"),
+        handler=_run_obsidian_tool,
     ),
     ToolSpec(
         tool_id="speed_report",

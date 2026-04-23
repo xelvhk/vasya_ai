@@ -28,6 +28,9 @@ Role spec:
 - sync_github_notion
 - read_notion_page
 - append_notion_page
+- append_obsidian_note
+- replace_obsidian_note
+- sync_github_obsidian_project
 - speed_report
 - os_open_url
 - os_open_app
@@ -98,30 +101,41 @@ Role spec:
    - text: что добавить в страницу Notion
    - page_id: optional
    - используй для фраз "запиши в notion ..."
-23. Для speed_report:
+23. Для append_obsidian_note:
+   - title: название заметки (optional)
+   - text: текст, который нужно дописать в заметку Obsidian
+   - используй для фраз "добавь в обсидиан ...: ..."
+24. Для replace_obsidian_note:
+   - title: название заметки (optional)
+   - text: новый текст заметки Obsidian
+   - используй для фраз "обнови заметку в обсидиан ...: ..."
+25. Для sync_github_obsidian_project:
+   - repo: optional, owner/repo
+   - используй для фраз "добавь проект github owner/repo в обсидиан"
+26. Для speed_report:
    - используй, если пользователь просит показать скорость ответа или отчет по задержкам
-24. Для os_open_url:
+27. Для os_open_url:
    - url: ссылка, которую нужно открыть
    - используй для фраз "открой сайт ...", "перейди на ..."
-25. Для os_open_app:
+28. Для os_open_app:
    - app: название приложения
    - используй для фраз "открой браузер", "открой Notion"
-26. Для os_type_text:
+29. Для os_type_text:
    - text: текст, который нужно напечатать
    - используй для фраз "введи текст ...", "напечатай ..."
-27. Для os_keypress:
+30. Для os_keypress:
    - keys: список клавиш или строка сочетания, например ["cmd","k"] или "enter"
    - используй для фраз "нажми Enter", "нажми cmd+k"
-28. Для os_click:
+31. Для os_click:
    - button: left/right/middle (optional, default left)
    - clicks: число кликов (optional)
    - используй для фраз "кликни", "правый клик"
-29. Для os_scroll:
+32. Для os_scroll:
    - amount: число (optional), отрицательное вниз, положительное вверх
    - используй для фраз "прокрути вниз/вверх"
-30. Для chat:
+33. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
-   - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub синка
+   - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub/Obsidian синка
 
 Примеры ответа:
 
@@ -258,6 +272,21 @@ Role spec:
   "intent": "append_notion_page",
   "data": {{
     "text": "обновили auth и пофиксили таймауты"
+  }}
+}}
+
+{{
+  "intent": "append_obsidian_note",
+  "data": {{
+    "title": "проект васи",
+    "text": "добавить поддержку windows установки"
+  }}
+}}
+
+{{
+  "intent": "sync_github_obsidian_project",
+  "data": {{
+    "repo": "owner/repo"
   }}
 }}
 

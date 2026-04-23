@@ -97,6 +97,7 @@ _EARLY_IMMEDIATE_INTENTS = {
     "get_user_profile",
     "read_notion_page",
     "play_game",
+    "sync_github_obsidian_project",
 }
 
 _BARGE_IN_SHORT_STOP = {"стоп", "замолчи", "хватит", "стоп вась", "вася стоп"}
@@ -727,8 +728,11 @@ def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
         "forget_user_profile",
         "get_user_profile",
         "sync_github_notion",
+        "sync_github_obsidian_project",
         "read_notion_page",
         "append_notion_page",
+        "append_obsidian_note",
+        "replace_obsidian_note",
         "get_events",
         "create_event",
         "delete_event",
@@ -956,8 +960,11 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
             "get_notes",
             "export_notes",
             "sync_github_notion",
+            "sync_github_obsidian_project",
             "read_notion_page",
             "append_notion_page",
+            "append_obsidian_note",
+            "replace_obsidian_note",
             "remember_user_profile",
             "forget_user_profile",
             "get_user_profile",
@@ -1057,8 +1064,11 @@ def _is_safe_low_confidence_fast_path(transcription: TranscriptionResult) -> boo
         "get_notes",
         "export_notes",
         "sync_github_notion",
+        "sync_github_obsidian_project",
         "read_notion_page",
         "append_notion_page",
+        "append_obsidian_note",
+        "replace_obsidian_note",
     }
 
 

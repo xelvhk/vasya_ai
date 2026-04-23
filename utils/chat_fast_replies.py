@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from services.morning_show_service import get_weather_quick_reply
+
 
 def generate_local_chat_reply(
     user_text: str,
@@ -56,6 +58,13 @@ def generate_local_chat_reply(
             "Привет. Я на связи, чем помочь?",
             "Привет. Давай, что у тебя?",
         )
+
+    if re.match(
+        r"^(какая погода|что с погодой|расскажи о погоде|погода|какая сейчас погода|что там по погоде)\b",
+        normalized,
+    ):
+        weather_line = get_weather_quick_reply()
+        return f"{weather_line} Хочешь, добавлю и короткий план на день?"
 
     if re.match(r"^спасибо\b", normalized):
         return _pick_variant(

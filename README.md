@@ -376,6 +376,10 @@ GITHUB_API_TOKEN=
 GITHUB_DEFAULT_REPO=owner/repo
 GITHUB_SYNC_DEFAULT_HOURS=24
 GITHUB_SYNC_STATE_FILE=storage/github_notion_sync_state.json
+OBSIDIAN_VAULT_PATH=/absolute/path/to/your/Obsidian/Vault
+OBSIDIAN_EXPORT_NOTES_DIR=Vasya Inbox
+OBSIDIAN_EDIT_NOTES_DIR=Vasya Inbox
+OBSIDIAN_PROJECTS_DIR=Projects
 
 OS_ACTIONS_ENABLED=true
 OS_ALLOWED_URL_DOMAINS=github.com,notion.so,obsidian.md,google.com,yandex.ru,openweathermap.org
@@ -384,6 +388,11 @@ OS_REQUIRE_CONFIRM_FOR_INPUT=true
 OS_REQUIRE_CONFIRM_FOR_OPEN_EXTERNAL=false
 AGENT_ROUTING_PROFILE=rolepack_v1
 CHAT_PROMPT_PACK_PROFILE=dynamic_v1
+MORNING_SHOW_ENABLED=true
+MORNING_SHOW_CITY=Moscow
+MORNING_SHOW_HOUR_LIMIT=12
+MORNING_SHOW_PREWARM_ENABLED=true
+MORNING_SHOW_WEATHER_CACHE_MINUTES=30
 ```
 
 For faster intent parsing:
@@ -431,6 +440,11 @@ OS action voice commands:
 - `Press Enter`
 - `Right click`
 - `Scroll down`
+
+Obsidian voice commands:
+- `Add to Obsidian in note Project Vasya: update installation section`
+- `Update note in Obsidian Roadmap: v0.6 focuses on Windows setup`
+- `Add GitHub project owner/repo to Obsidian`
 
 Alternative TTS path:
 - `say` is still the simplest built-in macOS option
@@ -497,6 +511,8 @@ This is still an MVP, so current limits include:
 - `v0.5.13`: A/B voice metrics extended with routing/prompt profiles, role distribution, TTFR/TTA by profile, and local fast-lane coverage
 - `v0.5.14`: optional XTTS backend with hybrid mode (fast short replies + more natural long replies)
 - `v0.5.15`: runtime prewarm (STT/Ollama) and more aggressive early fast-path for low-risk voice intents
+- `v0.5.16`: voice intents for Obsidian note updates and GitHub project sync to Obsidian (README-adapted notes)
+- `v0.5.17`: instant weather small-talk and pre-generated morning show cache for near-zero wait on first “good morning”
 - `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
 - `v0.7.x`: Notion adapter plus deeper Obsidian workflows

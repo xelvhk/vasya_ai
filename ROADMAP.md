@@ -208,6 +208,8 @@ Good future exports:
 - `v0.5.13`: A/B voice metrics for routing/prompt profiles, role mix visibility, and TTFR/TTA comparison by profile
 - `v0.5.14`: optional XTTS backend and hybrid speech mode for better naturalness without losing short-reply speed
 - `v0.5.15`: runtime prewarm for STT/Ollama plus more aggressive early fast-path for low-risk intents
+- `v0.5.16`: voice-first Obsidian note updates and GitHub README -> Obsidian project sync
+- `v0.5.17`: pre-generated morning show cache and fast weather small-talk replies
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

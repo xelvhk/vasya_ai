@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
 
 import requests
@@ -89,6 +90,64 @@ def fetch_recent_pull_requests(repo: str, *, since_iso: str, limit: int = 10) ->
         if len(items) >= limit:
             break
     return items
+
+
+def fetch_repository_metadata(repo: str) -> dict:
+    repo_name = _normalize_repo(repo)
+    if not repo_name:
+        raise GitHubServiceError("Не указан GitHub-репозиторий в формате owner/repo.")
+
+    response = requests.get(
+        f"{GITHUB_API_BASE_URL}/repos/{repo_name}",
+        headers=_build_headers(),
+        timeout=20,
+    )
+    if response.status_code >= 400:
+        raise GitHubServiceError(_format_error("GitHub repository", response))
+    payload = response.json()
+    if not isinstance(payload, dict):
+        return {}
+    return {
+        "full_name": str(payload.get("full_name", repo_name)),
+        "html_url": str(payload.get("html_url", "")),
+        "description": str(payload.get("description", "") or "").strip(),
+        "default_branch": str(payload.get("default_branch", "") or "main"),
+    }
+
+
+def fetch_repository_readme(repo: str) -> dict:
+    repo_name = _normalize_repo(repo)
+    if not repo_name:
+        raise GitHubServiceError("Не указан GitHub-репозиторий в формате owner/repo.")
+
+    response = requests.get(
+        f"{GITHUB_API_BASE_URL}/repos/{repo_name}/readme",
+        headers=_build_headers(),
+        timeout=20,
+    )
+    if response.status_code >= 400:
+        raise GitHubServiceError(_format_error("GitHub README", response))
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise GitHubServiceError("GitHub README API вернул неожиданный формат.")
+
+    encoded = payload.get("content")
+    if not isinstance(encoded, str) or not encoded.strip():
+        raise GitHubServiceError("README пустой или не содержит content.")
+    encoding = str(payload.get("encoding", "")).lower().strip()
+    if encoding != "base64":
+        raise GitHubServiceError(f"Неподдерживаемая кодировка README: {encoding or 'unknown'}.")
+    try:
+        readme_text = base64.b64decode(encoded).decode("utf-8", errors="replace")
+    except Exception as exc:
+        raise GitHubServiceError(f"Не удалось декодировать README: {type(exc).__name__}.") from exc
+
+    return {
+        "text": readme_text,
+        "path": str(payload.get("path", "README.md")),
+        "html_url": str(payload.get("html_url", "")),
+        "sha": str(payload.get("sha", "")),
+    }
 
 
 def now_utc_iso() -> str:

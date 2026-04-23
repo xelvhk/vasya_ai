@@ -1830,6 +1830,9 @@ def main() -> None:
             self._drag_pos: QPoint | None = None
             self._press_pos: QPoint | None = None
             self._interaction_lock = threading.Lock()
+            self._text_command_control_lock = threading.Lock()
+            self._text_command_cancel_event: threading.Event | None = None
+            self._queued_text_command: str | None = None
             self._state = assistant_state.get()
             self._pulse = 0.0
             self._bob = 0.0
@@ -2938,6 +2941,17 @@ def main() -> None:
 
         def _start_text_command_thread(self, command_text: str) -> None:
             if self._interaction_lock.locked():
+                with self._text_command_control_lock:
+                    cancel_event = self._text_command_cancel_event
+                    if cancel_event is not None:
+                        self._queued_text_command = command_text
+                        cancel_event.set()
+                        stop_speaking()
+                        assistant_state.set(
+                            AssistantStateName.THINKING,
+                            "Останавливаю текущий ответ и переключаюсь на новую команду...",
+                        )
+                        return
                 assistant_state.set(
                     AssistantStateName.THINKING,
                     "Секунду, сначала закончу текущий запрос.",
@@ -2945,6 +2959,9 @@ def main() -> None:
                 return
 
             def worker() -> None:
+                cancel_event = threading.Event()
+                with self._text_command_control_lock:
+                    self._text_command_cancel_event = cancel_event
                 with self._interaction_lock:
                     try:
                         assistant_state.set(
@@ -2957,6 +2974,7 @@ def main() -> None:
                             speak_response=True,
                             tts_backend_name="default",
                             speak_strategy="chunked",
+                            should_stop=cancel_event.is_set,
                         ):
                             if event.stage == "intent_resolved":
                                 assistant_state.set(
@@ -2964,6 +2982,8 @@ def main() -> None:
                                     "Поняла задачу, формирую ответ...",
                                 )
                                 continue
+                            if event.stage == "pipeline_canceled":
+                                break
                             if event.stage != "response_stream":
                                 continue
                             chunk = str(event.data.get("text", "")).strip()
@@ -2975,12 +2995,18 @@ def main() -> None:
                         message = f"Не удалось обработать текстовую команду: {exc}"
                         assistant_state.set(AssistantStateName.ERROR, message)
                         speak("Не удалось обработать текстовую команду.")
+                with self._text_command_control_lock:
+                    self._text_command_cancel_event = None
+                    queued_command = self._queued_text_command
+                    self._queued_text_command = None
                 assistant_state.set(AssistantStateName.IDLE)
                 action = assistant_control.consume_action()
                 if action == AssistantControlAction.EXIT:
                     self._bridge.exit_requested.emit()
                 elif action == AssistantControlAction.OPEN_TEXT_COMMAND:
                     self._bridge.text_command_requested.emit()
+                if queued_command:
+                    QTimer.singleShot(0, lambda: self._start_text_command_thread(queued_command))
 
             threading.Thread(target=worker, daemon=True).start()
 

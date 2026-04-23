@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Generator
+from typing import Callable, Generator
 
 from core.orchestrator import process_text_detailed
 from utils.logger import log_interaction_event
@@ -35,6 +35,7 @@ def run_text_pipeline(
     speak_response: bool = False,
     tts_backend_name: str = "default",
     speak_strategy: str = "full",
+    should_stop: Callable[[], bool] | None = None,
 ) -> Generator[PipelineEvent, None, PipelineResult]:
     started = time.perf_counter()
     text = " ".join(str(user_text).split())
@@ -42,6 +43,21 @@ def run_text_pipeline(
         raise ValueError("Text is empty.")
 
     yield _event("stage", "input_received", started, {"text": text})
+    canceled = False
+
+    if _should_stop(should_stop):
+        canceled = True
+        yield _event("stage", "pipeline_canceled", started, {"reason": "before_intent"})
+        metrics = {
+            "intent_ms": 0.0,
+            "ttfr_ms": 0.0,
+            "tts_start_ms": 0.0,
+            "tts_ms": 0.0,
+            "total_ms": round((time.perf_counter() - started) * 1000, 2),
+            "cancelled": 1.0,
+        }
+        yield _event("done", "pipeline_done", started, {"metrics": metrics, "canceled": True})
+        return PipelineResult(intent="canceled", response="", needs_followup=False, metrics=metrics)
 
     intent_started = time.perf_counter()
     result = process_text_detailed(text)
@@ -57,12 +73,16 @@ def run_text_pipeline(
         },
     )
 
+    if _should_stop(should_stop):
+        canceled = True
+        yield _event("stage", "pipeline_canceled", started, {"reason": "after_intent"})
+
     first_chunk_ms = (time.perf_counter() - started) * 1000
     chunks = _chunk_response(result.response)
     if not chunks:
         chunks = [result.response.strip()] if result.response.strip() else []
 
-    if chunks:
+    if chunks and not canceled:
         yield _event(
             "stage",
             "response_started",
@@ -81,6 +101,17 @@ def run_text_pipeline(
         tts_backend = get_tts_backend(tts_backend_name)
 
     for idx, chunk in enumerate(chunks):
+        if canceled:
+            break
+        if _should_stop(should_stop):
+            canceled = True
+            yield _event(
+                "stage",
+                "pipeline_canceled",
+                started,
+                {"reason": "during_stream", "chunk_index": idx},
+            )
+            break
         if not chunk.strip():
             continue
         yield _event(
@@ -100,7 +131,7 @@ def run_text_pipeline(
             tts_backend.speak(chunk)
             tts_ms += (time.perf_counter() - chunk_start) * 1000
 
-    if chunks:
+    if chunks and not canceled:
         yield _event(
             "stage",
             "response_done",
@@ -111,11 +142,17 @@ def run_text_pipeline(
             },
         )
 
-    if speak_response and result.response.strip() and strategy == "full" and tts_backend is not None:
+    if speak_response and result.response.strip() and strategy == "full" and tts_backend is not None and not canceled:
         tts_started = time.perf_counter()
         tts_start_ms = (tts_started - started) * 1000
         tts_backend.speak(result.response)
         tts_ms += (time.perf_counter() - tts_started) * 1000
+
+    if canceled and tts_backend is not None:
+        try:
+            tts_backend.stop()
+        except Exception:
+            pass
 
     if speak_response and tts_backend is not None:
         backend_name = getattr(tts_backend, "backend_id", None) or getattr(tts_backend, "name", "unknown")
@@ -138,8 +175,9 @@ def run_text_pipeline(
         "tts_start_ms": round(tts_start_ms, 2),
         "tts_ms": round(tts_ms, 2),
         "total_ms": round(total_ms, 2),
+        "cancelled": 1.0 if canceled else 0.0,
     }
-    yield _event("done", "pipeline_done", started, {"metrics": metrics})
+    yield _event("done", "pipeline_done", started, {"metrics": metrics, "canceled": canceled})
 
     log_interaction_event(
         "pipeline_text_perf",
@@ -150,7 +188,7 @@ def run_text_pipeline(
         },
     )
     return PipelineResult(
-        intent=result.intent,
+        intent="canceled" if canceled else result.intent,
         response=result.response,
         needs_followup=bool(result.needs_followup),
         metrics=metrics,
@@ -174,3 +212,12 @@ def _chunk_response(text: str) -> list[str]:
     if parts:
         return parts
     return [normalized]
+
+
+def _should_stop(should_stop: Callable[[], bool] | None) -> bool:
+    if should_stop is None:
+        return False
+    try:
+        return bool(should_stop())
+    except Exception:
+        return False

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from core.models import IntentResult
 
 
@@ -77,11 +79,26 @@ AUTO_TUNE_VOICE_PHRASES = (
     "настрой голос автоматически",
 )
 
+MORNING_SHOW_FORCE_PHRASES = (
+    "утреннее шоу",
+    "запусти утреннее шоу",
+    "включи утреннее шоу",
+    "расскажи утреннее шоу",
+    "покажи утреннее шоу",
+    "давай утреннее шоу",
+)
+
+MORNING_SHOW_GREETING_PHRASES = (
+    "доброе утро",
+)
+
 
 def detect_system_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
     if not normalized:
         return None
+    normalized_compact = re.sub(r"[^\w\s]+", " ", normalized, flags=re.UNICODE)
+    normalized_compact = " ".join(normalized_compact.split())
 
     if normalized in STOP_SPEAKING_PHRASES:
         return IntentResult(intent="stop_speaking", data={})
@@ -106,5 +123,14 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
 
     if normalized in AUTO_TUNE_VOICE_PHRASES:
         return IntentResult(intent="auto_tune_voice", data={})
+
+    if normalized in MORNING_SHOW_FORCE_PHRASES or normalized_compact in MORNING_SHOW_FORCE_PHRASES:
+        return IntentResult(intent="morning_show", data={"force": True})
+
+    if normalized in MORNING_SHOW_GREETING_PHRASES or normalized_compact.startswith("доброе утро"):
+        return IntentResult(intent="morning_show", data={"force": True})
+
+    if "утреннее шоу" in normalized_compact:
+        return IntentResult(intent="morning_show", data={"force": True})
 
     return None

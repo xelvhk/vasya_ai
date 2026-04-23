@@ -90,6 +90,7 @@ _EARLY_IMMEDIATE_INTENTS = {
     "enable_child_mode",
     "disable_child_mode",
     "speed_report",
+    "morning_show",
     "get_tasks",
     "get_events",
     "delete_tasks",
@@ -267,6 +268,11 @@ def run_voice_interaction() -> AssistantControlAction:
             assistant_state.set(AssistantStateName.SPEAKING, response)
             if first_response_ms is None:
                 first_response_ms = (time.perf_counter() - interaction_started) * 1000
+            if current_intent == "morning_show":
+                tts_started = time.perf_counter()
+                speak(response)
+                metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
+                continue
             barge_in_outcome = _speak_with_barge_in(
                 response,
                 auto_interrupt_config,
@@ -718,6 +724,7 @@ def _try_local_fast_lane(user_text: str) -> _FastLaneProcessResult | None:
         "enable_child_mode",
         "disable_child_mode",
         "speed_report",
+        "morning_show",
         "create_task",
         "get_tasks",
         "delete_tasks",
@@ -965,6 +972,7 @@ def _needs_confirmation(transcription: TranscriptionResult) -> bool:
             "append_notion_page",
             "append_obsidian_note",
             "replace_obsidian_note",
+            "morning_show",
             "remember_user_profile",
             "forget_user_profile",
             "get_user_profile",
@@ -1069,6 +1077,7 @@ def _is_safe_low_confidence_fast_path(transcription: TranscriptionResult) -> boo
         "append_notion_page",
         "append_obsidian_note",
         "replace_obsidian_note",
+        "morning_show",
     }
 
 

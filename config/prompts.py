@@ -32,6 +32,7 @@ Role spec:
 - replace_obsidian_note
 - sync_github_obsidian_project
 - speed_report
+- morning_show
 - os_open_url
 - os_open_app
 - os_type_text
@@ -114,26 +115,29 @@ Role spec:
    - используй для фраз "добавь проект github owner/repo в обсидиан"
 26. Для speed_report:
    - используй, если пользователь просит показать скорость ответа или отчет по задержкам
-27. Для os_open_url:
+27. Для morning_show:
+   - force: true/false (optional)
+   - используй для фраз "утреннее шоу", "доброе утро"
+28. Для os_open_url:
    - url: ссылка, которую нужно открыть
    - используй для фраз "открой сайт ...", "перейди на ..."
-28. Для os_open_app:
+29. Для os_open_app:
    - app: название приложения
    - используй для фраз "открой браузер", "открой Notion"
-29. Для os_type_text:
+30. Для os_type_text:
    - text: текст, который нужно напечатать
    - используй для фраз "введи текст ...", "напечатай ..."
-30. Для os_keypress:
+31. Для os_keypress:
    - keys: список клавиш или строка сочетания, например ["cmd","k"] или "enter"
    - используй для фраз "нажми Enter", "нажми cmd+k"
-31. Для os_click:
+32. Для os_click:
    - button: left/right/middle (optional, default left)
    - clicks: число кликов (optional)
    - используй для фраз "кликни", "правый клик"
-32. Для os_scroll:
+33. Для os_scroll:
    - amount: число (optional), отрицательное вниз, положительное вверх
    - используй для фраз "прокрути вниз/вверх"
-33. Для chat:
+34. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
    - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub/Obsidian синка
 
@@ -293,6 +297,13 @@ Role spec:
 {{
   "intent": "speed_report",
   "data": {{}}
+}}
+
+{{
+  "intent": "morning_show",
+  "data": {{
+    "force": true
+  }}
 }}
 
 {{

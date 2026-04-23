@@ -120,6 +120,7 @@ _INTENT_TO_ROLE: dict[str, str] = {
     "sync_github_obsidian_project": "notion_sync_agent",
     "read_notion_page": "notion_sync_agent",
     "append_notion_page": "notion_sync_agent",
+    "morning_show": "chat_agent",
     "remember_user_profile": "profile_agent",
     "forget_user_profile": "profile_agent",
     "get_user_profile": "profile_agent",

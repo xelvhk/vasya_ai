@@ -34,6 +34,7 @@ class IntentResult(BaseModel):
         "replace_obsidian_note",
         "sync_github_obsidian_project",
         "speed_report",
+        "morning_show",
         "os_open_url",
         "os_open_app",
         "os_type_text",

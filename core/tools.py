@@ -19,6 +19,7 @@ from services.github_obsidian_sync_service import (
     sync_github_project_to_obsidian,
     update_obsidian_note,
 )
+from services.morning_show_service import get_morning_show_message
 from services.speed_report_service import build_voice_diagnostics_report
 from services.os_action_service import execute_os_action
 from services.voice_recovery_service import apply_voice_auto_tune_from_metrics, run_voice_mic_test
@@ -146,6 +147,14 @@ def _run_auto_tune_voice_tool(intent_result: IntentResult) -> str:
     return apply_voice_auto_tune_from_metrics(limit=40)
 
 
+def _run_morning_show_tool(intent_result: IntentResult) -> str:
+    force = bool(intent_result.data.get("force", False))
+    message = get_morning_show_message(force=force, mark_delivered=True)
+    if message:
+        return message
+    return "Доброе утро. Я на связи."
+
+
 def _run_os_action_tool(intent_result: IntentResult) -> str:
     try:
         if intent_result.intent == "os_open_url":
@@ -253,6 +262,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Автоматическая подстройка голосовых параметров по последним метрикам.",
         intents=("auto_tune_voice",),
         handler=_run_auto_tune_voice_tool,
+    ),
+    ToolSpec(
+        tool_id="morning_show",
+        description="Утреннее шоу: погода, задачи и короткая мысль дня.",
+        intents=("morning_show",),
+        handler=_run_morning_show_tool,
     ),
     ToolSpec(
         tool_id="os_actions",

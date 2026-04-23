@@ -17,6 +17,7 @@ class PipelineRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     speak_response: bool = False
     tts_backend: str = "default"
+    speak_strategy: str = "full"
 
 
 class PipelineResponse(BaseModel):

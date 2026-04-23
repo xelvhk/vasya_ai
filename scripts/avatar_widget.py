@@ -11,7 +11,6 @@ from pathlib import Path
 from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.state import AssistantState, AssistantStateName, assistant_state
-from core.orchestrator import process_text_detailed
 from config.settings import (
     AGENT_ROUTING_PROFILE,
     AUDIO_FILENAME,
@@ -60,6 +59,7 @@ from services.notion_service import NotionServiceError, read_page_text
 from services.morning_show_service import get_morning_show_message, reset_morning_show_today
 from services.runtime_prewarm_service import start_runtime_prewarm_async
 from voice.profiles import get_active_voice_profile, list_voice_profiles
+from voice.pipeline import run_text_pipeline
 from voice.recorder import record_audio
 from voice.session import run_voice_interaction
 from voice.tts import set_voice_profile, speak, stop_speaking
@@ -2951,11 +2951,26 @@ def main() -> None:
                             AssistantStateName.THINKING,
                             f"Разбираю текстовую команду: {command_text}",
                         )
-                        result = process_text_detailed(command_text)
-                        response = result.response
-                        if response:
-                            assistant_state.set(AssistantStateName.SPEAKING, response)
-                            speak(response)
+                        streamed_response = ""
+                        for event in run_text_pipeline(
+                            command_text,
+                            speak_response=True,
+                            tts_backend_name="default",
+                            speak_strategy="chunked",
+                        ):
+                            if event.stage == "intent_resolved":
+                                assistant_state.set(
+                                    AssistantStateName.THINKING,
+                                    "Поняла задачу, формирую ответ...",
+                                )
+                                continue
+                            if event.stage != "response_stream":
+                                continue
+                            chunk = str(event.data.get("text", "")).strip()
+                            if not chunk:
+                                continue
+                            streamed_response = f"{streamed_response} {chunk}".strip()
+                            assistant_state.set(AssistantStateName.SPEAKING, streamed_response)
                     except Exception as exc:
                         message = f"Не удалось обработать текстовую команду: {exc}"
                         assistant_state.set(AssistantStateName.ERROR, message)

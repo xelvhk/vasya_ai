@@ -34,6 +34,7 @@ def run_text_pipeline(
     *,
     speak_response: bool = False,
     tts_backend_name: str = "default",
+    speak_strategy: str = "full",
 ) -> Generator[PipelineEvent, None, PipelineResult]:
     started = time.perf_counter()
     text = " ".join(str(user_text).split())
@@ -61,6 +62,24 @@ def run_text_pipeline(
     if not chunks:
         chunks = [result.response.strip()] if result.response.strip() else []
 
+    if chunks:
+        yield _event(
+            "stage",
+            "response_started",
+            started,
+            {"chunks_total": len(chunks)},
+        )
+
+    strategy = str(speak_strategy or "full").strip().lower()
+    if strategy not in {"full", "chunked"}:
+        strategy = "full"
+
+    tts_ms = 0.0
+    tts_start_ms = 0.0
+    tts_backend = None
+    if speak_response and result.response.strip():
+        tts_backend = get_tts_backend(tts_backend_name)
+
     for idx, chunk in enumerate(chunks):
         if not chunk.strip():
             continue
@@ -74,24 +93,49 @@ def run_text_pipeline(
                 "is_final": idx == len(chunks) - 1,
             },
         )
+        if speak_response and strategy == "chunked" and tts_backend is not None:
+            chunk_start = time.perf_counter()
+            if tts_start_ms <= 0.0:
+                tts_start_ms = (chunk_start - started) * 1000
+            tts_backend.speak(chunk)
+            tts_ms += (time.perf_counter() - chunk_start) * 1000
 
-    tts_ms = 0.0
-    if speak_response and result.response.strip():
-        tts_backend = get_tts_backend(tts_backend_name)
+    if chunks:
+        yield _event(
+            "stage",
+            "response_done",
+            started,
+            {
+                "chunks_total": len(chunks),
+                "chars_total": len(result.response.strip()),
+            },
+        )
+
+    if speak_response and result.response.strip() and strategy == "full" and tts_backend is not None:
         tts_started = time.perf_counter()
+        tts_start_ms = (tts_started - started) * 1000
         tts_backend.speak(result.response)
-        tts_ms = (time.perf_counter() - tts_started) * 1000
+        tts_ms += (time.perf_counter() - tts_started) * 1000
+
+    if speak_response and tts_backend is not None:
+        backend_name = getattr(tts_backend, "backend_id", None) or getattr(tts_backend, "name", "unknown")
         yield _event(
             "stage",
             "tts_done",
             started,
-            {"tts_ms": round(tts_ms, 2), "tts_backend": getattr(tts_backend, "backend_id", "unknown")},
+            {
+                "tts_ms": round(tts_ms, 2),
+                "tts_start_ms": round(tts_start_ms, 2),
+                "tts_backend": backend_name,
+                "speak_strategy": strategy,
+            },
         )
 
     total_ms = (time.perf_counter() - started) * 1000
     metrics = {
         "intent_ms": round(intent_ms, 2),
         "ttfr_ms": round(first_chunk_ms, 2),
+        "tts_start_ms": round(tts_start_ms, 2),
         "tts_ms": round(tts_ms, 2),
         "total_ms": round(total_ms, 2),
     }

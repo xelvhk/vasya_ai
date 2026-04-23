@@ -36,6 +36,7 @@ def pipeline(payload: PipelineRequest) -> PipelineResponse:
         text,
         speak_response=bool(payload.speak_response),
         tts_backend_name=str(payload.tts_backend or "default"),
+        speak_strategy=str(payload.speak_strategy or "full"),
     )
 
     final_intent = "unknown"
@@ -98,10 +99,12 @@ async def voice_ws(websocket: WebSocket) -> None:
 
             speak_response = bool(payload.get("speak", False))
             tts_backend = str(payload.get("tts_backend", "default"))
+            speak_strategy = str(payload.get("speak_strategy", "full"))
             for event in run_text_pipeline(
                 text,
                 speak_response=speak_response,
                 tts_backend_name=tts_backend,
+                speak_strategy=speak_strategy,
             ):
                 await websocket.send_json(event.to_dict())
     except WebSocketDisconnect:

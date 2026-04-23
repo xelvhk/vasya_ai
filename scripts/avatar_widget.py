@@ -1830,6 +1830,8 @@ def main() -> None:
             self._drag_pos: QPoint | None = None
             self._press_pos: QPoint | None = None
             self._interaction_lock = threading.Lock()
+            self._interaction_control_lock = threading.Lock()
+            self._queued_voice_activation = False
             self._text_command_control_lock = threading.Lock()
             self._text_command_cancel_event: threading.Event | None = None
             self._queued_text_command: str | None = None
@@ -2036,10 +2038,12 @@ def main() -> None:
                     )
                     return
                 else:
-                    log_voice_event("widget_activation_ignored reason=interaction_in_progress")
+                    with self._interaction_control_lock:
+                        self._queued_voice_activation = True
+                    log_voice_event("widget_activation_queued reason=interaction_in_progress")
                     assistant_state.set(
                         AssistantStateName.THINKING,
-                        "Еще обрабатываю предыдущий запрос. Секунду.",
+                        "Заканчиваю текущий запрос и сразу начну слушать.",
                     )
                     return
 
@@ -2062,6 +2066,14 @@ def main() -> None:
                         self._bridge.exit_requested.emit()
                     elif action == AssistantControlAction.OPEN_TEXT_COMMAND:
                         self._bridge.text_command_requested.emit()
+                with self._interaction_control_lock:
+                    queued_activation = self._queued_voice_activation
+                    self._queued_voice_activation = False
+                if queued_activation and action != AssistantControlAction.EXIT:
+                    QTimer.singleShot(
+                        0,
+                        lambda: self._start_interaction_thread("widget_activation_auto_queued"),
+                    )
 
             threading.Thread(target=worker, daemon=True).start()
 

@@ -355,18 +355,26 @@ class XTTSBackend(BaseTTSBackend):
             str(output_path),
         ]
 
+        hf_cache_dir = xtts_cache_dir / "hf_cache"
+        hf_cache_dir.mkdir(parents=True, exist_ok=True)
+        xtts_env = {
+            **os.environ,
+            "TTS_HOME": str(xtts_cache_dir),
+            "XDG_DATA_HOME": str(xtts_cache_dir),
+            "MPLCONFIGDIR": str(mpl_cache_dir),
+            "COQUI_TOS_AGREED": "1",
+        }
+        # Coqui XTTS + newer PyTorch requires explicit opt-out from weights-only load.
+        xtts_env.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
+        # Keep HuggingFace cache inside project storage to avoid permission issues.
+        xtts_env.setdefault("HF_HOME", str(hf_cache_dir))
+
         tts_process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={
-                **os.environ,
-                "TTS_HOME": str(xtts_cache_dir),
-                "XDG_DATA_HOME": str(xtts_cache_dir),
-                "MPLCONFIGDIR": str(mpl_cache_dir),
-                "COQUI_TOS_AGREED": "1",
-            },
+            env=xtts_env,
         )
         with self._lock:
             self._tts_process = tts_process

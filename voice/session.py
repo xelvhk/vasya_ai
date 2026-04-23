@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Lock, Thread
+from typing import Callable
 
 from assistant.confirmations import confirmation_store
 from assistant.child_mode import child_mode_store
@@ -265,16 +267,21 @@ def run_voice_interaction() -> AssistantControlAction:
             first_action_ms = (time.perf_counter() - interaction_started) * 1000
         response = result.response
         if response:
-            assistant_state.set(AssistantStateName.SPEAKING, response)
+            spoken_chunks: list[str] = []
+
+            def _on_chunk_spoken(chunk: str) -> None:
+                spoken_chunks.append(chunk)
+                assistant_state.set(
+                    AssistantStateName.SPEAKING,
+                    " ".join(spoken_chunks).strip(),
+                )
+
             if first_response_ms is None:
                 first_response_ms = (time.perf_counter() - interaction_started) * 1000
-            if current_intent == "morning_show":
-                tts_started = time.perf_counter()
-                speak(response)
-                metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
             barge_in_outcome = _speak_with_barge_in(
                 response,
                 auto_interrupt_config,
+                on_chunk=_on_chunk_spoken,
             )
             metrics["tts_ms"] += barge_in_outcome.tts_ms
             if barge_in_outcome.interrupted_text:
@@ -461,10 +468,18 @@ def _load_runtime_ab_profiles() -> dict[str, str]:
 def _speak_with_barge_in(
     text: str,
     auto_interrupt_config: dict[str, float | bool],
+    on_chunk: Callable[[str], None] | None = None,
 ) -> BargeInOutcome:
+    chunks = _split_tts_chunks(text)
+    if not chunks:
+        return BargeInOutcome(interrupted_text=None, tts_ms=0.0)
+
     if not bool(auto_interrupt_config.get("enabled", VOICE_AUTO_INTERRUPT_TTS_ENABLED)):
         started = time.perf_counter()
-        speak(text)
+        for chunk in chunks:
+            if on_chunk is not None:
+                on_chunk(chunk)
+            speak(chunk)
         return BargeInOutcome(
             interrupted_text=None,
             tts_ms=(time.perf_counter() - started) * 1000,
@@ -569,7 +584,16 @@ def _speak_with_barge_in(
     monitor_thread = Thread(target=monitor, daemon=True)
     monitor_thread.start()
     started = time.perf_counter()
-    speak(text)
+    for chunk in chunks:
+        with detected_lock:
+            if detected["text"] is not None:
+                break
+        if on_chunk is not None:
+            on_chunk(chunk)
+        speak(chunk)
+        with detected_lock:
+            if detected["text"] is not None:
+                break
     elapsed_ms = (time.perf_counter() - started) * 1000
     stop_event.set()
     monitor_thread.join(timeout=0.25)
@@ -594,6 +618,14 @@ def _speak_with_barge_in(
         detect_rms=detect_rms,
         detect_hits=detect_hits,
     )
+
+
+def _split_tts_chunks(text: str) -> list[str]:
+    normalized = " ".join(str(text).strip().split())
+    if not normalized:
+        return []
+    chunks = [part.strip() for part in re.split(r"(?<=[.!?])\s+", normalized) if part.strip()]
+    return chunks or [normalized]
 
 
 def _resolve_barge_in_text(partial_text: str) -> str | None:

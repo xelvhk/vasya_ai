@@ -1,582 +1,97 @@
-# Vasya AI
+# vasya_ai
 
-`VAS = Voice AI Assistant`
+Local-first voice AI assistant for desktop productivity.
+
+`vasya_ai` is a product-oriented assistant that helps manage tasks, events, notes, and integrations through voice and text, with local-first storage and optional external sync.
 
 Language: **English** | [Русский](README.ru.md)
 
-Local-first voice AI assistant with a current macOS MVP and a longer-term path toward Windows and Linux.
-Vasya is evolving from a CLI MVP into a broader desktop personal AI system with tasks, calendar, future note workflows, and specialized agents.
+## Product Value
+- Local-first workflow: core data stays on your machine (SQLite + local files)
+- Voice-first UX with fast command loop
+- Practical integrations: Google Calendar, Notion, GitHub
+- API layer for future web/mobile clients (`FastAPI`)
 
-Current version: `0.5.10`
-
-## Overview
-
-Vasya already supports:
-- local voice input
-- local speech-to-text
-- intent parsing through a local LLM via Ollama
-- task management
-- calendar event creation and listing
-- Google Calendar event sync and import
-- local SQLite storage
-- macOS speech output through `say`
-- background hotkey voice activation
-- first floating desktop avatar widget MVP
-- tray or menu bar style control for the desktop shell
-- more natural conversational UX with follow-up turns and a faster chat path
-- a child-friendly voice game mode through a dedicated game agent
-- local notes memory with Obsidian export
-- a faster two-stage STT pipeline
-- STT quality profiles and smarter recovery UX
-- avatar skin presets, custom palette import/export, and custom avatar image support
-- tool registry with dispatch-based routing
-- orchestrator routing policy layer
-- agent-to-agent handoff rules
-- unified local memory API (snapshot/search)
-- managed user profile memory (remember/forget/recall) with local persistence
-- Notion read/write adapter and GitHub -> Notion project update sync
-- faster conversational loop (quick chat profile + shorter follow-up delay)
-- voice latency metrics and a built-in speed report command
-- hotkey-based text command window for precise Notion/GitHub commands
-- voice command to open the text command window
-- morning show on first daily interaction (weather + quote)
-- API gateway foundation for mobile/web clients (`apps/api`)
-
-Roadmap:
-- see [ROADMAP.md](ROADMAP.md)
-- mobile monorepo migration notes: [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
-
-## Current MVP
-
-Current capabilities:
-- record audio from the microphone
-- transcribe speech locally
-- route commands to tasks and calendar flows
-- parse common Russian date and time phrases
-- create, list, complete, and delete tasks
-- create, list, and delete events
-- filter tasks and events by date
-- keep local data in SQLite
-- optionally sync calendar events with Google Calendar
-- run in desktop background and start voice capture by hotkey
-- show a floating avatar widget with click-to-talk states
-- control the desktop shell through a tray icon
-- show more natural intermediate response states
-- delete all tasks with voice confirmation
-- play kid-friendly voice games: words, hide and seek, riddles, guess the animal, and repeat after me
-- personalize Vasya through built-in skins, a custom palette, or a custom avatar image
-- manage personal memory by voice and clear it from settings with confirmation
-- sync latest GitHub project updates to Notion and read/add Notion page entries
-- answer short conversational prompts faster through a quick chat profile
-- report recent voice pipeline speed breakdown by command
-- run text commands through a dedicated quick input window
-
-Example commands:
-- `Add a task to buy a lamp`
-- `What tasks do I have?`
-- `Add a meeting with Sasha tomorrow at 6 PM`
-- `Show my events for March 30`
-- `Sync GitHub in Notion`
-- `Read Notion`
-- `Speed report`
-- `Cmd+Option+K` (open text command window)
-- `Be quiet`
-- `Exit`
+## Use Cases
+- Personal planner: add/list/complete tasks and schedule events by voice
+- Daily assistant: morning briefing (weather + quote), reminders, quick notes
+- Integration assistant: sync GitHub updates to Notion, export notes to Obsidian
+- Automation sandbox: test local agent orchestration and routing policies
 
 ## Stack
-
-- Python
-- Ollama
-- Llama 3
-- faster-whisper
-- sounddevice
-- scipy
-- pydantic
-- SQLite
+- Python 3.11+
 - FastAPI
+- Ollama (local LLM)
+- faster-whisper (STT)
+- SQLite
+- sounddevice + scipy
 
-## Architecture
-
-Current pipeline:
-
-`Voice -> audio recording -> Whisper STT -> text -> Ollama -> intent parsing -> router -> agent -> local action -> response`
-
-Storage model:
-- tasks and events are stored in `storage/vasya.db`
-- legacy JSON files are kept only as migration input
-- integrations are treated as adapters on top of the local core
-
-## Project Structure
-
-```text
-ai_pal/
-├── apps/
-│   └── api/
-│       └── main.py
-│
-├── main.py
-├── test_text.py
-├── requirements.txt
-├── .env
-├── README.md
-├── README.ru.md
-├── ROADMAP.md
-│
-├── config/
-│   ├── __init__.py
-│   ├── settings.py
-│   └── prompts.py
-│
-├── core/
-│   ├── __init__.py
-│   ├── orchestrator.py
-│   ├── intent_parser.py
-│   ├── router.py
-│   └── models.py
-│
-├── agents/
-│   ├── __init__.py
-│   ├── calendar_agent.py
-│   └── task_agent.py
-│
-├── assistant/
-│   ├── __init__.py
-│   └── state.py
-│
-├── scripts/
-│   ├── avatar_widget.py
-│   ├── doctor.py
-│   ├── hotkey_daemon.py
-│   └── setup_mac.sh
-│
-├── services/
-│   ├── __init__.py
-│   ├── ollama_client.py
-│   ├── google_calendar_client.py
-│   ├── calendar_service.py
-│   └── task_service.py
-│
-├── repositories/
-│   ├── __init__.py
-│   ├── event_repository.py
-│   └── task_repository.py
-│
-├── storage/
-│   ├── db.py
-│   └── .gitkeep
-│
-├── voice/
-│   ├── __init__.py
-│   ├── recorder.py
-│   ├── stt.py
-│   └── tts.py
-│
-└── utils/
-    ├── __init__.py
-    ├── datetime_parser.py
-    ├── humanize.py
-    ├── json_utils.py
-    └── logger.py
+## Quick Start
+```bash
+git clone https://github.com/xelvhk/vasya_ai.git
+cd vasya_ai
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python scripts/doctor.py
+python main.py
 ```
 
-## API (mobile foundation)
-
-Run API server:
-
+Optional API mode:
 ```bash
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 ```
 
-Main endpoints:
-- `GET /health`
-- `POST /v1/chat`
-- `POST /v1/pipeline` (stage-based text pipeline, optional TTS)
-- `GET /v1/backends` (registered STT/TTS/LLM modules)
-- `GET /v1/bench/voice` (benchmark snapshot from logs)
-- `WS /v1/ws/voice` (realtime text->intent->response events)
-- `GET/POST /v1/tasks`
-- `GET/POST /v1/notes`
-- `GET/POST /v1/events`
-- `POST /v1/recovery/mic-test`
-- `POST /v1/recovery/auto-tune`
+## Environment
+Copy `.env.example` to `.env` and adjust values for your machine.
 
-Optional API auth:
-- set `VASYA_API_AUTH_TOKEN` in `.env`
-- then send header `X-API-Key: <token>` for `/v1/*` routes
+Key groups:
+- LLM and voice: `OLLAMA_*`, `WHISPER_*`, `VOICE_*`
+- UI and hotkeys: `HOTKEY_*`, `AVATAR_*`, `TTS_*`
+- Integrations: `GOOGLE_CALENDAR_*`, `NOTION_*`, `GITHUB_*`
+- API: `VASYA_API_AUTH_TOKEN`
 
-## Run
+## Architecture
+```text
+Input Layer
+  voice/recorder.py, voice/stt.py, voice/pipeline.py
 
-Fast macOS setup:
+Orchestration Layer
+  core/orchestrator.py, core/router.py, core/intent_parser.py
 
-```bash
-bash scripts/setup_mac.sh
+Domain Agents
+  agents/task_agent.py, agents/calendar_agent.py, agents/note_agent.py, agents/chat_agent.py, agents/game_agent.py
+
+Services + Repositories
+  services/* + repositories/*
+
+Storage + Integrations
+  storage/vasya.db + external adapters (Google Calendar / Notion / GitHub)
+
+API Layer
+  apps/api/* (FastAPI endpoints for chat/tasks/events/notes)
 ```
 
-Environment diagnostics:
+## Demo / Screenshots
+- Add product screenshots to `docs/screenshots/` (placeholder)
+- Suggested assets: `avatar-widget.png`, `voice-flow.png`, `api-docs.png`
 
-```bash
-python scripts/doctor.py
-```
+## Roadmap
+Short roadmap:
+- [ ] Stabilize voice quality profiles and recovery flow
+- [ ] Add test coverage for critical services and routers
+- [ ] Improve onboarding script for zero-friction local setup
+- [ ] Prepare API for web/mobile thin clients
 
-1. Clone the repository
+Detailed roadmap and release timeline:
+- [ROADMAP.md](ROADMAP.md)
+- [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 
-```bash
-git clone <repo_url>
-cd ai_pal
-```
+## CI
+Minimal CI is configured in `.github/workflows/ci.yml`:
+- install dependencies
+- run syntax check (`python -m compileall .`)
 
-2. Create and activate a virtual environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-4. Install Ollama and download a model
-
-```bash
-brew install ollama
-ollama run llama3
-```
-
-If Ollama is already installed and the model is available locally, that is enough.
-On startup, `main.py` also tries to launch `ollama serve` automatically.
-
-5. Run the project
-
-Text-based test:
-
-```bash
-python test_text.py
-```
-
-Desktop shell:
-
-```bash
-python main.py
-```
-
-Headless background hotkey mode:
-
-```bash
-python scripts/hotkey_daemon.py
-```
-
-Desktop avatar widget MVP:
-
-```bash
-python scripts/avatar_widget.py
-```
-
-Notes:
-- `python main.py` now starts the desktop shell
-- left click starts one voice interaction
-- global hotkey also works inside the widget process
-- drag moves the avatar on screen
-- tray click toggles avatar visibility
-- launch at login on macOS can be enabled from Vasya's menu or via `python scripts/autostart_macos.py install`
-- tray menu can start listening or quit Vasya
-- tray and avatar menu now also expose size, position, hotkey, and tray-click settings
-- Vasya now uses a built-in procedural live avatar by default
-- built-in skins can be switched directly from settings
-- the current palette can be exported to JSON and imported back as a custom skin
-- a custom PNG, SVG, JPG, JPEG, or WEBP avatar image can be selected directly from settings
-- child mode can temporarily switch Vasya to the child skin without losing the manual skin selection
-- `AVATAR_IMAGE_PATH` still works as a fallback if you want to preconfigure an image from the environment
-- widget position is restored between launches
-- response bubble is shown next to the avatar during listening, thinking, speaking, and errors
-- right click opens the avatar context menu
-
-Current platform focus:
-- the working MVP is currently oriented around macOS
-- future roadmap includes Windows and Linux support
-
-## Configuration
-
-Main settings live in `config/settings.py`.
-
-Example values:
-
-```env
-OLLAMA_URL=http://localhost:11434/api/generate
-OLLAMA_MODEL=llama3
-OLLAMA_FAST_MODEL=llama3
-OLLAMA_REASONING_MODEL=llama3
-OLLAMA_FAST_THINK=false
-OLLAMA_FAST_TEMPERATURE=0.1
-OLLAMA_FAST_NUM_PREDICT=256
-OLLAMA_CHAT_NUM_PREDICT=160
-OLLAMA_CHAT_QUICK_ENABLED=true
-OLLAMA_CHAT_QUICK_MAX_WORDS=10
-OLLAMA_CHAT_QUICK_NUM_PREDICT=96
-OLLAMA_CHAT_QUICK_MODEL=fast
-AUDIO_FILENAME=input.wav
-RECORD_SECONDS=5
-VOICE_ULTRA_FAST_MODE=true
-VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS=true
-VOICE_ULTRA_FAST_MAX_RECORD_SECONDS=3.2
-VOICE_SPEED_REPORT_WINDOW=30
-VOICE_RUNTIME_PREWARM_ENABLED=true
-VOICE_RUNTIME_PREWARM_ON_WIDGET_START=true
-VOICE_RUNTIME_PREWARM_STT=true
-VOICE_RUNTIME_PREWARM_OLLAMA=true
-VOICE_RUNTIME_PREWARM_OLLAMA_CHAT=false
-VOICE_RUNTIME_PREWARM_OLLAMA_TIMEOUT_SECONDS=7.0
-VOICE_EARLY_FAST_IMMEDIATE_INTENTS=true
-WHISPER_MODEL=base
-WHISPER_PARTIAL_MODEL=base
-WHISPER_FINAL_MODEL=large-v3-turbo
-STT_PARTIAL_BEAM_SIZE=1
-STT_FINAL_BEAM_SIZE=5
-
-TTS_VOICE=Milena
-TTS_RATE=185
-TTS_BACKEND=auto
-TTS_PROFILE=ruslan_direct
-PIPER_COMMAND=piper
-PIPER_MODEL_PATH=storage/voices/ru_RU-ruslan-medium.onnx
-PIPER_SPEAKER=
-PIPER_LENGTH_SCALE=1.0
-XTTS_COMMAND=tts
-XTTS_MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
-XTTS_LANGUAGE=ru
-XTTS_SPEAKER_WAV=
-XTTS_SPEED=1.0
-TTS_HYBRID_SHORT_TEXT_MAX_WORDS=6
-TTS_STATE_FILE=storage/tts_settings.json
-VOICE_INPUT_BACKEND=auto
-HOTKEY_COMBINATION=<cmd>+<option>+<space>
-HOTKEY_TEXT_COMBINATION=<cmd>+<option>+k
-HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
-INTERRUPT_LISTEN_DELAY_SECONDS=0.45
-AVATAR_IMAGE_PATH=
-AVATAR_SKIN=classic
-AVATAR_SIZE=210
-AVATAR_STATE_FILE=storage/avatar_widget.json
-AVATAR_CUSTOM_SKIN_FILE=storage/avatar_custom_skin.json
-
-STORAGE_DB_FILE=storage/vasya.db
-CALENDAR_STORAGE_FILE=storage/calendar.json
-TASK_STORAGE_FILE=storage/tasks.json
-
-GOOGLE_CALENDAR_ENABLED=false
-GOOGLE_CALENDAR_CREDENTIALS_FILE=credentials.json
-GOOGLE_CALENDAR_TOKEN_FILE=storage/google_token.json
-GOOGLE_CALENDAR_ID=primary
-GOOGLE_CALENDAR_TIMEZONE=Europe/Moscow
-GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
-GOOGLE_CALENDAR_SYNC_ON_READ=true
-GOOGLE_CALENDAR_READ_MAX_RESULTS=20
-
-NOTION_API_TOKEN=
-NOTION_UPDATES_PAGE_ID=
-GITHUB_API_TOKEN=
-GITHUB_DEFAULT_REPO=owner/repo
-GITHUB_SYNC_DEFAULT_HOURS=24
-GITHUB_SYNC_STATE_FILE=storage/github_notion_sync_state.json
-OBSIDIAN_VAULT_PATH=/absolute/path/to/your/Obsidian/Vault
-OBSIDIAN_EXPORT_NOTES_DIR=Vasya Inbox
-OBSIDIAN_EDIT_NOTES_DIR=Vasya Inbox
-OBSIDIAN_PROJECTS_DIR=Projects
-
-OS_ACTIONS_ENABLED=true
-OS_ALLOWED_URL_DOMAINS=github.com,notion.so,obsidian.md,google.com,yandex.ru,openweathermap.org
-OS_ALLOWED_APPS=Safari,Google Chrome,Firefox,Notion,Obsidian,Calendar,Notes,TextEdit,Terminal
-OS_REQUIRE_CONFIRM_FOR_INPUT=true
-OS_REQUIRE_CONFIRM_FOR_OPEN_EXTERNAL=false
-AGENT_ROUTING_PROFILE=rolepack_v1
-CHAT_PROMPT_PACK_PROFILE=dynamic_v1
-MORNING_SHOW_ENABLED=true
-MORNING_SHOW_CITY=Moscow
-MORNING_SHOW_HOUR_LIMIT=12
-MORNING_SHOW_PREWARM_ENABLED=true
-MORNING_SHOW_WEATHER_CACHE_MINUTES=30
-```
-
-For faster intent parsing:
-- `OLLAMA_FAST_MODEL` is used for short assistant commands
-- `OLLAMA_FAST_THINK=false` disables reasoning on the fast path
-- keep `OLLAMA_FAST_NUM_PREDICT` small, for example `128` or `256`
-
-For faster conversational replies:
-- `OLLAMA_CHAT_NUM_PREDICT=120..160` is usually enough
-- `OLLAMA_CHAT_QUICK_ENABLED=true` enables a short-utterance quick profile
-- `OLLAMA_CHAT_QUICK_NUM_PREDICT=72..96` makes short replies much faster
-- `OLLAMA_CHAT_QUICK_MODEL=fast` uses the fast model for short phrases
-- `INTERRUPT_LISTEN_DELAY_SECONDS=0.35..0.5` shortens follow-up turn delay
-- `VOICE_ULTRA_FAST_MODE=true` enables a more aggressive fast voice path
-- `VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS=true` reduces extra confirmation turns
-
-For faster and more accurate speech recognition:
-- keep `WHISPER_PARTIAL_MODEL` fast, for example `base`
-- set `WHISPER_FINAL_MODEL` to a stronger model such as `large-v3-turbo`
-- use `STT_PARTIAL_BEAM_SIZE=1` for quicker partial recognition
-- keep `STT_FINAL_BEAM_SIZE=5` for better final accuracy
-
-Voice selection:
-
-```bash
-python -m voice.tts --list-profiles
-python -m voice.tts --list-voices
-python -m voice.tts --profile ruslan_direct --text "Hello, this is a voice test"
-```
-
-Voice profiles:
-- `ruslan_direct` — male, fast and direct
-- `alexa_natural_xtts` — female, more natural XTTS voice clone (requires `XTTS_SPEAKER_WAV`)
-
-System voice commands:
-- `Be quiet`
-- `Stop speaking`
-- `Exit`
-- `Close assistant`
-
-OS action voice commands:
-- `Open site github.com`
-- `Open browser`
-- `Type text ...`
-- `Press Enter`
-- `Right click`
-- `Scroll down`
-
-Obsidian voice commands:
-- `Add to Obsidian in note Project Vasya: update installation section`
-- `Update note in Obsidian Roadmap: v0.6 focuses on Windows setup`
-- `Add GitHub project owner/repo to Obsidian`
-
-Alternative TTS path:
-- `say` is still the simplest built-in macOS option
-- `auto` uses `piper` for piper profiles and can switch to `hybrid (XTTS + Piper)` for XTTS profiles
-- `piper` can be forced explicitly with `TTS_BACKEND=piper`
-- `xtts` can be forced explicitly with `TTS_BACKEND=xtts`
-- `hybrid` can be forced explicitly with `TTS_BACKEND=hybrid` (short replies faster, longer replies more natural)
-- for `piper`, configure at least `PIPER_MODEL_PATH`
-- for XTTS, configure `XTTS_SPEAKER_WAV` (a short clean speaker sample)
-- on first speech, Vasya prints which TTS backend is actually active
-- for Russian local TTS, you can fetch the current voice with `python scripts/setup_piper_ru.py --voices ruslan`
-
-## Google Calendar
-
-Setup:
-1. Create a Desktop App OAuth client in Google Cloud
-2. Enable Google Calendar API
-3. Save the credentials file as `credentials.json` in the project root
-4. Enable the integration in `.env`
-
-Behavior:
-- new events can be pushed to Google Calendar
-- upcoming Google Calendar events can be imported into SQLite
-- if Google sync fails, Vasya keeps working with local storage and reports the error
-
-## Current Limitations
-
-This is still an MVP, so current limits include:
-- no wake word yet
-- no always-listening mode
-- speech understanding still needs improvement in noisy or imperfect conditions
-- the desktop avatar is still a first lightweight widget, not a full desktop app
-- no menu bar app yet
-- Notion integration is MVP-level and currently page-oriented (not full workspace sync)
-- Obsidian is still export-focused, not a full sync layer
-- no specialized code or writing agents yet
-- no simple Windows or Linux installation path yet
-- no full user-imported character pack system yet
-
-## Version Path
-
-- `v0.3.x`: core voice MVP, local storage, calendar/tasks, Google Calendar, hotkey mode
-- `v0.4.0`: first desktop widget MVP with assistant state layer and click-to-talk avatar
-- `v0.4.1`: improved conversational UX, voice confirmations, faster chat path, safer bulk task deletion
-- `v0.4.2`: child game mode and a dedicated game agent
-- `v0.4.3`: notes, local memory, and Obsidian export
-- `v0.4.4`: voice responsiveness, child-safe UX, and improved game flow
-- `v0.4.5`: two-stage STT, STT quality profiles, smarter follow-up recovery, and clearer task/calendar clarifications
-- `v0.4.6`: avatar personalization, built-in skins, custom palette import/export, custom avatar image overrides, and child-mode auto skin switching
-- `v0.4.7`: first-run onboarding, onboarding dialog, and checklist/progress polish
-- `v0.5.0`: product shell polish (hover tooltip, status indicator)
-- `v0.5.1`: mini hover tooltips per state
-- `v0.5.2`: tool registry, routing policy layer, handoff rules, and unified memory API
-- `v0.5.3`: managed user profile memory, fast-path memory commands, and settings-based personal memory cleanup
-- `v0.5.4`: Notion read/write adapter, GitHub-to-Notion updates sync, and fast voice intents for Notion workflows
-- `v0.5.5`: faster conversational loop (quick chat profile, lower chat num_predict, shorter follow-up delay)
-- `v0.5.6`: voice latency instrumentation, `speed_report` command, and ultra-fast voice mode tuning
-- `v0.5.7`: hotkey-based text command window integrated into desktop shell and router
-- `v0.5.8`: voice-open text command window, first daily morning show, and fast-lane conversational/tool routing polish
-- `v0.5.9`: A/B voice contour metrics, adaptive auto-interrupt thresholds for noisy/quiet environments, and shell health hint in hover/tray
-- `v0.5.10`: API gateway foundation (`apps/api`) for future iOS/Android clients over shared core logic
-- `v0.5.11`: context/action layer inspiration (selected text context, screenshot-aware prompts, slash-style quick actions)
-- `v0.5.12`: OS action tools with safety policy plus role-spec routing and chat prompt packs (`default/work/concise/child`)
-- `v0.5.13`: A/B voice metrics extended with routing/prompt profiles, role distribution, TTFR/TTA by profile, and local fast-lane coverage
-- `v0.5.14`: optional XTTS backend with hybrid mode (fast short replies + more natural long replies)
-- `v0.5.15`: runtime prewarm (STT/Ollama) and more aggressive early fast-path for low-risk voice intents
-- `v0.5.16`: voice intents for Obsidian note updates and GitHub project sync to Obsidian (README-adapted notes)
-- `v0.5.17`: instant weather small-talk and pre-generated morning show cache for near-zero wait on first “good morning”
-- `v0.5.18`: streaming pipeline layer, WebSocket realtime mode, modular STT/TTS/LLM registry, and benchmark harness
-- `v0.5.x`: a more cohesive desktop shell, richer avatar behavior, and user-imported visual themes
-- `v0.6.x`: easier installation, starting with a Windows setup path and then Linux
-- `v0.7.x`: Notion adapter plus deeper Obsidian workflows
-- `v0.8.x`: code agent and writing/research agent
-- `v1.0`: cross-platform Vasya with easy installation, skins, Obsidian + Notion, stable voice UX, and multi-agent workflows
-
-## Planned Direction
-
-Near-term goals:
-- a more polished desktop shell around the current widget MVP
-- richer avatar personalization and user-imported visual styles
-- continued improvements to voice understanding and recovery UX
-- context-aware actions: selected text, screenshot prompts, and quick slash-style commands
-- easier installation, starting with a Windows setup path
-- Notion as a second adapter on top of the local-first core
-
-## What 1.0 Means
-
-For Vasya, `1.0` should mean a real product, not just another MVP:
-- macOS, Windows, and Linux work at a practical level
-- installation is close to “download and run”
-- the desktop shell feels stable and intentional
-- voice UX is fast and predictable
-- Vasya can be personalized through skins
-- Vasya can also be personalized through user images and custom palette-based themes
-- the local core remains the source of truth
-- Obsidian and Notion work as external adapters and views
-- multiple specialized agents are available instead of only one general assistant
-
-Full long-term plan:
-- see [ROADMAP.md](ROADMAP.md)
-
-## Security
-
-When using external integrations, the main concerns are:
-- token storage
-- calendar access
-- file access
-- action logging
-
-## Notes
-
-On macOS, microphone access may be required for Terminal or your IDE:
-- `System Settings`
-- `Privacy & Security`
-- `Microphone`
-
-Global hotkeys on macOS may also require:
-- `System Settings`
-- `Privacy & Security`
-- `Accessibility`
-
-Running the desktop avatar may also require:
-- `System Settings`
-- `Privacy & Security`
-- `Accessibility`
-
-## Author
-
-Xelvhk
-
-Personal project for building a local voice AI assistant that can grow into a wider personal AI system.
+## License
+No license file is included yet. Add `LICENSE` if you plan public reuse.

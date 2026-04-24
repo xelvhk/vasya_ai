@@ -74,8 +74,10 @@ API Layer
 ```
 
 ## Demo / Screenshots
-- Add product screenshots to `docs/screenshots/` (placeholder)
-- Suggested assets: `avatar-widget.png`, `voice-flow.png`, `api-docs.png`
+Current previews:
+
+- Avatar widget concept  
+![Avatar widget preview](docs/screenshots/avatar-widget.png)
 
 ## Roadmap
 Short roadmap:
@@ -87,6 +89,7 @@ Short roadmap:
 Detailed roadmap and release timeline:
 - [ROADMAP.md](ROADMAP.md)
 - [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
+- [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 ## CI
 Minimal CI is configured in `.github/workflows/ci.yml`:
@@ -94,4 +97,4 @@ Minimal CI is configured in `.github/workflows/ci.yml`:
 - run syntax check (`python -m compileall .`)
 
 ## License
-No license file is included yet. Add `LICENSE` if you plan public reuse.
+MIT License. See [LICENSE](LICENSE).

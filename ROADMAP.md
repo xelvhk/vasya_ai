@@ -89,6 +89,7 @@ Current status:
 - voice-open text command window, first daily morning show, and faster local fast-lane routing landed in `v0.5.8`
 - A/B voice contour metrics, adaptive auto-interrupt thresholds, and hover/tray health hints landed in `v0.5.9`
 - API gateway foundation for future mobile/web clients landed in `v0.5.10`
+- voice dictation to active focused field (Obsidian-first MVP) landed in `v0.5.19`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -211,6 +212,8 @@ Good future exports:
 - `v0.5.16`: voice-first Obsidian note updates and GitHub README -> Obsidian project sync
 - `v0.5.17`: pre-generated morning show cache and fast weather small-talk replies
 - `v0.5.18`: streaming/pipeline orchestration, WebSocket realtime mode, modular STT/TTS/LLM registry, and benchmark harness
+- `v0.5.19`: voice dictation to active focused field (`os_type_text`), including fast RU phrasings like "добавь текст..." and "продиктуй..."
+- `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, and focus-safe typing guardrails
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

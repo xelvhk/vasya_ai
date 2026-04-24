@@ -18,6 +18,15 @@ Language: **English** | [Русский](README.ru.md)
 - Integration assistant: sync GitHub updates to Notion, export notes to Obsidian
 - Automation sandbox: test local agent orchestration and routing policies
 
+## Voice Typing (Active Field)
+Vasya can type into the currently focused input/editor field through OS actions (Obsidian-first workflow).
+
+Examples:
+- `Type text ...`
+- `Add text ...`
+- `Dictate ...`
+- `Paste ...`
+
 ## Stack
 - Python 3.11+
 - FastAPI

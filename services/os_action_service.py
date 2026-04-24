@@ -188,7 +188,7 @@ def _act(action: str, payload: dict[str, Any], observed: dict[str, Any]) -> str:
     if action == "type_text":
         keyboard = _keyboard_controller()
         keyboard.type(payload["text"])
-        return "Ввела текст."
+        return "Ввела текст в активное поле."
 
     if action == "keypress":
         keyboard_module = _keyboard_module()

@@ -73,6 +73,17 @@ API Layer
   apps/api/* (FastAPI endpoints for chat/tasks/events/notes)
 ```
 
+```mermaid
+flowchart LR
+    User["User (Voice/Text)"] --> Input["Input Layer\nvoice/*"]
+    Input --> Orchestrator["Orchestration Layer\ncore/orchestrator.py + router + intent_parser"]
+    Orchestrator --> Agents["Domain Agents\ntask / calendar / note / chat / game"]
+    Agents --> Services["Services + Repositories\nservices/* + repositories/*"]
+    Services --> Storage["Local Storage\nSQLite + local state files"]
+    Services --> Integrations["Integrations\nGoogle Calendar / Notion / GitHub"]
+    Orchestrator --> Api["FastAPI Layer\napps/api/*"]
+```
+
 ## Demo / Screenshots
 Current previews:
 

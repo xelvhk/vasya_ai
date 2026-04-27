@@ -50,7 +50,18 @@ class ProjectIdeaIntentFastpathTests(unittest.TestCase):
         assert intent is not None
         self.assertEqual(intent.intent, "analyze_project_idea_to_obsidian")
         self.assertIn("помощник для изучения языков", intent.data["idea"])
-        self.assertEqual(intent.data.get("title"), "language coach mvp")
+        self.assertEqual(intent.data.get("title"), "Language Coach MVP")
+
+    def test_detect_fast_intent_with_quoted_title(self) -> None:
+        text = (
+            'Проанализируй идею "планировщик обучения" в заметку "My Learning Plan" в обсидиан'
+        )
+        intent = detect_fast_intent(text)
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "analyze_project_idea_to_obsidian")
+        self.assertEqual(intent.data.get("idea"), "планировщик обучения")
+        self.assertEqual(intent.data.get("title"), "My Learning Plan")
 
 
 if __name__ == "__main__":

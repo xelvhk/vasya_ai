@@ -149,7 +149,8 @@ _DATE_TAIL_PATTERN = re.compile(
 
 
 def detect_fast_intent(user_text: str) -> IntentResult | None:
-    normalized = " ".join(user_text.lower().strip().split())
+    compact_text = " ".join(user_text.strip().split())
+    normalized = compact_text.lower()
     if not normalized:
         return None
 
@@ -330,13 +331,13 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         r"^(?:проанализируй)\s+идею\s+(.+?)\s+и\s+запиши\s+в\s+обсидиан\b$",
     )
     for pattern in idea_plan_patterns:
-        match = re.search(pattern, normalized)
+        match = re.search(pattern, compact_text, flags=re.IGNORECASE)
         if not match:
             continue
-        idea_text = str(match.group(1) or "").strip(" .,:;!-")
+        idea_text = _strip_wrapping_quotes(str(match.group(1) or "").strip(" .,:;!-"))
         title_text = ""
         if len(match.groups()) >= 2:
-            title_text = str(match.group(2) or "").strip(" .,:;!-")
+            title_text = _strip_wrapping_quotes(str(match.group(2) or "").strip(" .,:;!-"))
         if idea_text:
             return IntentResult(
                 intent="analyze_project_idea_to_obsidian",
@@ -354,14 +355,17 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
             continue
         if "обсидиан" not in normalized:
             continue
-        tail = normalized[len(prefix):].strip()
+        tail = compact_text[len(prefix):].strip()
         title_text = ""
-        title_match = re.search(r"\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b", tail)
+        title_match = re.search(r"\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b", tail, flags=re.IGNORECASE)
         if title_match:
-            title_text = str(title_match.group(1) or "").strip(" .,:;!-")
-            tail = re.sub(r"\s+в\s+заметк[уе]\s+.+?\s+в\s+обсидиан\b", "", tail).strip()
-        if " в обсидиан" in tail:
-            tail = tail.split(" в обсидиан", maxsplit=1)[0].strip()
+            title_text = _strip_wrapping_quotes(str(title_match.group(1) or "").strip(" .,:;!-"))
+            tail = re.sub(r"\s+в\s+заметк[уе]\s+.+?\s+в\s+обсидиан\b", "", tail, flags=re.IGNORECASE).strip()
+        tail_lower = tail.lower()
+        if " в обсидиан" in tail_lower:
+            split_index = tail_lower.find(" в обсидиан")
+            tail = tail[:split_index].strip()
+        tail = _strip_wrapping_quotes(tail.strip(" .,:;!-"))
         if tail:
             return IntentResult(
                 intent="analyze_project_idea_to_obsidian",
@@ -641,6 +645,16 @@ def _looks_incomplete(text: str) -> bool:
         return True
 
     return False
+
+
+def _strip_wrapping_quotes(text: str) -> str:
+    value = str(text or "").strip()
+    if len(value) >= 2:
+        quote_pairs = (("\"", "\""), ("'", "'"), ("«", "»"), ("“", "”"))
+        for left, right in quote_pairs:
+            if value.startswith(left) and value.endswith(right):
+                return value[1:-1].strip()
+    return value
 
 
 def _is_safe_early_chat_text(text: str) -> bool:

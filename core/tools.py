@@ -17,10 +17,10 @@ from services.github_notion_sync_service import (
     sync_project_updates_to_notion,
 )
 from services.github_obsidian_sync_service import (
-    analyze_project_idea_to_obsidian,
     sync_github_project_to_obsidian,
     update_obsidian_note,
 )
+from services.project_idea_planning_service import handle_project_idea_request
 from services.morning_show_service import get_morning_show_message
 from services.speed_report_service import build_voice_diagnostics_report
 from services.os_action_service import execute_os_action
@@ -131,7 +131,7 @@ def _run_obsidian_tool(intent_result: IntentResult) -> str:
     if intent_result.intent == "analyze_project_idea_to_obsidian":
         idea = str(intent_result.data.get("idea", "")).strip()
         title = str(intent_result.data.get("title", "")).strip() or None
-        return analyze_project_idea_to_obsidian(idea=idea, title=title)
+        return handle_project_idea_request(idea=idea, title=title)
     mode = "replace" if intent_result.intent == "replace_obsidian_note" else "append"
     title = str(intent_result.data.get("title", "")).strip()
     text = str(intent_result.data.get("text", "")).strip()

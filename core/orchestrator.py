@@ -6,6 +6,10 @@ from core.agent_policy import role_for_intent
 from core.models import IntentResult
 from services.game_service import handle_active_game_turn
 from services.os_action_service import confirm_os_action
+from services.project_idea_planning_service import (
+    continue_project_idea_clarification,
+    has_pending_project_idea_clarification,
+)
 from services.user_profile_service import confirm_clear_user_profile
 from core.intent_parser import parse_intent
 from core.router import route_intent
@@ -41,6 +45,7 @@ def process_text_detailed(user_text: str) -> ProcessResult:
 def _run_routing_policy(user_text: str) -> ProcessResult:
     steps: tuple[RoutingStep, ...] = (
         RoutingStep("system_intent", _handle_system_intent),
+        RoutingStep("pending_project_idea", _handle_pending_project_idea),
         RoutingStep("pending_confirmation", _handle_pending_confirmation),
         RoutingStep("active_game", _handle_active_game),
         RoutingStep("intent_parser", _handle_parsed_intent),
@@ -157,6 +162,21 @@ def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:
     return ProcessResult(intent="unknown", response="Подтверждение сброшено.", role="chat_agent")
 
 
+def _handle_pending_project_idea(user_text: str) -> ProcessResult | None:
+    if not has_pending_project_idea_clarification():
+        return None
+    response = continue_project_idea_clarification(user_text)
+    if not response:
+        return None
+    needs_followup = "?" in response or response.endswith("...")
+    return ProcessResult(
+        intent="analyze_project_idea_to_obsidian",
+        response=response,
+        role="note_agent",
+        needs_followup=needs_followup,
+    )
+
+
 def _handle_active_game(user_text: str) -> ProcessResult | None:
     if game_store.get() is None:
         return None
@@ -168,7 +188,7 @@ def _handle_active_game(user_text: str) -> ProcessResult | None:
 
 
 def _should_follow_up(intent: str, response: str) -> bool:
-    if intent in {"chat", "play_game"}:
+    if intent in {"chat", "play_game", "start_dictation_mode"}:
         return True
     if intent == "unknown" and response:
         return True

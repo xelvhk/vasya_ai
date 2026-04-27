@@ -9,6 +9,7 @@ from agents.note_agent import handle_note_intent
 from agents.task_agent import handle_task_intent
 from assistant.child_mode import child_mode_store
 from assistant.control import assistant_control
+from assistant.dictation_mode import dictation_mode_store
 from core.models import IntentResult
 from services.github_notion_sync_service import (
     append_note_to_notion,
@@ -16,6 +17,7 @@ from services.github_notion_sync_service import (
     sync_project_updates_to_notion,
 )
 from services.github_obsidian_sync_service import (
+    analyze_project_idea_to_obsidian,
     sync_github_project_to_obsidian,
     update_obsidian_note,
 )
@@ -126,6 +128,10 @@ def _run_obsidian_tool(intent_result: IntentResult) -> str:
     if intent_result.intent == "sync_github_obsidian_project":
         repo = str(intent_result.data.get("repo", "")).strip() or None
         return sync_github_project_to_obsidian(repo=repo)
+    if intent_result.intent == "analyze_project_idea_to_obsidian":
+        idea = str(intent_result.data.get("idea", "")).strip()
+        title = str(intent_result.data.get("title", "")).strip() or None
+        return analyze_project_idea_to_obsidian(idea=idea, title=title)
     mode = "replace" if intent_result.intent == "replace_obsidian_note" else "append"
     title = str(intent_result.data.get("title", "")).strip()
     text = str(intent_result.data.get("text", "")).strip()
@@ -153,6 +159,32 @@ def _run_morning_show_tool(intent_result: IntentResult) -> str:
     if message:
         return message
     return "Доброе утро. Я на связи."
+
+
+def _run_start_dictation_mode_tool(intent_result: IntentResult) -> str:
+    _ = intent_result
+    enabled_now = dictation_mode_store.enable()
+    if enabled_now:
+        return (
+            "Включила режим диктовки. "
+            "Теперь всё, что ты скажешь, я буду вводить в активное поле. "
+            "Для остановки скажи: стоп диктовка."
+        )
+    return "Режим диктовки уже включен."
+
+
+def _run_stop_dictation_mode_tool(intent_result: IntentResult) -> str:
+    _ = intent_result
+    disabled_now = dictation_mode_store.disable()
+    if disabled_now:
+        return "Остановила режим диктовки."
+    return "Режим диктовки уже выключен."
+
+
+def _run_dictation_mode_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "start_dictation_mode":
+        return _run_start_dictation_mode_tool(intent_result)
+    return _run_stop_dictation_mode_tool(intent_result)
 
 
 def _run_os_action_tool(intent_result: IntentResult) -> str:
@@ -242,7 +274,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="obsidian_sync",
         description="Обновление заметок Obsidian и создание проектной заметки из GitHub README.",
-        intents=("append_obsidian_note", "replace_obsidian_note", "sync_github_obsidian_project"),
+        intents=(
+            "append_obsidian_note",
+            "replace_obsidian_note",
+            "sync_github_obsidian_project",
+            "analyze_project_idea_to_obsidian",
+        ),
         handler=_run_obsidian_tool,
     ),
     ToolSpec(
@@ -268,6 +305,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Утреннее шоу: погода, задачи и короткая мысль дня.",
         intents=("morning_show",),
         handler=_run_morning_show_tool,
+    ),
+    ToolSpec(
+        tool_id="dictation_mode",
+        description="Управление непрерывным режимом диктовки в активное поле.",
+        intents=("start_dictation_mode", "stop_dictation_mode"),
+        handler=_run_dictation_mode_tool,
     ),
     ToolSpec(
         tool_id="os_actions",

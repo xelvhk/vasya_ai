@@ -31,8 +31,11 @@ Role spec:
 - append_obsidian_note
 - replace_obsidian_note
 - sync_github_obsidian_project
+- analyze_project_idea_to_obsidian
 - speed_report
 - morning_show
+- start_dictation_mode
+- stop_dictation_mode
 - os_open_url
 - os_open_app
 - os_type_text
@@ -113,33 +116,41 @@ Role spec:
 25. Для sync_github_obsidian_project:
    - repo: optional, owner/repo
    - используй для фраз "добавь проект github owner/repo в обсидиан"
-26. Для speed_report:
+26. Для analyze_project_idea_to_obsidian:
+   - idea: текст идеи проекта
+   - title: optional, название заметки
+   - используй для фраз "проанализируй идею проекта ... и распиши задачи в обсидиан"
+27. Для speed_report:
    - используй, если пользователь просит показать скорость ответа или отчет по задержкам
-27. Для morning_show:
+28. Для morning_show:
    - force: true/false (optional)
    - используй для фраз "утреннее шоу", "доброе утро"
-28. Для os_open_url:
+29. Для os_open_url:
    - url: ссылка, которую нужно открыть
    - используй для фраз "открой сайт ...", "перейди на ..."
-29. Для os_open_app:
+30. Для os_open_app:
    - app: название приложения
    - используй для фраз "открой браузер", "открой Notion"
-30. Для os_type_text:
+31. Для os_type_text:
    - text: текст, который нужно напечатать
    - используй для фраз "введи текст ...", "напечатай ...", "добавь текст ...", "продиктуй ...", "вставь ..."
-31. Для os_keypress:
+32. Для os_keypress:
    - keys: список клавиш или строка сочетания, например ["cmd","k"] или "enter"
    - используй для фраз "нажми Enter", "нажми cmd+k"
-32. Для os_click:
+33. Для os_click:
    - button: left/right/middle (optional, default left)
    - clicks: число кликов (optional)
    - используй для фраз "кликни", "правый клик"
-33. Для os_scroll:
+34. Для os_scroll:
    - amount: число (optional), отрицательное вниз, положительное вверх
    - используй для фраз "прокрути вниз/вверх"
-34. Для chat:
+35. Для chat:
    - используй, если пользователь просто хочет поговорить, задать общий вопрос, обсудить идею или получить объяснение
    - не используй chat для задач, календаря, заметок, игр, остановки речи, закрытия помощника или Notion/GitHub/Obsidian синка
+36. Для start_dictation_mode:
+   - используй для фраз "начни диктовку", "включи диктовку", "режим диктовки"
+37. Для stop_dictation_mode:
+   - используй для фраз "стоп диктовка", "останови диктовку", "выключи диктовку"
 
 Примеры ответа:
 
@@ -295,6 +306,14 @@ Role spec:
 }}
 
 {{
+  "intent": "analyze_project_idea_to_obsidian",
+  "data": {{
+    "idea": "ассистент для планирования семейных поездок с бюджетом и чеклистами",
+    "title": "Family Trip Planner MVP"
+  }}
+}}
+
+{{
   "intent": "speed_report",
   "data": {{}}
 }}
@@ -304,6 +323,16 @@ Role spec:
   "data": {{
     "force": true
   }}
+}}
+
+{{
+  "intent": "start_dictation_mode",
+  "data": {{}}
+}}
+
+{{
+  "intent": "stop_dictation_mode",
+  "data": {{}}
 }}
 
 {{

@@ -322,6 +322,52 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     }:
         return IntentResult(intent="sync_github_obsidian_project", data={})
 
+    idea_plan_patterns = (
+        r"^(?:проанализируй|разбери|оцени)\s+идею\s+(.+?)\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b$",
+        r"^(?:составь|распиши)\s+(?:план|задачи)\s+по\s+идее\s+(.+?)\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b$",
+        r"^(?:проанализируй|разбери|оцени)\s+(?:идею|идею проекта)\s*(.+?)?\s*(?:и|,)\s*(?:распиши|составь)\s+(?:план|задачи).*\bобсидиан\b$",
+        r"^(?:составь|распиши)\s+(?:план|задачи)\s+по\s+идее\s+(.+?)\s+в\s+обсидиан\b$",
+        r"^(?:проанализируй)\s+идею\s+(.+?)\s+и\s+запиши\s+в\s+обсидиан\b$",
+    )
+    for pattern in idea_plan_patterns:
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        idea_text = str(match.group(1) or "").strip(" .,:;!-")
+        title_text = ""
+        if len(match.groups()) >= 2:
+            title_text = str(match.group(2) or "").strip(" .,:;!-")
+        if idea_text:
+            return IntentResult(
+                intent="analyze_project_idea_to_obsidian",
+                data={"idea": idea_text, **({"title": title_text} if title_text else {})},
+            )
+
+    idea_plan_prefixes = (
+        "проанализируй идею проекта ",
+        "проанализируй идею ",
+        "составь план по идее ",
+        "распиши задачи по идее ",
+    )
+    for prefix in idea_plan_prefixes:
+        if not normalized.startswith(prefix):
+            continue
+        if "обсидиан" not in normalized:
+            continue
+        tail = normalized[len(prefix):].strip()
+        title_text = ""
+        title_match = re.search(r"\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b", tail)
+        if title_match:
+            title_text = str(title_match.group(1) or "").strip(" .,:;!-")
+            tail = re.sub(r"\s+в\s+заметк[уе]\s+.+?\s+в\s+обсидиан\b", "", tail).strip()
+        if " в обсидиан" in tail:
+            tail = tail.split(" в обсидиан", maxsplit=1)[0].strip()
+        if tail:
+            return IntentResult(
+                intent="analyze_project_idea_to_obsidian",
+                data={"idea": tail, **({"title": title_text} if title_text else {})},
+            )
+
     sync_notion_patterns = (
         r"^(?:синхронизируй|обнови)\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\s+(?:в|с)\s+(?:notion|ноушн)\b",
         r"^(?:синхронизируй|обнови)\s+(?:notion|ноушн)\s+по\s+(?:github|гитхаб)(?:\s+([\w.\-]+/[\w.\-]+))?\b",
@@ -505,6 +551,7 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "forget_user_profile",
         "sync_github_notion",
         "sync_github_obsidian_project",
+        "analyze_project_idea_to_obsidian",
         "read_notion_page",
         "append_notion_page",
         "append_obsidian_note",

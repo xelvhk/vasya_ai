@@ -29,6 +29,31 @@ class ProjectIdeaObsidianTests(unittest.TestCase):
         self.assertIn("Исходная идея", kwargs["content"])
         self.assertIn("План реализации", kwargs["content"])
 
+    def test_analyze_project_idea_to_obsidian_normalizes_unstructured_plan(self) -> None:
+        idea = "инструмент для контроля питания с дневником и напоминаниями"
+        raw_plan = (
+            "Сначала уточнить аудиторию. "
+            "Потом сделать прототип. "
+            "Проверить на первых пользователях."
+        )
+        with patch("services.github_obsidian_sync_service.resolve_chat_model", return_value="fake-model"):
+            with patch("services.github_obsidian_sync_service.generate", return_value=raw_plan):
+                with patch(
+                    "services.github_obsidian_sync_service.upsert_obsidian_note",
+                    return_value={"ok": True, "path": "/tmp/Idea2.md"},
+                ) as upsert_mock:
+                    result = analyze_project_idea_to_obsidian(idea=idea, title="Nutrition Plan")
+
+        self.assertIn("записала план", result.lower())
+        content = upsert_mock.call_args.kwargs["content"]
+        self.assertIn("### Цель и ценность", content)
+        self.assertIn("### MVP", content)
+        self.assertIn("### Этапы реализации", content)
+        self.assertIn("### Задачи по этапам", content)
+        self.assertIn("### Риски и как снизить", content)
+        self.assertIn("### Что сделать сегодня", content)
+        self.assertIn("- [ ]", content)
+
 
 class ProjectIdeaIntentFastpathTests(unittest.TestCase):
     def test_detect_fast_intent_for_project_idea_to_obsidian(self) -> None:

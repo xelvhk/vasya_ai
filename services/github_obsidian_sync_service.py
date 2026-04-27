@@ -92,10 +92,11 @@ def analyze_project_idea_to_obsidian(*, idea: str, title: str | None = None) -> 
 
     if not markdown_plan:
         return "Не получилось собрать план по идее. Попробуй чуть подробнее сформулировать идею."
+    normalized_plan = _normalize_project_plan_markdown(markdown_plan)
 
     content = (
         f"## Исходная идея\n\n{normalized_idea}\n\n"
-        f"## План реализации\n\n{markdown_plan}\n"
+        f"## План реализации\n\n{normalized_plan}\n"
     )
     result = upsert_obsidian_note(
         title=normalized_title,
@@ -153,3 +154,117 @@ def _build_project_plan_prompt(idea: str) -> str:
 Идея:
 {idea}
 """.strip()
+
+
+def _normalize_project_plan_markdown(markdown_plan: str) -> str:
+    text = str(markdown_plan or "").strip()
+    if not text:
+        return ""
+    sections = _extract_markdown_sections(text)
+    required_titles = (
+        "Цель и ценность",
+        "MVP",
+        "Этапы реализации",
+        "Задачи по этапам",
+        "Риски и как снизить",
+        "Что сделать сегодня",
+    )
+    if all(_lookup_section_content(sections, title) for title in required_titles):
+        return text
+
+    bullets = _extract_bullets(text)
+    goals = bullets[:3] or ["Определить ценность проекта и целевую аудиторию."]
+    mvp = bullets[3:6] or ["Собрать минимальный функциональный контур и проверить на первых пользователях."]
+    phases = bullets[6:9] or [
+        "Этап 1: исследование и уточнение требований.",
+        "Этап 2: реализация MVP и базовые тесты.",
+        "Этап 3: итерация по обратной связи и стабилизация.",
+    ]
+    tasks = bullets[9:17] or [
+        "Сформулировать product scope и критерии успеха.",
+        "Собрать технический каркас и базовую архитектуру.",
+        "Реализовать ключевые пользовательские сценарии MVP.",
+        "Добавить тесты и базовую диагностику.",
+    ]
+    risks = bullets[17:20] or [
+        "Риск расплывчатого scope — зафиксировать MVP-границы письменно.",
+        "Риск затяжной реализации — идти итерациями и мерить прогресс по неделям.",
+    ]
+    first_steps = bullets[20:23] or [
+        "Уточнить цель и аудиторию проекта в 3-5 пунктах.",
+        "Собрать список обязательных MVP-функций.",
+        "Разбить MVP на первые технические задачи.",
+    ]
+
+    return (
+        f"### Цель и ценность\n{_as_bulleted(goals)}\n\n"
+        f"### MVP\n{_as_bulleted(mvp)}\n\n"
+        f"### Этапы реализации\n{_as_numbered(phases)}\n\n"
+        f"### Задачи по этапам\n{_as_checklist(tasks)}\n\n"
+        f"### Риски и как снизить\n{_as_bulleted(risks)}\n\n"
+        f"### Что сделать сегодня\n{_as_numbered(first_steps)}"
+    ).strip()
+
+
+def _extract_markdown_sections(text: str) -> dict[str, str]:
+    sections: dict[str, list[str]] = {}
+    current_title = ""
+    for raw_line in text.splitlines():
+        line = raw_line.rstrip()
+        heading = re.match(r"^\s{0,3}#{1,6}\s+(.+)$", line)
+        if heading:
+            current_title = heading.group(1).strip()
+            sections.setdefault(current_title, [])
+            continue
+        if not current_title:
+            continue
+        sections[current_title].append(line)
+    return {title: "\n".join(lines).strip() for title, lines in sections.items()}
+
+
+def _lookup_section_content(sections: dict[str, str], title: str) -> str:
+    target = title.lower().strip()
+    for raw_title, content in sections.items():
+        normalized = re.sub(r"\s+", " ", raw_title.lower()).strip()
+        if target in normalized:
+            return content
+    return ""
+
+
+def _extract_bullets(text: str) -> list[str]:
+    result: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        m = re.match(r"^[-*]\s+(.+)$", line)
+        if not m:
+            m = re.match(r"^\d+[.)]\s+(.+)$", line)
+        if m:
+            item = " ".join(m.group(1).strip().split())
+            if item:
+                result.append(item)
+    if result:
+        return result
+    compact = " ".join(text.split())
+    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", compact) if part.strip()]
+    return sentences[:12]
+
+
+def _as_bulleted(items: list[str]) -> str:
+    return "\n".join(f"- {item}" for item in items if item.strip())
+
+
+def _as_numbered(items: list[str]) -> str:
+    rows: list[str] = []
+    index = 1
+    for item in items:
+        if not item.strip():
+            continue
+        rows.append(f"{index}. {item}")
+        index += 1
+    return "\n".join(rows)
+
+
+def _as_checklist(items: list[str]) -> str:
+    return "\n".join(f"- [ ] {item}" for item in items if item.strip())

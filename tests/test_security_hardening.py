@@ -100,10 +100,14 @@ class LoggerRedactionTests(unittest.TestCase):
     def setUp(self) -> None:
         self._orig_redact = app_logger.LOG_REDACT_SENSITIVE
         self._orig_include_text = app_logger.LOG_INCLUDE_TEXT_CONTENT
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        self._orig_interaction_log = app_logger.INTERACTION_LOG_FILE
 
     def tearDown(self) -> None:
         app_logger.LOG_REDACT_SENSITIVE = self._orig_redact
         app_logger.LOG_INCLUDE_TEXT_CONTENT = self._orig_include_text
+        app_logger.INTERACTION_LOG_FILE = self._orig_interaction_log
+        self._tmp_dir.cleanup()
 
     def test_sanitize_payload_masks_text_and_token(self) -> None:
         app_logger.LOG_REDACT_SENSITIVE = True
@@ -118,6 +122,26 @@ class LoggerRedactionTests(unittest.TestCase):
         self.assertEqual(data["user_text"], "<redacted_text:15 chars>")
         self.assertEqual(data["api_token"], "<redacted_secret>")
         self.assertEqual(data["nested"]["authorization"], "<redacted_secret>")
+
+    def test_log_interaction_event_writes_redacted_payload(self) -> None:
+        app_logger.LOG_REDACT_SENSITIVE = True
+        app_logger.LOG_INCLUDE_TEXT_CONTENT = False
+        log_path = Path(self._tmp_dir.name) / "interactions.log"
+        app_logger.INTERACTION_LOG_FILE = str(log_path)
+
+        app_logger.log_interaction_event(
+            "interaction",
+            {
+                "user_text": "секретная фраза",
+                "api_token": "abcdef1234567890supersecret",
+            },
+        )
+
+        lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+        self.assertTrue(lines)
+        payload = json.loads(lines[-1])
+        self.assertEqual(payload["user_text"], "<redacted_text:15 chars>")
+        self.assertEqual(payload["api_token"], "<redacted_secret>")
 
 
 if __name__ == "__main__":

@@ -55,8 +55,6 @@ Scope: API auth, integrations secrets, logging privacy, dictation API safety
   - Set dictation target to API with non-allowlisted host
   - Try dictation => explicit rejection message
 
-## Open
-
 ### SEC-006: Missing rate-limit/throttling in API/WS
 - Status: closed in `v0.5.22`
 - Priority: high
@@ -72,8 +70,17 @@ Scope: API auth, integrations secrets, logging privacy, dictation API safety
   - Send too many WS messages in one window => socket is closed with rate-limit error
 
 ### SEC-007: Insufficient automated security tests
-- Status: open
+- Status: closed in `v0.5.23`
 - Priority: medium
-- Suggested fix:
-  - Add unit tests for auth modes, WS auth policy, and logger redaction
-  - Add migration test for legacy integration tokens
+- Files:
+  - `tests/test_security_hardening.py`
+  - `tests/test_api_rate_limit.py`
+  - `tests/test_api_security_e2e.py`
+- Verification:
+  - Run `.venv/bin/python -m unittest tests/test_security_hardening.py`
+  - Run `.venv/bin/python -m unittest tests/test_api_rate_limit.py`
+  - Run `.venv/bin/python -m unittest tests/test_api_security_e2e.py`
+
+## Open
+
+- No open security issues in the current baseline tracker.

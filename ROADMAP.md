@@ -92,6 +92,7 @@ Current status:
 - voice dictation to active focused field (Obsidian-first MVP) landed in `v0.5.19`
 - continuous dictation mode with start/stop commands, punctuation helpers, focus-safe guardrails, and optional API target landed in `v0.5.20`
 - security hardening baseline (API auth strict mode, secrets storage via keyring, log redaction, safer dictation API host policy) landed in `v0.5.21`
+- API/WS rate-limit layer for anti-abuse protection landed in `v0.5.22`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -217,6 +218,7 @@ Good future exports:
 - `v0.5.19`: voice dictation to active focused field (`os_type_text`), including fast RU phrasings like "добавь текст..." and "продиктуй..."
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
+- `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter
@@ -242,7 +244,7 @@ If choosing one practical path from here, the best next order is:
 - [x] Integrations: move sensitive tokens to OS keyring (with local fallback)
 - [x] Logging: redact secrets and optionally hide free-text payloads
 - [x] Dictation API: enforce host allowlist (`DICTATION_API_ALLOWED_HOSTS`)
-- [ ] Add rate-limit/throttling for `/v1/chat`, `/v1/pipeline`, `/v1/ws/voice`
+- [x] Add rate-limit/throttling for `/v1/chat`, `/v1/pipeline`, `/v1/ws/voice`
 - [ ] Add security-focused tests for auth, logging redaction, and secret migration
 
 ## What 1.0 Means

@@ -66,6 +66,11 @@ Optional API mode:
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 ```
 
+API protection defaults:
+- API key auth is required by default for `/v1/*` (`VASYA_API_REQUIRE_AUTH=true`)
+- HTTP throttling is enabled for `/v1/chat` and `/v1/pipeline`
+- WebSocket throttling is enabled for `/v1/ws/voice` (connection + message limits)
+
 ## Environment
 Copy `.env.example` to `.env` and adjust values for your machine.
 

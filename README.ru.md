@@ -122,6 +122,11 @@ Roadmap:
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 ```
 
+Защита по умолчанию:
+- для `/v1/*` требуется API-ключ (`VASYA_API_REQUIRE_AUTH=true`)
+- включен HTTP throttling для `/v1/chat` и `/v1/pipeline`
+- включен WS throttling для `/v1/ws/voice` (лимиты на подключения и сообщения)
+
 Основные endpoint'ы:
 - `GET /health`
 - `POST /v1/chat`

@@ -58,11 +58,18 @@ Scope: API auth, integrations secrets, logging privacy, dictation API safety
 ## Open
 
 ### SEC-006: Missing rate-limit/throttling in API/WS
-- Status: open
+- Status: closed in `v0.5.22`
 - Priority: high
-- Suggested fix:
-  - Add per-IP request window for `/v1/chat` and `/v1/pipeline`
-  - Add WS message frequency and concurrent session limits
+- Files:
+  - `apps/api/rate_limit.py`
+  - `apps/api/main.py`
+  - `apps/api/routes/realtime.py`
+  - `config/settings.py`
+  - `.env.example`
+- Verification:
+  - Send many POST requests to `/v1/chat` or `/v1/pipeline` within one window => `429`
+  - Open too many `WS /v1/ws/voice` sessions from one client => connection rejected
+  - Send too many WS messages in one window => socket is closed with rate-limit error
 
 ### SEC-007: Insufficient automated security tests
 - Status: open

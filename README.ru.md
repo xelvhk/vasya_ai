@@ -45,6 +45,7 @@ Vasya уже умеет:
 Roadmap:
 - см. [ROADMAP.md](ROADMAP.md)
 - план мобильного monorepo: [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
+- security tracker: [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
 
 ## Текущее MVP
 
@@ -83,6 +84,24 @@ Roadmap:
 - `Замолчи`
 - `Выход`
 
+Голосовой ввод (в активное поле или через API):
+- `Добавь текст ...`
+- `Продиктуй ...`
+- `Вставь ...`
+- `Начни диктовку`
+- `Стоп диктовка`
+
+Пунктуация в режиме диктовки:
+- `запятая`, `точка`, `вопросительный знак`, `восклицательный знак`
+- `новая строка`, `новый абзац`
+
+Режим диктовки через API:
+- `Настройки -> Интеграции -> Режим диктовки -> Через API`
+- указать `Dictation API URL` и при необходимости токен
+- Вася отправляет `POST` JSON: `{"text":"...","source":"vasya_dictation_mode"}`
+- при токене добавляет заголовок `Authorization: Bearer ...`
+- для безопасности host проверяется по `DICTATION_API_ALLOWED_HOSTS` (по умолчанию только localhost)
+
 ## Стек
 
 - Python
@@ -116,9 +135,14 @@ python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 - `POST /v1/recovery/mic-test`
 - `POST /v1/recovery/auto-tune`
 
-Опциональная защита API:
-- задай `VASYA_API_AUTH_TOKEN` в `.env`
-- и передавай заголовок `X-API-Key: <token>` для маршрутов `/v1/*`
+Защита API (secure-by-default):
+- задай `VASYA_API_AUTH_TOKEN` в `.env` (иначе `/v1/*` будут недоступны)
+- передавай `X-API-Key: <token>` или `Authorization: Bearer <token>`
+- для WebSocket query-токен выключен по умолчанию (`VASYA_API_ALLOW_QUERY_TOKEN=false`)
+
+Security note:
+- Токены интеграций из настроек сохраняются в OS keyring (если доступен).
+- Старые `*_token` поля мигрируются из `storage/integrations.json` при первом чтении/сохранении.
 
 ## Архитектура
 

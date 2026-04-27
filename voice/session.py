@@ -3,16 +3,20 @@ from __future__ import annotations
 import json
 import re
 import time
+from urllib.parse import urlparse
 
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Lock, Thread
 from typing import Callable
 
+import requests
+
 from assistant.confirmations import confirmation_store
 from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.conversation import conversation_memory
+from assistant.dictation_mode import dictation_mode_store
 from assistant.games import game_store
 from assistant.state import AssistantStateName, assistant_state
 from assistant.tone import conversation_tone
@@ -42,6 +46,7 @@ from config.settings import (
     VOICE_ULTRA_FAST_MODE,
     VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS,
     CHAT_PROMPT_PACK_PROFILE,
+    DICTATION_API_ALLOWED_HOSTS,
 )
 from core.agent_policy import role_for_intent
 from core.models import IntentResult
@@ -50,7 +55,9 @@ from core.router import route_intent
 from services.chat_service import generate_chat_reply_local_fast, get_last_chat_prompt_pack
 from services.game_service import is_active_game_fast_phrase
 from services.morning_show_service import get_morning_show_message
+from services.integration_settings_service import get_integration_setting
 from services.runtime_prewarm_service import start_runtime_prewarm_async
+from services.os_action_service import execute_os_action
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
 from utils.logger import log_interaction_event, log_voice_event
@@ -101,6 +108,8 @@ _EARLY_IMMEDIATE_INTENTS = {
     "read_notion_page",
     "play_game",
     "sync_github_obsidian_project",
+    "start_dictation_mode",
+    "stop_dictation_mode",
 }
 
 _BARGE_IN_SHORT_STOP = {"стоп", "замолчи", "хватит", "стоп вась", "вася стоп"}
@@ -146,6 +155,7 @@ def run_voice_interaction() -> AssistantControlAction:
     followup_config = _load_runtime_followup_config()
     auto_interrupt_config = _load_runtime_auto_interrupt_config()
     ab_profile_config = _load_runtime_ab_profiles()
+    dictation_config = _load_runtime_dictation_config()
     first_action_ms: float | None = None
     first_response_ms: float | None = None
     barge_in_count = 0
@@ -244,6 +254,16 @@ def run_voice_interaction() -> AssistantControlAction:
         _reset_capture_failure_streak()
 
         print(f"Ты сказал: {user_text}")
+        if dictation_mode_store.is_enabled():
+            dictation_result = _handle_dictation_turn(user_text, dictation_config)
+            if dictation_result is not None:
+                if dictation_result:
+                    assistant_state.set(AssistantStateName.SPEAKING, dictation_result)
+                    tts_started = time.perf_counter()
+                    speak(dictation_result)
+                    metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
+                keep_conversation_open = True
+                continue
         assistant_state.set(AssistantStateName.THINKING, _thinking_message_for(user_text))
         intent_started = time.perf_counter()
         result = _try_local_fast_lane(user_text)
@@ -465,6 +485,36 @@ def _load_runtime_ab_profiles() -> dict[str, str]:
     }
 
 
+def _load_runtime_dictation_config() -> dict[str, str | float]:
+    target = "active_field"
+    timeout_seconds = 4.0
+
+    path = Path(AVATAR_STATE_FILE)
+    if path.exists():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+        if isinstance(payload, dict):
+            raw_target = str(payload.get("dictation_target", "active_field")).strip().lower()
+            if raw_target in {"active_field", "api"}:
+                target = raw_target
+            raw_timeout = payload.get("dictation_api_timeout_seconds")
+            if raw_timeout is not None:
+                try:
+                    timeout_seconds = float(raw_timeout)
+                except (TypeError, ValueError):
+                    timeout_seconds = 4.0
+    timeout_seconds = min(15.0, max(1.0, timeout_seconds))
+
+    return {
+        "target": target,
+        "api_url": get_integration_setting("dictation_api_url"),
+        "api_token": get_integration_setting("dictation_api_token"),
+        "api_timeout_seconds": timeout_seconds,
+    }
+
+
 def _speak_with_barge_in(
     text: str,
     auto_interrupt_config: dict[str, float | bool],
@@ -626,6 +676,152 @@ def _split_tts_chunks(text: str) -> list[str]:
         return []
     chunks = [part.strip() for part in re.split(r"(?<=[.!?])\s+", normalized) if part.strip()]
     return chunks or [normalized]
+
+
+def _handle_dictation_turn(
+    user_text: str,
+    dictation_config: dict[str, str | float],
+) -> str | None:
+    normalized = " ".join(user_text.lower().strip().split())
+    if not normalized:
+        return "Не расслышала текст для диктовки."
+
+    system_intent = detect_system_intent(normalized)
+    if system_intent is not None:
+        if system_intent.intent == "stop_dictation_mode":
+            dictation_mode_store.disable()
+            return "Остановила режим диктовки."
+        if system_intent.intent == "exit_assistant":
+            return None
+        if system_intent.intent == "stop_speaking":
+            return "Режим диктовки включен. Чтобы выйти, скажи: стоп диктовка."
+
+    fast_intent = detect_fast_intent(normalized)
+    if fast_intent is not None and fast_intent.intent in {
+        "os_open_url",
+        "os_open_app",
+        "os_keypress",
+        "os_click",
+        "os_scroll",
+    }:
+        return (
+            "Похоже на системную команду. "
+            "Сначала скажи: стоп диктовка, и потом дай эту команду."
+        )
+
+    text_to_type = _normalize_dictation_text(user_text)
+    if not text_to_type:
+        return "Не расслышала текст для ввода."
+
+    target = str(dictation_config.get("target", "active_field")).strip().lower()
+    action_word = "ввела"
+    if target == "api":
+        api_error = _send_dictation_to_api(text_to_type, dictation_config)
+        if api_error is not None:
+            return api_error
+        action_word = "отправила"
+    else:
+        try:
+            execute_os_action(
+                "type_text",
+                {"text": text_to_type},
+                skip_confirmation=True,
+            )
+        except Exception as exc:
+            return f"Не удалось ввести текст: {exc}"
+
+    preview = text_to_type.replace("\n", " / ").strip()
+    if len(preview) > 70:
+        preview = f"{preview[:67]}..."
+    assistant_state.set(AssistantStateName.LISTENING, f"Диктовка: {action_word} «{preview}».")
+    return None
+
+
+def _send_dictation_to_api(
+    text_to_type: str,
+    dictation_config: dict[str, str | float],
+) -> str | None:
+    api_url = str(dictation_config.get("api_url", "")).strip()
+    if not api_url:
+        return "Для режима API укажи Dictation API URL в настройках."
+    if not api_url.startswith(("http://", "https://")):
+        return "Dictation API URL должен начинаться с http:// или https://."
+    host = (urlparse(api_url).hostname or "").strip().lower()
+    if not host:
+        return "Не удалось распознать host в Dictation API URL."
+    allowed_hosts = _parse_csv_lower_hosts(DICTATION_API_ALLOWED_HOSTS)
+    if allowed_hosts and host not in allowed_hosts:
+        return (
+            "Этот host не разрешен для Dictation API. "
+            "Добавь его в DICTATION_API_ALLOWED_HOSTS."
+        )
+
+    api_token = str(dictation_config.get("api_token", "")).strip()
+    timeout_seconds = float(dictation_config.get("api_timeout_seconds", 4.0))
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if api_token:
+        headers["Authorization"] = f"Bearer {api_token}"
+
+    payload = {
+        "text": text_to_type,
+        "source": "vasya_dictation_mode",
+    }
+    try:
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json=payload,
+            timeout=timeout_seconds,
+        )
+    except requests.RequestException as exc:
+        return f"Не удалось отправить диктовку в API: {exc}"
+
+    if response.status_code >= 300:
+        details = response.text.strip()
+        if len(details) > 120:
+            details = f"{details[:117]}..."
+        details_suffix = f" ({details})" if details else ""
+        return f"API диктовки вернул ошибку {response.status_code}{details_suffix}"
+    return None
+
+
+def _parse_csv_lower_hosts(raw: str) -> set[str]:
+    result: set[str] = set()
+    for item in str(raw or "").split(","):
+        host = item.strip().lower()
+        if host:
+            result.add(host)
+    return result
+
+
+def _normalize_dictation_text(raw_text: str) -> str:
+    text = " ".join(str(raw_text).strip().split())
+    if not text:
+        return ""
+
+    normalized = text.lower()
+    replacements = (
+        ("новый абзац", "\n\n"),
+        ("новая строка", "\n"),
+        ("точка с запятой", ";"),
+        ("запятая", ","),
+        ("двоеточие", ":"),
+        ("точка", "."),
+        ("восклицательный знак", "!"),
+        ("вопросительный знак", "?"),
+        ("дефис", "-"),
+    )
+    for phrase, symbol in replacements:
+        normalized = re.sub(rf"\b{re.escape(phrase)}\b", f" {symbol} ", normalized)
+
+    normalized = re.sub(r"\s+([,.;:!?])", r"\1", normalized)
+    normalized = normalized.replace(" - ", "-")
+    normalized = normalized.replace(" \n ", "\n")
+    normalized = normalized.replace("\n ", "\n").replace(" \n", "\n")
+    normalized = re.sub(r"[ \t]{2,}", " ", normalized)
+    return normalized.strip()
 
 
 def _resolve_barge_in_text(partial_text: str) -> str | None:

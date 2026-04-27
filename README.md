@@ -18,14 +18,28 @@ Language: **English** | [Русский](README.ru.md)
 - Integration assistant: sync GitHub updates to Notion, export notes to Obsidian
 - Automation sandbox: test local agent orchestration and routing policies
 
-## Voice Typing (Active Field)
-Vasya can type into the currently focused input/editor field through OS actions (Obsidian-first workflow).
+## Voice Typing
+Vasya can send dictated text either to the currently focused field (OS actions) or to a custom HTTP API endpoint.
 
 Examples:
 - `Type text ...`
 - `Add text ...`
 - `Dictate ...`
 - `Paste ...`
+- `Start dictation mode`
+- `Stop dictation mode`
+
+Punctuation helpers in dictation mode:
+- `comma`, `period`, `question mark`, `exclamation mark`
+- `new line`
+
+API dictation mode:
+- Open `Settings -> Integrations -> Dictation mode`
+- Select `Via API`
+- Set `Dictation API URL` and optional token
+- Vasya sends `POST` JSON payload: `{"text":"...","source":"vasya_dictation_mode"}`
+- If token is set, `Authorization: Bearer ...` header is sent
+- For safety, API dictation host is checked against `DICTATION_API_ALLOWED_HOSTS` (default: localhost only)
 
 ## Stack
 - Python 3.11+
@@ -59,7 +73,11 @@ Key groups:
 - LLM and voice: `OLLAMA_*`, `WHISPER_*`, `VOICE_*`
 - UI and hotkeys: `HOTKEY_*`, `AVATAR_*`, `TTS_*`
 - Integrations: `GOOGLE_CALENDAR_*`, `NOTION_*`, `GITHUB_*`
-- API: `VASYA_API_AUTH_TOKEN`
+- API/security: `VASYA_API_AUTH_TOKEN`, `VASYA_API_REQUIRE_AUTH`, `VASYA_API_ALLOW_QUERY_TOKEN`, `LOG_*`, `DICTATION_API_ALLOWED_HOSTS`
+
+Security note:
+- Integration tokens from settings are stored in OS keyring when available.
+- Legacy token fields are migrated out of `storage/integrations.json` on first read/write.
 
 ## Architecture
 ```text
@@ -110,6 +128,7 @@ Detailed roadmap and release timeline:
 - [ROADMAP.md](ROADMAP.md)
 - [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 - [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+- [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
 
 ## CI
 Minimal CI is configured in `.github/workflows/ci.yml`:

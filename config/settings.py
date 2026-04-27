@@ -6,14 +6,14 @@ load_dotenv()
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = os.getenv("APP_VERSION", "0.5.8")
+APP_VERSION = os.getenv("APP_VERSION", "0.5.21")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 OLLAMA_FAST_MODEL = os.getenv("OLLAMA_FAST_MODEL", OLLAMA_MODEL)
 OLLAMA_REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", OLLAMA_MODEL)
 OLLAMA_FAST_THINK = os.getenv("OLLAMA_FAST_THINK", "false").lower() == "true"
 OLLAMA_FAST_TEMPERATURE = float(os.getenv("OLLAMA_FAST_TEMPERATURE", "0.1"))
-OLLAMA_FAST_NUM_PREDICT = int(os.getenv("OLLAMA_FAST_NUM_PREDICT", "160"))
+OLLAMA_FAST_NUM_PREDICT = int(os.getenv("OLLAMA_FAST_NUM_PREDICT", "120"))
 OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "auto")
 OLLAMA_CHAT_MODEL_CANDIDATES = tuple(
     candidate.strip()
@@ -26,20 +26,20 @@ OLLAMA_CHAT_MODEL_CANDIDATES = tuple(
 OLLAMA_CHAT_STREAM = os.getenv("OLLAMA_CHAT_STREAM", "true").lower() == "true"
 OLLAMA_CHAT_THINK = os.getenv("OLLAMA_CHAT_THINK", "false").lower() == "true"
 OLLAMA_CHAT_TEMPERATURE = float(os.getenv("OLLAMA_CHAT_TEMPERATURE", "0.25"))
-OLLAMA_CHAT_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_NUM_PREDICT", "160"))
+OLLAMA_CHAT_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_NUM_PREDICT", "120"))
 OLLAMA_CHAT_QUICK_ENABLED = os.getenv("OLLAMA_CHAT_QUICK_ENABLED", "true").lower() == "true"
 OLLAMA_CHAT_QUICK_MAX_WORDS = int(os.getenv("OLLAMA_CHAT_QUICK_MAX_WORDS", "10"))
 OLLAMA_CHAT_QUICK_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_QUICK_NUM_PREDICT", "96"))
 OLLAMA_CHAT_QUICK_MODEL = os.getenv("OLLAMA_CHAT_QUICK_MODEL", "fast").strip().lower()
 AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")
-RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "5"))
+RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "3"))
 VOICE_ULTRA_FAST_MODE = os.getenv("VOICE_ULTRA_FAST_MODE", "true").lower() == "true"
 VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS = os.getenv(
     "VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS",
     "true",
 ).lower() == "true"
 VOICE_ULTRA_FAST_MAX_RECORD_SECONDS = float(
-    os.getenv("VOICE_ULTRA_FAST_MAX_RECORD_SECONDS", "3.2")
+    os.getenv("VOICE_ULTRA_FAST_MAX_RECORD_SECONDS", "2.8")
 )
 VOICE_SPEED_REPORT_WINDOW = int(os.getenv("VOICE_SPEED_REPORT_WINDOW", "30"))
 VOICE_RUNTIME_PREWARM_ENABLED = os.getenv(
@@ -191,6 +191,9 @@ STT_CONFIRMATION_NO_SPEECH_THRESHOLD = float(
 )
 VOICE_LOG_FILE = os.getenv("VOICE_LOG_FILE", "storage/voice.log")
 INTERACTION_LOG_FILE = os.getenv("INTERACTION_LOG_FILE", "storage/interactions.log")
+LOG_REDACT_SENSITIVE = os.getenv("LOG_REDACT_SENSITIVE", "true").lower() == "true"
+LOG_INCLUDE_TEXT_CONTENT = os.getenv("LOG_INCLUDE_TEXT_CONTENT", "false").lower() == "true"
+LOG_MAX_FIELD_LENGTH = int(os.getenv("LOG_MAX_FIELD_LENGTH", "240"))
 TTS_BACKEND = os.getenv("TTS_BACKEND", "auto")
 VOICE_INPUT_BACKEND = os.getenv("VOICE_INPUT_BACKEND", "auto")
 HOTKEY_COMBINATION = os.getenv("HOTKEY_COMBINATION", "<cmd>+<option>+<space>")
@@ -209,6 +212,7 @@ TTS_RATE = int(os.getenv("TTS_RATE", "185"))
 TTS_PROFILE = os.getenv("TTS_PROFILE", "ruslan_direct")
 TTS_STATE_FILE = os.getenv("TTS_STATE_FILE", "storage/tts_settings.json")
 CHILD_MODE_STATE_FILE = os.getenv("CHILD_MODE_STATE_FILE", "storage/child_mode.json")
+DICTATION_MODE_STATE_FILE = os.getenv("DICTATION_MODE_STATE_FILE", "storage/dictation_mode.json")
 USER_PROFILE_STATE_FILE = os.getenv(
     "USER_PROFILE_STATE_FILE",
     "storage/user_profile.json",
@@ -256,9 +260,22 @@ OS_REQUIRE_CONFIRM_FOR_OPEN_EXTERNAL = os.getenv(
     "false",
 ).lower() == "true"
 VASYA_API_AUTH_TOKEN = os.getenv("VASYA_API_AUTH_TOKEN", "").strip()
+VASYA_API_REQUIRE_AUTH = os.getenv("VASYA_API_REQUIRE_AUTH", "true").lower() == "true"
+VASYA_API_ALLOW_QUERY_TOKEN = os.getenv(
+    "VASYA_API_ALLOW_QUERY_TOKEN",
+    "false",
+).lower() == "true"
 INTEGRATIONS_STATE_FILE = os.getenv(
     "INTEGRATIONS_STATE_FILE",
     "storage/integrations.json",
+).strip()
+INTEGRATIONS_SECRETS_FILE = os.getenv(
+    "INTEGRATIONS_SECRETS_FILE",
+    "storage/integration_secrets.json",
+).strip()
+DICTATION_API_ALLOWED_HOSTS = os.getenv(
+    "DICTATION_API_ALLOWED_HOSTS",
+    "127.0.0.1,localhost",
 ).strip()
 PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
 PIPER_MODEL_PATH = os.getenv(

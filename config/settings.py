@@ -201,6 +201,11 @@ HOTKEY_TEXT_COMBINATION = os.getenv("HOTKEY_TEXT_COMBINATION", "<cmd>+<option>+k
 HOTKEY_EXIT_COMBINATION = os.getenv("HOTKEY_EXIT_COMBINATION", "<cmd>+<option>+q")
 AVATAR_IMAGE_PATH = os.getenv("AVATAR_IMAGE_PATH", "").strip()
 AVATAR_SKIN = os.getenv("AVATAR_SKIN", "classic").strip()
+AVATAR_PACK_SKINS = [
+    item.strip()
+    for item in os.getenv("AVATAR_PACK_SKINS", "vasya_pro,vasya_pro_female").split(",")
+    if item.strip()
+]
 AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "210"))
 AVATAR_STATE_FILE = os.getenv("AVATAR_STATE_FILE", "storage/avatar_widget.json")
 AVATAR_CUSTOM_SKIN_FILE = os.getenv(
@@ -230,6 +235,19 @@ OBSIDIAN_PROJECTS_DIR = os.getenv(
     "OBSIDIAN_PROJECTS_DIR",
     "Projects",
 ).strip()
+OBSIDIAN_DAILY_NOTES_DIR = os.getenv(
+    "OBSIDIAN_DAILY_NOTES_DIR",
+    "Daily",
+).strip()
+OBSIDIAN_DAILY_NOTES_DIRS = [
+    item.strip()
+    for item in os.getenv("OBSIDIAN_DAILY_NOTES_DIRS", "Daily,Ежедневные").split(",")
+    if item.strip()
+]
+TASKS_BACKEND = os.getenv(
+    "TASKS_BACKEND",
+    "obsidian_daily",
+).strip().lower()
 NOTION_API_TOKEN = os.getenv("NOTION_API_TOKEN", "").strip()
 NOTION_API_BASE_URL = os.getenv("NOTION_API_BASE_URL", "https://api.notion.com/v1").strip()
 NOTION_API_VERSION = os.getenv("NOTION_API_VERSION", "2022-06-28").strip()

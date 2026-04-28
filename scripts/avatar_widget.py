@@ -16,6 +16,7 @@ from config.settings import (
     AUDIO_FILENAME,
     AVATAR_CUSTOM_SKIN_FILE,
     AVATAR_IMAGE_PATH,
+    AVATAR_PACK_SKINS,
     AVATAR_SKIN,
     AVATAR_SIZE,
     AVATAR_STATE_FILE,
@@ -122,6 +123,46 @@ def main() -> None:
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
+
+    try:
+        from rlottie_python import LottieAnimation
+    except ImportError:
+        LottieAnimation = None
+
+    BRAND_BG = "#070b1f"
+    BRAND_PANEL = "#0c1333"
+    BRAND_PANEL_ALT = "#121c47"
+    BRAND_BORDER = "#2b4699"
+    BRAND_TEXT = "#e9f2ff"
+    BRAND_MUTED = "#9fb8ec"
+    BRAND_ACCENT = "#22b8ff"
+    BRAND_ACCENT_ALT = "#7b3dff"
+
+    def _dialog_brand_stylesheet(extra: str = "") -> str:
+        return f"""
+            QDialog {{
+                background-color: {BRAND_BG};
+                border: 1px solid {BRAND_BORDER};
+                border-radius: 18px;
+            }}
+            QLabel {{
+                color: {BRAND_TEXT};
+                font-size: 13px;
+            }}
+            QPushButton {{
+                background: {BRAND_PANEL_ALT};
+                color: #f7faff;
+                border: 1px solid #3f5fc7;
+                border-radius: 10px;
+                padding: 8px 14px;
+                min-width: 120px;
+            }}
+            QPushButton:hover {{
+                background: #1a2a66;
+                border: 1px solid {BRAND_ACCENT};
+            }}
+            {extra}
+        """
 
     AVATAR_SKINS = {
         "classic": {
@@ -281,6 +322,30 @@ def main() -> None:
     def _custom_skin_path() -> Path:
         return Path(AVATAR_CUSTOM_SKIN_FILE)
 
+    def _pack_manifest_path(pack_id: str) -> Path:
+        return Path(__file__).resolve().parent.parent / "assets" / "skins" / pack_id / "manifest.json"
+
+    def _available_pack_skin_ids() -> list[str]:
+        result: list[str] = []
+        for raw_id in AVATAR_PACK_SKINS:
+            pack_id = str(raw_id or "").strip()
+            if not pack_id:
+                continue
+            if _pack_manifest_path(pack_id).exists():
+                result.append(pack_id)
+        return result
+
+    def _pack_skin_combo_value(pack_id: str) -> str:
+        return f"__pack_skin:{pack_id}"
+
+    def _pack_skin_from_combo_value(value: str) -> str | None:
+        prefix = "__pack_skin:"
+        normalized = str(value or "").strip()
+        if not normalized.startswith(prefix):
+            return None
+        pack_id = normalized[len(prefix):].strip()
+        return pack_id or None
+
     def _normalize_custom_skin_spec(payload: dict) -> dict:
         base = dict(AVATAR_SKINS["classic"])
         label = str(payload.get("label", "Пользовательский")).strip() or "Пользовательский"
@@ -374,7 +439,7 @@ def main() -> None:
             )
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             self._text = ""
-            self.resize(220, 72)
+            self.resize(250, 84)
 
         def set_text(self, text: str) -> None:
             self._text = text
@@ -384,9 +449,17 @@ def main() -> None:
             _ = event
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setBrush(QColor(10, 22, 62, 225))
-            painter.setPen(QPen(QColor("#6ea9ff"), 1))
+            bubble_rect = self.rect().adjusted(2, 2, -2, -2)
+            gradient = QLinearGradient(bubble_rect.topLeft(), bubble_rect.bottomRight())
+            gradient.setColorAt(0.0, QColor("#0f1a45"))
+            gradient.setColorAt(0.6, QColor("#111a41"))
+            gradient.setColorAt(1.0, QColor("#1a1642"))
+            painter.setBrush(gradient)
+            painter.setPen(QPen(QColor("#4ea8ff"), 1))
             painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 18, 18)
+
+            painter.setPen(QPen(QColor("#7d4bff"), 1))
+            painter.drawRoundedRect(self.rect().adjusted(4, 4, -4, -4), 16, 16)
 
             painter.setPen(QColor("#f4f8ff"))
             painter.setFont(QFont("Helvetica", 10))
@@ -406,7 +479,7 @@ def main() -> None:
             )
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             self._text = ""
-            self.resize(200, 44)
+            self.resize(220, 50)
 
         def set_text(self, text: str) -> None:
             self._text = text
@@ -416,8 +489,12 @@ def main() -> None:
             _ = event
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setBrush(QColor(13, 24, 64, 210))
-            painter.setPen(QPen(QColor("#5e8fe6"), 1))
+            bubble_rect = self.rect().adjusted(2, 2, -2, -2)
+            gradient = QLinearGradient(bubble_rect.topLeft(), bubble_rect.bottomRight())
+            gradient.setColorAt(0.0, QColor("#101a45"))
+            gradient.setColorAt(1.0, QColor("#181b43"))
+            painter.setBrush(gradient)
+            painter.setPen(QPen(QColor("#40b5ff"), 1))
             painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 14, 14)
 
             painter.setPen(QColor("#e8f0ff"))
@@ -435,41 +512,18 @@ def main() -> None:
             self.setWindowTitle("Быстрые команды")
             self.setModal(True)
             self.setMinimumWidth(420)
-            self.setStyleSheet(
-                """
-                QDialog {
-                    background-color: #0b1435;
-                    border: 1px solid #274a99;
-                    border-radius: 18px;
-                }
-                QLabel {
-                    color: #e9f2ff;
-                    font-size: 13px;
-                }
-                QPushButton {
-                    background: #173377;
-                    color: #f5f9ff;
-                    border: 1px solid #3c67d1;
-                    border-radius: 10px;
-                    padding: 8px 14px;
-                    min-width: 120px;
-                }
-                QPushButton:hover {
-                    background: #1d439c;
-                }
-                """
-            )
+            self.setStyleSheet(_dialog_brand_stylesheet())
 
             layout = QVBoxLayout(self)
             layout.setContentsMargins(20, 20, 20, 18)
             layout.setSpacing(12)
 
             title = QLabel("Быстрые команды", self)
-            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            title.setStyleSheet(f"font-size: 18px; font-weight: 700; color: {BRAND_ACCENT_ALT};")
             layout.addWidget(title)
 
             subtitle = QLabel("Примеры фраз, которые Вася понимает сразу.", self)
-            subtitle.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            subtitle.setStyleSheet(f"color: {BRAND_MUTED}; font-size: 12px;")
             subtitle.setWordWrap(True)
             layout.addWidget(subtitle)
 
@@ -496,7 +550,7 @@ def main() -> None:
                 "«давай играть в слова» — детские игры"
             )
             body = QLabel(commands, self)
-            body.setStyleSheet("color: #d7e6ff; font-size: 12px;")
+            body.setStyleSheet(f"color: {BRAND_TEXT}; font-size: 12px;")
             body.setWordWrap(True)
             layout.addWidget(body)
 
@@ -521,36 +575,18 @@ def main() -> None:
             self.setMinimumWidth(460)
             self._text = ""
             self.setStyleSheet(
-                """
-                QDialog {
-                    background-color: #0b1435;
-                    border: 1px solid #274a99;
-                    border-radius: 18px;
-                }
-                QLabel {
-                    color: #e9f2ff;
-                    font-size: 13px;
-                }
-                QLineEdit {
-                    background: #13204e;
-                    color: #f4f8ff;
-                    border: 1px solid #345ab3;
-                    border-radius: 10px;
-                    padding: 8px 10px;
-                    min-height: 20px;
-                }
-                QPushButton {
-                    background: #173377;
-                    color: #f5f9ff;
-                    border: 1px solid #3c67d1;
-                    border-radius: 10px;
-                    padding: 8px 14px;
-                    min-width: 120px;
-                }
-                QPushButton:hover {
-                    background: #1d439c;
-                }
-                """
+                _dialog_brand_stylesheet(
+                    f"""
+                    QLineEdit {{
+                        background: {BRAND_PANEL};
+                        color: {BRAND_TEXT};
+                        border: 1px solid #3e63c9;
+                        border-radius: 10px;
+                        padding: 8px 10px;
+                        min-height: 20px;
+                    }}
+                    """
+                )
             )
 
             layout = QVBoxLayout(self)
@@ -558,14 +594,14 @@ def main() -> None:
             layout.setSpacing(12)
 
             title = QLabel("Текстовая команда", self)
-            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            title.setStyleSheet(f"font-size: 18px; font-weight: 700; color: {BRAND_ACCENT};")
             layout.addWidget(title)
 
             subtitle = QLabel(
                 "Удобно для точных команд в Notion/GitHub и длинного текста.",
                 self,
             )
-            subtitle.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            subtitle.setStyleSheet(f"color: {BRAND_MUTED}; font-size: 12px;")
             subtitle.setWordWrap(True)
             layout.addWidget(subtitle)
 
@@ -609,12 +645,12 @@ def main() -> None:
             self.setStyleSheet(
                 """
                 QDialog {
-                    background-color: #0b1435;
-                    border: 1px solid #274a99;
+                    background-color: #070b1f;
+                    border: 1px solid #2e489c;
                     border-radius: 18px;
                 }
                 QLabel {
-                    color: #e9f2ff;
+                    color: #edf4ff;
                     font-size: 13px;
                 }
                 QCheckBox {
@@ -626,17 +662,17 @@ def main() -> None:
                     width: 16px;
                     height: 16px;
                     border-radius: 4px;
-                    border: 1px solid #4d74d6;
-                    background: #13204e;
+                    border: 1px solid #4b67cb;
+                    background: #121c47;
                 }
                 QCheckBox::indicator:checked {
-                    background: #4f8fff;
-                    border: 1px solid #7ab6ff;
+                    background: #7b3dff;
+                    border: 1px solid #22b8ff;
                 }
                 QComboBox, QLineEdit {
-                    background: #13204e;
+                    background: #121c47;
                     color: #f4f8ff;
-                    border: 1px solid #345ab3;
+                    border: 1px solid #3d61c9;
                     border-radius: 10px;
                     padding: 8px 10px;
                     min-height: 18px;
@@ -646,40 +682,40 @@ def main() -> None:
                     width: 22px;
                 }
                 QComboBox QAbstractItemView {
-                    background: #13204e;
+                    background: #121c47;
                     color: #f4f8ff;
-                    border: 1px solid #345ab3;
+                    border: 1px solid #3d61c9;
                     border-radius: 10px;
-                    selection-background-color: #2e5ec9;
+                    selection-background-color: #224ebd;
                     selection-color: #ffffff;
                     outline: 0;
                 }
                 QWidget#settingsTabPage {
-                    background: #0f1d4a;
+                    background: #0f173b;
                 }
                 QTabWidget#settingsTabs {
                     background: transparent;
                 }
                 QTabWidget#settingsTabs::pane {
-                    border: 1px solid #274a99;
+                    border: 1px solid #2e489c;
                     border-radius: 12px;
-                    background: #0f1d4a;
+                    background: #0f173b;
                     margin-top: 6px;
                 }
                 QTabWidget#settingsTabs::tab-bar {
                     alignment: left;
                 }
                 QTabWidget#settingsTabs > QWidget#qt_tabwidget_stackedwidget {
-                    background: #0f1d4a;
+                    background: #0f173b;
                     border-radius: 10px;
                 }
                 QTabWidget#settingsTabs QTabBar {
-                    background: #0b1435;
+                    background: #0a112c;
                 }
                 QTabWidget#settingsTabs QTabBar::tab {
-                    background: #12285f;
-                    color: #b8cdf3;
-                    border: 1px solid #2f58b0;
+                    background: #142454;
+                    color: #bfd3fb;
+                    border: 1px solid #355dbf;
                     border-bottom: none;
                     border-top-left-radius: 8px;
                     border-top-right-radius: 8px;
@@ -687,8 +723,9 @@ def main() -> None:
                     margin-right: 6px;
                 }
                 QTabWidget#settingsTabs QTabBar::tab:selected {
-                    background: #1a3a85;
-                    color: #f0f6ff;
+                    background: #1b2f73;
+                    color: #ffffff;
+                    border: 1px solid #7b3dff;
                 }
                 QTabWidget#settingsTabs QTabBar::tab:!selected {
                     margin-top: 2px;
@@ -696,25 +733,26 @@ def main() -> None:
                 QSlider::groove:horizontal {
                     border: 0;
                     height: 6px;
-                    background: #18306d;
+                    background: #1a2f67;
                     border-radius: 3px;
                 }
                 QSlider::handle:horizontal {
-                    background: #7ddcff;
-                    border: 1px solid #b0ecff;
+                    background: #22b8ff;
+                    border: 1px solid #8ee2ff;
                     width: 16px;
                     margin: -6px 0;
                     border-radius: 8px;
                 }
                 QPushButton {
-                    background: #173377;
+                    background: #1a2a66;
                     color: #f5f9ff;
-                    border: 1px solid #3c67d1;
+                    border: 1px solid #3f5fc7;
                     border-radius: 10px;
                     padding: 8px 14px;
                 }
                 QPushButton:hover {
-                    background: #1d439c;
+                    background: #213985;
+                    border: 1px solid #22b8ff;
                 }
                 QDialogButtonBox QPushButton {
                     min-width: 100px;
@@ -727,13 +765,13 @@ def main() -> None:
             layout.setSpacing(14)
 
             title = QLabel("Настройки Васи", self)
-            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            title.setStyleSheet(f"font-size: 18px; font-weight: 800; color: {BRAND_ACCENT_ALT};")
             subtitle = QLabel(
                 "Управление поведением виджета, автозапуском и голосовой активацией.",
                 self,
             )
             subtitle.setWordWrap(True)
-            subtitle.setStyleSheet("font-size: 12px; color: #9fb8ec;")
+            subtitle.setStyleSheet(f"font-size: 12px; color: {BRAND_MUTED};")
             layout.addWidget(title)
             layout.addWidget(subtitle)
 
@@ -743,9 +781,10 @@ def main() -> None:
                 QWidget {
                     background: qradialgradient(cx:0.5, cy:0.4, radius:0.8,
                         fx:0.5, fy:0.4,
-                        stop:0 #17357a,
-                        stop:1 #0b1435);
-                    border: 1px solid #274a99;
+                        stop:0 #17295f,
+                        stop:0.55 #111b45,
+                        stop:1 #070b1f);
+                    border: 1px solid #2e489c;
                     border-radius: 16px;
                 }
                 """
@@ -754,7 +793,7 @@ def main() -> None:
             preview_layout.setContentsMargins(12, 10, 12, 12)
             preview_layout.setSpacing(8)
             preview_title = QLabel("Превью", self)
-            preview_title.setStyleSheet("font-size: 12px; color: #b9cdf3; font-weight: 600;")
+            preview_title.setStyleSheet(f"font-size: 12px; color: {BRAND_MUTED}; font-weight: 600;")
             preview_layout.addWidget(preview_title)
             self._preview = _AvatarPreview(widget, self)
             preview_layout.addWidget(self._preview, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -994,6 +1033,13 @@ def main() -> None:
             self._github_repo_input.setPlaceholderText("owner/repo")
             integrations_form.addRow("GitHub repo", self._github_repo_input)
 
+            self._obsidian_vault_input = QLineEdit(
+                get_integration_setting("obsidian_vault_path"),
+                self,
+            )
+            self._obsidian_vault_input.setPlaceholderText("/Users/oksana/Documents/Obsidian Vault")
+            integrations_form.addRow("Obsidian vault path", self._obsidian_vault_input)
+
             self._notion_page_input = QLineEdit(
                 get_integration_setting("notion_updates_page_id"),
                 self,
@@ -1016,6 +1062,27 @@ def main() -> None:
             self._notion_token_input.setEchoMode(QLineEdit.EchoMode.Password)
             self._notion_token_input.setPlaceholderText("Notion integration token")
             integrations_form.addRow("Notion token", self._notion_token_input)
+
+            self._dictation_target_combo = QComboBox(self)
+            self._dictation_target_combo.addItem("В активное поле", "active_field")
+            self._dictation_target_combo.addItem("Через API", "api")
+            self._select_combo_value(self._dictation_target_combo, widget._dictation_target)
+            integrations_form.addRow("Режим диктовки", self._dictation_target_combo)
+
+            self._dictation_api_url_input = QLineEdit(
+                get_integration_setting("dictation_api_url"),
+                self,
+            )
+            self._dictation_api_url_input.setPlaceholderText("http://127.0.0.1:8787/v1/dictation")
+            integrations_form.addRow("Dictation API URL", self._dictation_api_url_input)
+
+            self._dictation_api_token_input = QLineEdit(
+                get_integration_setting("dictation_api_token"),
+                self,
+            )
+            self._dictation_api_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self._dictation_api_token_input.setPlaceholderText("X-API-Key / Bearer token (optional)")
+            integrations_form.addRow("Dictation API token", self._dictation_api_token_input)
 
             integration_actions = QHBoxLayout()
             test_integrations_button = QPushButton("Проверить интеграции", self)
@@ -1075,11 +1142,24 @@ def main() -> None:
             self._save_integrations()
             self._widget._set_avatar_size(int(self._size_combo.currentData()))
             selected_skin = str(self._skin_combo.currentData())
+            selected_pack_skin = _pack_skin_from_combo_value(selected_skin)
             desired_child_mode = self._child_mode_checkbox.isChecked()
-            self._widget._avatar_skin = selected_skin
-            self._widget._auto_child_skin = not (
-                desired_child_mode and selected_skin != "child"
-            )
+            if selected_pack_skin is not None:
+                manifest_path = _pack_manifest_path(selected_pack_skin)
+                if manifest_path.exists():
+                    self._widget._set_avatar_image_path(manifest_path)
+                else:
+                    log(f"Avatar pack manifest not found: {manifest_path}")
+                    self._widget._set_avatar_image_path(None)
+                self._widget._avatar_skin = "classic"
+                self._widget._auto_child_skin = True
+            else:
+                if self._active_pack_skin_id() is not None:
+                    self._widget._set_avatar_image_path(None)
+                self._widget._avatar_skin = selected_skin
+                self._widget._auto_child_skin = not (
+                    desired_child_mode and selected_skin != "child"
+                )
             selected_profile_id = str(self._voice_profile_combo.currentData())
             if selected_profile_id != get_active_voice_profile().profile_id:
                 set_voice_profile(selected_profile_id)
@@ -1112,6 +1192,7 @@ def main() -> None:
             self._widget._auto_interrupt_hits_noisy = int(self._auto_interrupt_hits_noisy.value())
             self._widget._agent_routing_profile = str(self._routing_profile_combo.currentData())
             self._widget._chat_prompt_pack_profile = str(self._prompt_pack_profile_combo.currentData())
+            self._widget._dictation_target = str(self._dictation_target_combo.currentData())
             if desired_child_mode:
                 child_mode_store.enable()
             else:
@@ -1170,9 +1251,34 @@ def main() -> None:
             self._skin_combo.clear()
             for skin_id in _avatar_skin_ids():
                 self._skin_combo.addItem(_avatar_skin_spec(skin_id)["label"], skin_id)
+            for pack_id in _available_pack_skin_ids():
+                pretty_name = pack_id.replace("_", " ").title()
+                self._skin_combo.addItem(f"{pretty_name} (персонаж)", _pack_skin_combo_value(pack_id))
             self._skin_combo.blockSignals(current_signal_state)
-            resolved_skin = selected_skin if selected_skin in _avatar_skin_ids() else AVATAR_SKIN
+            active_pack_skin_id = self._active_pack_skin_id()
+            if active_pack_skin_id is not None:
+                resolved_skin = _pack_skin_combo_value(active_pack_skin_id)
+            elif selected_skin in _avatar_skin_ids():
+                resolved_skin = str(selected_skin)
+            else:
+                resolved_skin = AVATAR_SKIN
             self._select_combo_value(self._skin_combo, resolved_skin)
+
+        def _active_pack_skin_id(self) -> str | None:
+            current_path = self._widget._avatar_path
+            if current_path is None:
+                return None
+            try:
+                resolved_current = current_path.resolve()
+            except OSError:
+                return None
+            for pack_id in _available_pack_skin_ids():
+                try:
+                    if resolved_current == _pack_manifest_path(pack_id).resolve():
+                        return pack_id
+                except OSError:
+                    continue
+            return None
 
         def _import_custom_skin(self) -> None:
             file_path, _ = QFileDialog.getOpenFileName(
@@ -1230,7 +1336,7 @@ def main() -> None:
                 self,
                 "Выбери изображение Васи",
                 str(Path.cwd()),
-                "Images (*.png *.svg *.jpg *.jpeg *.webp)",
+                "Avatar Files (*.png *.svg *.jpg *.jpeg *.webp *.json *.lottie)",
             )
             if not file_path:
                 return
@@ -1362,10 +1468,13 @@ def main() -> None:
         def _save_integrations(self) -> None:
             save_integration_settings(
                 {
+                    "obsidian_vault_path": self._obsidian_vault_input.text().strip(),
                     "github_default_repo": self._github_repo_input.text().strip(),
                     "notion_updates_page_id": self._notion_page_input.text().strip(),
                     "github_api_token": self._github_token_input.text().strip(),
                     "notion_api_token": self._notion_token_input.text().strip(),
+                    "dictation_api_url": self._dictation_api_url_input.text().strip(),
+                    "dictation_api_token": self._dictation_api_token_input.text().strip(),
                 }
             )
 
@@ -1442,37 +1551,14 @@ def main() -> None:
                 "voice": False,
                 "mic": False,
             }
-            self.setStyleSheet(
-                """
-                QDialog {
-                    background-color: #0b1435;
-                    border: 1px solid #274a99;
-                    border-radius: 18px;
-                }
-                QLabel {
-                    color: #e9f2ff;
-                    font-size: 13px;
-                }
-                QPushButton {
-                    background: #173377;
-                    color: #f5f9ff;
-                    border: 1px solid #3c67d1;
-                    border-radius: 10px;
-                    padding: 8px 14px;
-                    min-width: 120px;
-                }
-                QPushButton:hover {
-                    background: #1d439c;
-                }
-                """
-            )
+            self.setStyleSheet(_dialog_brand_stylesheet())
 
             layout = QVBoxLayout(self)
             layout.setContentsMargins(20, 20, 20, 18)
             layout.setSpacing(12)
 
             title = QLabel("Добро пожаловать, я Вася", self)
-            title.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+            title.setStyleSheet(f"font-size: 18px; font-weight: 800; color: {BRAND_ACCENT};")
             layout.addWidget(title)
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
@@ -1485,27 +1571,27 @@ def main() -> None:
                 self,
             )
             body.setWordWrap(True)
-            body.setStyleSheet("color: #b9cdf3;")
+            body.setStyleSheet(f"color: {BRAND_MUTED};")
             layout.addWidget(body)
 
             self._mic_status = QLabel("Можно сразу проверить микрофон.", self)
             self._mic_status.setWordWrap(True)
-            self._mic_status.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            self._mic_status.setStyleSheet(f"color: {BRAND_MUTED}; font-size: 12px;")
             layout.addWidget(self._mic_status)
 
             checklist_title = QLabel("Быстрый чеклист", self)
-            checklist_title.setStyleSheet("font-size: 12px; color: #b9cdf3; font-weight: 600;")
+            checklist_title.setStyleSheet(f"font-size: 12px; color: {BRAND_MUTED}; font-weight: 600;")
             layout.addWidget(checklist_title)
 
             self._check_settings = QLabel(self._format_check_text("pending", "Открыть настройки"), self)
             self._check_voice = QLabel(self._format_check_text("pending", "Выбрать голос"), self)
             self._check_mic = QLabel(self._format_check_text("pending", "Проверить микрофон"), self)
             for item in (self._check_settings, self._check_voice, self._check_mic):
-                item.setStyleSheet("color: #d7e6ff; font-size: 12px;")
+                item.setStyleSheet(f"color: {BRAND_TEXT}; font-size: 12px;")
                 layout.addWidget(item)
 
             self._progress_label = QLabel("Готовность: 0/3", self)
-            self._progress_label.setStyleSheet("color: #9fb8ec; font-size: 12px;")
+            self._progress_label.setStyleSheet(f"color: {BRAND_MUTED}; font-size: 12px;")
             layout.addWidget(self._progress_label)
             self._progress_bar = QProgressBar(self)
             self._progress_bar.setRange(0, 3)
@@ -1515,12 +1601,12 @@ def main() -> None:
             self._progress_bar.setStyleSheet(
                 """
                 QProgressBar {
-                    background: #13204e;
-                    border: 1px solid #345ab3;
+                    background: #121c47;
+                    border: 1px solid #3d61c9;
                     border-radius: 4px;
                 }
                 QProgressBar::chunk {
-                    background: #6ee7a8;
+                    background: #22b8ff;
                     border-radius: 4px;
                 }
                 """
@@ -1818,6 +1904,11 @@ def main() -> None:
             self._chat_prompt_pack_profile = str(
                 self._widget_state.get("chat_prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)
             ).strip() or CHAT_PROMPT_PACK_PROFILE
+            self._dictation_target = str(
+                self._widget_state.get("dictation_target", "active_field")
+            ).strip() or "active_field"
+            if self._dictation_target not in {"active_field", "api"}:
+                self._dictation_target = "active_field"
             self._launch_at_login_enabled = is_autostart_enabled()
             self._activation_hotkey = str(
                 self._widget_state.get("hotkey_combination", HOTKEY_COMBINATION)
@@ -1836,13 +1927,29 @@ def main() -> None:
             self._text_command_cancel_event: threading.Event | None = None
             self._queued_text_command: str | None = None
             self._state = assistant_state.get()
+            self._pending_speaking_state: AssistantState | None = None
             self._pulse = 0.0
             self._bob = 0.0
             self._smile_bounce = 0.0
             self._avatar_path = self._resolve_avatar_path()
+            self._avatar_is_pack = False
+            self._avatar_pack_frames: dict[str, list[QPixmap]] = {}
+            self._avatar_pack_timing_ms: dict[str, int] = {}
+            self._avatar_pack_frame_index: dict[str, int] = {}
+            self._avatar_pack_elapsed_ms = 0.0
+            self._avatar_pack_preloaded_cache: dict[str, dict[str, object]] = {}
+            self._avatar_lottie = None
+            self._avatar_lottie_total_frames = 0
+            self._avatar_lottie_frame = 0.0
+            self._avatar_lottie_fps = 30.0
             self._avatar = self._load_avatar()
             self._avatar_is_svg = (
                 self._avatar_path is not None and self._avatar_path.suffix.lower() == ".svg"
+            )
+            self._avatar_is_lottie = (
+                self._avatar_path is not None
+                and self._avatar_path.suffix.lower() in {".json", ".lottie"}
+                and not self._avatar_is_pack
             )
             self._tray_icon_pixmap = self._build_tray_pixmap()
             self._bridge = StateBridge()
@@ -1872,6 +1979,7 @@ def main() -> None:
             self._start_hotkey_listener()
             self._setup_tray()
             self._maybe_run_onboarding()
+            self._preload_avatar_packs()
             if VOICE_RUNTIME_PREWARM_ON_WIDGET_START:
                 start_runtime_prewarm_async()
 
@@ -1892,10 +2000,157 @@ def main() -> None:
             path = self._avatar_path
             if path is None:
                 return None
-            if path.suffix.lower() == ".svg":
+            suffix = path.suffix.lower()
+            if suffix == ".svg":
                 return self._render_svg_avatar(512)
+            if suffix in {".json", ".lottie"}:
+                if suffix == ".json" and self._load_avatar_pack(path):
+                    return self._render_pack_avatar(512, state_key="idle")
+                return self._load_lottie_avatar(path)
             pixmap = QPixmap(str(path))
             return pixmap if not pixmap.isNull() else None
+
+        def _load_avatar_pack(self, manifest_path: Path) -> bool:
+            self._avatar_is_pack = False
+            self._avatar_pack_frames = {}
+            self._avatar_pack_timing_ms = {}
+            self._avatar_pack_frame_index = {}
+            self._avatar_pack_elapsed_ms = 0.0
+            manifest_key = str(manifest_path.resolve())
+            cached_payload = self._avatar_pack_preloaded_cache.get(manifest_key)
+            if isinstance(cached_payload, dict):
+                cached_frames = cached_payload.get("frames")
+                cached_timing = cached_payload.get("timing_ms")
+                if isinstance(cached_frames, dict) and isinstance(cached_timing, dict):
+                    self._avatar_pack_frames = {
+                        str(key): list(value)
+                        for key, value in cached_frames.items()
+                        if isinstance(value, list) and value
+                    }
+                    self._avatar_pack_timing_ms = {
+                        str(key): int(value)
+                        for key, value in cached_timing.items()
+                    }
+                    for key, frames in self._avatar_pack_frames.items():
+                        if frames:
+                            self._avatar_pack_frame_index[key] = 0
+                    if self._avatar_pack_frames:
+                        self._avatar_is_pack = True
+                        return True
+            try:
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                return False
+            if not isinstance(payload, dict):
+                return False
+            raw_states = payload.get("states")
+            if not isinstance(raw_states, dict):
+                return False
+
+            base_dir = manifest_path.parent
+            loaded_any = False
+            for key, value in raw_states.items():
+                state_key = str(key).strip().lower()
+                if state_key not in {"idle", "listening", "thinking", "speaking", "error"}:
+                    continue
+                if not isinstance(value, list):
+                    continue
+                frames: list[QPixmap] = []
+                for item in value:
+                    candidate = base_dir / str(item).strip()
+                    pixmap = QPixmap(str(candidate))
+                    if pixmap.isNull():
+                        continue
+                    frames.append(pixmap)
+                if frames:
+                    self._avatar_pack_frames[state_key] = frames
+                    self._avatar_pack_frame_index[state_key] = 0
+                    loaded_any = True
+
+            if not loaded_any:
+                return False
+
+            timing_defaults = {
+                "idle": 260,
+                "listening": 180,
+                "thinking": 200,
+                "speaking": 90,
+                "error": 150,
+            }
+            raw_timing = payload.get("timing_ms")
+            if isinstance(raw_timing, dict):
+                for key, default_value in timing_defaults.items():
+                    raw_value = raw_timing.get(key, default_value)
+                    try:
+                        self._avatar_pack_timing_ms[key] = min(2000, max(40, int(raw_value)))
+                    except (TypeError, ValueError):
+                        self._avatar_pack_timing_ms[key] = default_value
+            else:
+                self._avatar_pack_timing_ms = dict(timing_defaults)
+
+            self._avatar_pack_preloaded_cache[manifest_key] = {
+                "frames": {key: list(value) for key, value in self._avatar_pack_frames.items()},
+                "timing_ms": dict(self._avatar_pack_timing_ms),
+            }
+            self._avatar_is_pack = True
+            return True
+
+        def _preload_avatar_packs(self) -> None:
+            for pack_id in _available_pack_skin_ids():
+                manifest_path = _pack_manifest_path(pack_id)
+                if not manifest_path.exists():
+                    continue
+                manifest_key = str(manifest_path.resolve())
+                if manifest_key in self._avatar_pack_preloaded_cache:
+                    continue
+                snapshot = (
+                    self._avatar_is_pack,
+                    self._avatar_pack_frames,
+                    self._avatar_pack_timing_ms,
+                    self._avatar_pack_frame_index,
+                    self._avatar_pack_elapsed_ms,
+                )
+                try:
+                    _ = self._load_avatar_pack(manifest_path)
+                except Exception as exc:
+                    log(f"Failed to preload avatar pack {pack_id}: {exc}")
+                finally:
+                    (
+                        self._avatar_is_pack,
+                        self._avatar_pack_frames,
+                        self._avatar_pack_timing_ms,
+                        self._avatar_pack_frame_index,
+                        self._avatar_pack_elapsed_ms,
+                    ) = snapshot
+
+        def _load_lottie_avatar(self, path: Path):
+            if LottieAnimation is None:
+                log(
+                    "Lottie avatar selected, but rlottie-python is not installed. "
+                    "Run: .venv/bin/pip install rlottie-python"
+                )
+                return None
+            try:
+                animation = LottieAnimation.from_file(str(path))
+            except Exception as exc:
+                log(f"Failed to load lottie avatar {path}: {exc}")
+                return None
+            if not animation:
+                return None
+            try:
+                total_frames = int(animation.lottie_animation_get_totalframe())
+            except Exception:
+                total_frames = 1
+            try:
+                duration = float(animation.lottie_animation_get_duration())
+                fps = (total_frames / duration) if duration > 0 else 30.0
+            except Exception:
+                fps = 30.0
+            self._avatar_lottie = animation
+            self._avatar_lottie_total_frames = max(1, total_frames)
+            self._avatar_lottie_frame = 0.0
+            self._avatar_lottie_fps = min(90.0, max(8.0, fps))
+            return self._render_lottie_avatar(512)
 
         def _build_tray_pixmap(self) -> QPixmap:
             if self._avatar:
@@ -1920,8 +2175,28 @@ def main() -> None:
 
         def _apply_state(self, state: AssistantState) -> None:
             previous_state = self._state.name
+            if (
+                self._pending_speaking_state is not None
+                and previous_state == AssistantStateName.IDLE
+                and state.name == AssistantStateName.SPEAKING
+            ):
+                self._pending_speaking_state = state
+                return
+            if (
+                previous_state == AssistantStateName.THINKING
+                and state.name == AssistantStateName.SPEAKING
+                and self._pending_speaking_state is None
+            ):
+                self._pending_speaking_state = state
+                self._state = AssistantState(AssistantStateName.IDLE, state.text)
+                self._update_bubble()
+                self._update_tray_tooltip()
+                self.update()
+                QTimer.singleShot(180, self._flush_pending_speaking_state)
+                return
             state_changed = previous_state != state.name
             self._state = state
+            self._pending_speaking_state = None
             if state_changed:
                 self._state_since = time.monotonic()
             if previous_state == AssistantStateName.SPEAKING and state.name == AssistantStateName.IDLE:
@@ -1931,6 +2206,16 @@ def main() -> None:
             self.update()
             if self._hover_hint_active:
                 self._refresh_hover_hint()
+
+        def _flush_pending_speaking_state(self) -> None:
+            pending_state = self._pending_speaking_state
+            if pending_state is None:
+                return
+            self._pending_speaking_state = None
+            # Не переигрываем speaking, если за это время ассистент уже ушел в другой state.
+            if assistant_state.get().name != AssistantStateName.SPEAKING:
+                return
+            self._apply_state(pending_state)
 
         def _tick(self) -> None:
             if self._state.name == AssistantStateName.IDLE and not self._idle_motion_enabled:
@@ -1947,6 +2232,21 @@ def main() -> None:
                 self._tray_icon_pixmap = self._build_tray_pixmap()
                 if self._tray is not None:
                     self._tray.setIcon(QIcon(self._tray_icon_pixmap))
+            if self._avatar_is_pack and self._avatar_pack_frames:
+                self._avatar_pack_elapsed_ms += 60.0
+                state_key = self._avatar_state_key(self._state.name)
+                state_frames = self._avatar_pack_frames.get(state_key) or self._avatar_pack_frames.get("idle") or []
+                frame_count = len(state_frames)
+                interval_ms = int(self._avatar_pack_timing_ms.get(state_key, 220))
+                if frame_count > 1 and self._avatar_pack_elapsed_ms >= interval_ms:
+                    self._avatar_pack_elapsed_ms = 0.0
+                    current_index = self._avatar_pack_frame_index.get(state_key, 0)
+                    self._avatar_pack_frame_index[state_key] = (current_index + 1) % frame_count
+            if self._avatar_is_lottie and self._avatar_lottie is not None and self._avatar_lottie_total_frames > 1:
+                frame_step = max(0.1, self._avatar_lottie_fps * 0.06)
+                self._avatar_lottie_frame = (
+                    self._avatar_lottie_frame + frame_step
+                ) % self._avatar_lottie_total_frames
             self.update()
             self._update_bubble_position()
             self._update_hover_bubble_position()
@@ -2098,7 +2398,7 @@ def main() -> None:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setOpacity(max(0.45, min(1.0, self._avatar_opacity)))
 
-            if self._avatar:
+            if self._avatar is not None or self._avatar_is_lottie or self._avatar_is_pack:
                 self._paint_ambient_glow(painter)
                 self._paint_avatar(painter)
             else:
@@ -2248,9 +2548,23 @@ def main() -> None:
                 self._widget_state["avatar_image_path"] = str(resolved)
                 self._avatar_path = resolved
 
+            self._avatar_lottie = None
+            self._avatar_lottie_total_frames = 0
+            self._avatar_lottie_frame = 0.0
+            self._avatar_lottie_fps = 30.0
+            self._avatar_is_pack = False
+            self._avatar_pack_frames = {}
+            self._avatar_pack_timing_ms = {}
+            self._avatar_pack_frame_index = {}
+            self._avatar_pack_elapsed_ms = 0.0
             self._avatar = self._load_avatar()
             self._avatar_is_svg = (
                 self._avatar_path is not None and self._avatar_path.suffix.lower() == ".svg"
+            )
+            self._avatar_is_lottie = (
+                self._avatar_path is not None
+                and self._avatar_path.suffix.lower() in {".json", ".lottie"}
+                and not self._avatar_is_pack
             )
             self._tray_icon_pixmap = self._build_tray_pixmap()
             if self._tray is not None:
@@ -2261,6 +2575,13 @@ def main() -> None:
         def _prepare_avatar_pixmap(self, width: int, height: int) -> QPixmap:
             if self._avatar_path is None:
                 return QPixmap()
+
+            if self._avatar_is_pack:
+                state_key = self._avatar_state_key(self._state.name)
+                return self._render_pack_avatar(max(width, height), state_key=state_key)
+
+            if self._avatar_is_lottie:
+                return self._render_lottie_avatar(max(width, height))
 
             if self._avatar_is_svg:
                 return self._render_svg_avatar(max(width, height))
@@ -2275,6 +2596,51 @@ def main() -> None:
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
+
+        @staticmethod
+        def _avatar_state_key(state_name: AssistantStateName) -> str:
+            if state_name == AssistantStateName.LISTENING:
+                return "listening"
+            if state_name == AssistantStateName.THINKING:
+                return "thinking"
+            if state_name == AssistantStateName.SPEAKING:
+                return "speaking"
+            if state_name == AssistantStateName.ERROR:
+                return "error"
+            return "idle"
+
+        def _render_pack_avatar(self, size: int, *, state_key: str) -> QPixmap:
+            frames = self._avatar_pack_frames.get(state_key) or self._avatar_pack_frames.get("idle") or []
+            if not frames:
+                return QPixmap()
+            current_index = self._avatar_pack_frame_index.get(state_key, 0)
+            source = frames[current_index % len(frames)]
+            target = max(64, int(size))
+            return source.scaled(
+                target,
+                target,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+
+        def _render_lottie_avatar(self, size: int) -> QPixmap:
+            if self._avatar_lottie is None:
+                return QPixmap()
+            render_size = max(64, int(size))
+            try:
+                frame_index = int(self._avatar_lottie_frame) % max(1, self._avatar_lottie_total_frames)
+                raw = self._avatar_lottie.lottie_animation_render(
+                    frame_num=frame_index,
+                    width=render_size,
+                    height=render_size,
+                )
+            except Exception as exc:
+                log(f"Failed to render lottie avatar frame: {exc}")
+                return QPixmap()
+            image = QImage(raw, render_size, render_size, render_size * 4, QImage.Format.Format_ARGB32)
+            if image.isNull():
+                return QPixmap()
+            return QPixmap.fromImage(image.copy())
 
         def _render_svg_avatar(self, size: int) -> QPixmap:
             if self._avatar_path is None:
@@ -2732,6 +3098,7 @@ def main() -> None:
                     "auto_interrupt_hits_noisy": self._auto_interrupt_hits_noisy,
                     "agent_routing_profile": self._agent_routing_profile,
                     "chat_prompt_pack_profile": self._chat_prompt_pack_profile,
+                    "dictation_target": self._dictation_target,
                 }
             )
 

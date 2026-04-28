@@ -1,6 +1,6 @@
 from assistant.confirmations import confirmation_store
 from core.models import IntentResult
-from services.task_service import (
+from services.task_facade_service import (
     count_open_tasks,
     complete_task,
     create_task,
@@ -93,7 +93,7 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         if not resolved:
             return "Не нашла такую задачу. Скажи название точнее или номер из списка."
 
-        task = complete_task(resolved["id"])
+        task = complete_task(resolved.get("id") or resolved.get("task") or target)
         if not task:
             return "Не удалось отметить задачу выполненной."
         prefix = pick_variant(
@@ -113,7 +113,7 @@ def handle_task_intent(intent_result: IntentResult) -> str:
         if not resolved:
             return "Не нашла такую задачу для удаления. Скажи название точнее или номер из списка."
 
-        deleted = delete_task(resolved["id"])
+        deleted = delete_task(resolved.get("id") or resolved.get("task") or target)
         if not deleted:
             return "Не удалось удалить задачу."
         prefix = pick_variant(
@@ -209,6 +209,10 @@ def _resolve_task_target(tasks: list[dict], target: str) -> dict | None:
 def _extract_date_filter(raw_dt: object) -> tuple[str | None, str | None, str | None]:
     if not isinstance(raw_dt, str) or not raw_dt.strip():
         return None, None, None
+
+    lowered = raw_dt.strip().lower()
+    if "недел" in lowered:
+        return "week", "этой неделе", None
 
     parse_result = parse_datetime(raw_dt)
     if parse_result.status == "ambiguous" and parse_result.message:

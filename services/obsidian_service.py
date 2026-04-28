@@ -10,6 +10,7 @@ from config.settings import (
     OBSIDIAN_PROJECTS_DIR,
     OBSIDIAN_VAULT_PATH,
 )
+from services.integration_settings_service import get_integration_setting
 
 
 def export_notes_to_obsidian(notes: list[dict]) -> dict:
@@ -134,12 +135,18 @@ def _build_notes_markdown(notes: list[dict]) -> str:
 
 
 def _resolve_vault_path() -> tuple[Path | None, str | None]:
-    vault_path = Path(OBSIDIAN_VAULT_PATH).expanduser() if OBSIDIAN_VAULT_PATH else None
+    runtime_path = get_integration_setting("obsidian_vault_path")
+    configured_path = runtime_path or OBSIDIAN_VAULT_PATH
+    vault_path = Path(configured_path).expanduser() if configured_path else None
     if vault_path is None or not str(vault_path).strip():
-        return None, "Путь к Obsidian vault не настроен. Добавь OBSIDIAN_VAULT_PATH в .env."
+        return None, "Путь к Obsidian vault не настроен. Укажи его в Настройки -> Интеграции или в OBSIDIAN_VAULT_PATH."
     if not vault_path.exists() or not vault_path.is_dir():
-        return None, "Путь к Obsidian vault не найден. Проверь OBSIDIAN_VAULT_PATH."
+        return None, f"Путь к Obsidian vault не найден: {vault_path}"
     return vault_path, None
+
+
+def resolve_obsidian_vault_path() -> tuple[Path | None, str | None]:
+    return _resolve_vault_path()
 
 
 def _normalize_note_title(title: str) -> str:

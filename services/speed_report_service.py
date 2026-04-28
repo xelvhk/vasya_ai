@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from config.settings import INTERACTION_LOG_FILE, VOICE_SPEED_REPORT_WINDOW
+from config.settings import INTERACTION_LOG_FILE, MIN_AUDIO_RMS, VOICE_SPEED_REPORT_WINDOW
 
 
 def build_voice_speed_report(*, limit: int | None = None) -> str:
@@ -324,6 +324,39 @@ def build_voice_auto_tune_plan(
     }
 
 
+def derive_ultra_fast_recovery_rms_range(*, limit: int = 80) -> tuple[float, float] | None:
+    samples = _load_recent_voice_perf(limit=max(16, int(limit)))
+    if len(samples) < 12:
+        return None
+
+    good_rms: list[float] = []
+    for item in samples:
+        if bool(item.get("not_heard_failure", False)):
+            continue
+        value = item.get("last_capture_rms")
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if numeric <= 0:
+            continue
+        good_rms.append(numeric)
+
+    if len(good_rms) < 10:
+        return None
+
+    p25 = _percentile(good_rms, 0.25)
+    p75 = _percentile(good_rms, 0.75)
+    min_default = max(MIN_AUDIO_RMS * 1.15, MIN_AUDIO_RMS + 25.0)
+    max_default = max(1200.0, min_default + 120.0)
+
+    tuned_min = max(min_default, p25 * 0.85)
+    tuned_max = min(1800.0, max(max_default, p75 * 1.25))
+    if tuned_max <= tuned_min + 40.0:
+        tuned_max = tuned_min + 120.0
+    return round(tuned_min, 1), round(tuned_max, 1)
+
+
 def _load_recent_voice_perf(*, limit: int) -> list[dict]:
     path = Path(INTERACTION_LOG_FILE)
     if not path.exists():
@@ -368,6 +401,19 @@ def _p50(values: list[float]) -> float:
     if len(ordered) % 2 == 1:
         return ordered[middle]
     return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _percentile(values: list[float], p: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    idx = max(0.0, min(1.0, float(p))) * (len(ordered) - 1)
+    lo = int(idx)
+    hi = min(len(ordered) - 1, lo + 1)
+    frac = idx - lo
+    return ordered[lo] * (1.0 - frac) + ordered[hi] * frac
 
 
 def _collect_positive_metric(samples: list[dict], key: str) -> list[float]:

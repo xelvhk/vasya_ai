@@ -55,6 +55,7 @@ from core.router import route_intent
 from services.chat_service import generate_chat_reply_local_fast, get_last_chat_prompt_pack
 from services.game_service import is_active_game_fast_phrase
 from services.morning_show_service import get_morning_show_message
+from services.speed_report_service import derive_ultra_fast_recovery_rms_range
 from services.integration_settings_service import get_integration_setting
 from services.runtime_prewarm_service import start_runtime_prewarm_async
 from services.os_action_service import execute_os_action
@@ -129,6 +130,7 @@ class CaptureOutcome:
     capture_ms: float = 0.0
     stt_ms: float = 0.0
     attempts: int = 0
+    last_rms: float | None = None
 
 
 @dataclass(frozen=True)
@@ -165,22 +167,26 @@ def run_voice_interaction() -> AssistantControlAction:
     role_counts: dict[str, int] = {}
     chat_pack_counts: dict[str, int] = {}
     local_fast_lane_hits = 0
+    inline_recovery_retries_left = 1
+    ultra_fast_recovery_retries_left = 1
+    quick_recovery_next = False
+    last_capture_rms: float | None = None
+    ultra_fast_rms_bounds = _resolve_ultra_fast_recovery_rms_bounds()
     morning_show_message = get_morning_show_message()
     pending_user_text: str | None = None
     if morning_show_message:
         assistant_state.set(AssistantStateName.SPEAKING, morning_show_message)
         if first_response_ms is None:
             first_response_ms = (time.perf_counter() - interaction_started) * 1000
+        morning_show_interrupt_config = dict(auto_interrupt_config)
+        morning_show_interrupt_config["enabled"] = False
         barge_in_outcome = _speak_with_barge_in(
             morning_show_message,
-            auto_interrupt_config,
+            morning_show_interrupt_config,
         )
         metrics["tts_ms"] += barge_in_outcome.tts_ms
-        if barge_in_outcome.interrupted_text:
-            pending_user_text = barge_in_outcome.interrupted_text
-            barge_in_count += 1
-            if barge_in_outcome.likely_false:
-                barge_in_false_count += 1
+        # Для утреннего шоу важно дочитать весь блок стабильно; поэтому не
+        # переключаемся на прерывание этой первой реплики.
         time.sleep(0.25)
 
     while True:
@@ -189,18 +195,28 @@ def run_voice_interaction() -> AssistantControlAction:
             pending_user_text = None
             capture = CaptureOutcome(text=user_text)
         else:
-            if keep_conversation_open and followup_config["enabled"]:
-                assistant_state.set(AssistantStateName.LISTENING, "Если хочешь, ответь коротко…")
+            if quick_recovery_next:
+                quick_recovery_next = False
+                assistant_state.set(AssistantStateName.LISTENING, "Слушаю еще раз, коротко…")
                 capture = _capture_user_text(
-                    record_seconds=float(followup_config["listen_seconds"]),
-                    max_retries=int(followup_config["retries"]),
+                    record_seconds=min(3.0, max(1.2, float(RECORD_SECONDS) - 0.8)),
+                    max_retries=1,
                     allow_voice_feedback=False,
                 )
             else:
-                assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
-                capture = _capture_user_text()
+                if keep_conversation_open and followup_config["enabled"]:
+                    assistant_state.set(AssistantStateName.LISTENING, "Если хочешь, ответь коротко…")
+                    capture = _capture_user_text(
+                        record_seconds=float(followup_config["listen_seconds"]),
+                        max_retries=int(followup_config["retries"]),
+                        allow_voice_feedback=False,
+                    )
+                else:
+                    assistant_state.set(AssistantStateName.LISTENING, "Говори, я слушаю...")
+                    capture = _capture_user_text()
         metrics["capture_ms"] += capture.capture_ms
         metrics["stt_ms"] += capture.stt_ms
+        last_capture_rms = capture.last_rms
         user_text = capture.text
         if not user_text:
             if keep_conversation_open:
@@ -223,9 +239,29 @@ def run_voice_interaction() -> AssistantControlAction:
                     role_counts=role_counts,
                     chat_pack_counts=chat_pack_counts,
                     local_fast_lane_hits=local_fast_lane_hits,
+                    last_capture_rms=last_capture_rms,
                 )
                 return assistant_control.consume_action()
+            if inline_recovery_retries_left > 0 and _is_not_heard_failure(capture.failure_reason):
+                inline_recovery_retries_left -= 1
+                assistant_state.set(
+                    AssistantStateName.LISTENING,
+                    "Не расслышала. Повтори коротко, 2-5 слов…",
+                )
+                continue
             streak = _register_capture_failure(capture.failure_reason)
+            if (
+                _should_use_ultra_fast_recovery(
+                    capture,
+                    streak=streak,
+                    rms_bounds=ultra_fast_rms_bounds,
+                )
+                and ultra_fast_recovery_retries_left > 0
+            ):
+                ultra_fast_recovery_retries_left -= 1
+                quick_recovery_next = True
+                assistant_state.set(AssistantStateName.LISTENING, "Пробую быстрый повтор, говори…")
+                continue
             assistant_state.set(AssistantStateName.ERROR, "Не удалось распознать голосовую команду")
             tts_started = time.perf_counter()
             speak(_failure_message_for(capture.failure_reason, streak=streak))
@@ -249,11 +285,19 @@ def run_voice_interaction() -> AssistantControlAction:
                 role_counts=role_counts,
                 chat_pack_counts=chat_pack_counts,
                 local_fast_lane_hits=local_fast_lane_hits,
+                last_capture_rms=last_capture_rms,
             )
             return assistant_control.consume_action()
         _reset_capture_failure_streak()
+        inline_recovery_retries_left = 1
+        ultra_fast_recovery_retries_left = 1
+        quick_recovery_next = False
 
         print(f"Ты сказал: {user_text}")
+        if keep_conversation_open and _is_lightweight_followup_ack(user_text):
+            assistant_state.set(AssistantStateName.LISTENING, "Угу, слушаю дальше…")
+            keep_conversation_open = True
+            continue
         if dictation_mode_store.is_enabled():
             dictation_result = _handle_dictation_turn(user_text, dictation_config)
             if dictation_result is not None:
@@ -266,10 +310,12 @@ def run_voice_interaction() -> AssistantControlAction:
                 continue
         assistant_state.set(AssistantStateName.THINKING, _thinking_message_for(user_text))
         intent_started = time.perf_counter()
+        used_local_fast_lane = False
         result = _try_local_fast_lane(user_text)
         if result is None:
             result = process_text_detailed(user_text)
         else:
+            used_local_fast_lane = True
             local_fast_lane_hits += 1
         metrics["intent_ms"] += (time.perf_counter() - intent_started) * 1000
         current_intent = str(getattr(result, "intent", "unknown") or "unknown")
@@ -317,7 +363,7 @@ def run_voice_interaction() -> AssistantControlAction:
 
         keep_conversation_open = True
         followup_turns_left -= 1
-        time.sleep(0.18)
+        time.sleep(_post_reply_followup_pause(result.intent, local_fast_lane_hit=used_local_fast_lane))
 
     assistant_state.set(AssistantStateName.IDLE)
     _log_voice_perf(
@@ -338,6 +384,7 @@ def run_voice_interaction() -> AssistantControlAction:
         role_counts=role_counts,
         chat_pack_counts=chat_pack_counts,
         local_fast_lane_hits=local_fast_lane_hits,
+        last_capture_rms=last_capture_rms,
     )
     return assistant_control.consume_action()
 
@@ -999,6 +1046,7 @@ def _capture_user_text(
 ) -> CaptureOutcome:
     total_capture_ms = 0.0
     total_stt_ms = 0.0
+    last_rms: float | None = None
     base_record_seconds = (
         float(record_seconds)
         if record_seconds is not None
@@ -1022,6 +1070,7 @@ def _capture_user_text(
         )
         total_capture_ms += (time.perf_counter() - record_started) * 1000
         log_voice_event(f"recording_rms={recording.rms:.2f}")
+        last_rms = float(recording.rms)
 
         if recording.rms < MIN_AUDIO_RMS:
             log_voice_event(
@@ -1038,6 +1087,7 @@ def _capture_user_text(
                 capture_ms=total_capture_ms,
                 stt_ms=total_stt_ms,
                 attempts=attempt,
+                last_rms=last_rms,
             )
 
         stt_started = time.perf_counter()
@@ -1061,6 +1111,7 @@ def _capture_user_text(
                 capture_ms=total_capture_ms,
                 stt_ms=total_stt_ms,
                 attempts=attempt,
+                last_rms=last_rms,
             )
 
         if _needs_confirmation(transcription):
@@ -1081,6 +1132,7 @@ def _capture_user_text(
                     capture_ms=total_capture_ms,
                     stt_ms=total_stt_ms,
                     attempts=attempt,
+                    last_rms=last_rms,
                 )
             log_voice_event(f"transcription_confirmed text={confirmed_text!r}")
             return CaptureOutcome(
@@ -1088,6 +1140,7 @@ def _capture_user_text(
                 capture_ms=total_capture_ms,
                 stt_ms=total_stt_ms,
                 attempts=attempt,
+                last_rms=last_rms,
             )
 
         log_voice_event(
@@ -1102,6 +1155,7 @@ def _capture_user_text(
             capture_ms=total_capture_ms,
             stt_ms=total_stt_ms,
             attempts=attempt,
+            last_rms=last_rms,
         )
 
     log_voice_event("capture_failed reason=retries_exhausted")
@@ -1111,8 +1165,44 @@ def _capture_user_text(
         capture_ms=total_capture_ms,
         stt_ms=total_stt_ms,
         attempts=retries,
+        last_rms=last_rms,
     )
 
+
+def _should_use_ultra_fast_recovery(
+    capture: CaptureOutcome,
+    *,
+    streak: int,
+    rms_bounds: tuple[float, float],
+) -> bool:
+    if not _is_not_heard_failure(capture.failure_reason):
+        return False
+    if streak < 2:
+        return False
+    if capture.failure_reason == "low_audio_level":
+        return False
+    if capture.last_rms is None:
+        return False
+
+    # Включаем ultra-fast retry только когда сигнал "достаточно уверенный":
+    # не слишком тихо и не явно шумно.
+    min_good_rms, max_good_rms = rms_bounds
+    return min_good_rms <= float(capture.last_rms) <= max_good_rms
+
+
+def _resolve_ultra_fast_recovery_rms_bounds() -> tuple[float, float]:
+    min_default = max(MIN_AUDIO_RMS * 1.15, MIN_AUDIO_RMS + 25.0)
+    max_default = max(1200.0, min_default + 120.0)
+    try:
+        tuned = derive_ultra_fast_recovery_rms_range(limit=80)
+    except Exception:
+        tuned = None
+    if tuned is None:
+        return min_default, max_default
+    tuned_min, tuned_max = tuned
+    tuned_min = max(min_default, float(tuned_min))
+    tuned_max = max(tuned_min + 80.0, min(1800.0, float(tuned_max)))
+    return tuned_min, tuned_max
 
 def _update_listening_status(message: str) -> None:
     assistant_state.set(AssistantStateName.LISTENING, message)
@@ -1235,6 +1325,39 @@ def _thinking_message_for(user_text: str) -> str:
     if fast_intent is not None and fast_intent.intent == "chat":
         return "Секунду, подбираю ответ..."
     return "Секунду, разбираюсь..."
+
+
+def _is_lightweight_followup_ack(user_text: str) -> bool:
+    normalized = " ".join(str(user_text or "").lower().strip().split())
+    if not normalized:
+        return False
+    ack_phrases = {
+        "угу",
+        "ага",
+        "ок",
+        "окей",
+        "понятно",
+        "ясно",
+        "хорошо",
+        "ладно",
+        "мм",
+        "эм",
+    }
+    return normalized in ack_phrases
+
+
+def _post_reply_followup_pause(intent: str, *, local_fast_lane_hit: bool) -> float:
+    fast_intents = {
+        "chat",
+        "get_tasks",
+        "get_events",
+        "get_notes",
+        "morning_show",
+        "speed_report",
+    }
+    if local_fast_lane_hit or intent in fast_intents:
+        return 0.08
+    return 0.16
 
 
 def _intent_key(intent: IntentResult) -> str:
@@ -1370,6 +1493,7 @@ def _log_voice_perf(
     role_counts: dict[str, int] | None = None,
     chat_pack_counts: dict[str, int] | None = None,
     local_fast_lane_hits: int = 0,
+    last_capture_rms: float | None = None,
 ) -> None:
     payload = {
         "status": status,
@@ -1392,5 +1516,6 @@ def _log_voice_perf(
         "role_counts": dict(role_counts or {}),
         "chat_pack_counts": dict(chat_pack_counts or {}),
         "local_fast_lane_hits": int(max(0, local_fast_lane_hits)),
+        "last_capture_rms": round(float(last_capture_rms), 2) if last_capture_rms is not None else None,
     }
     log_interaction_event("voice_perf", payload)

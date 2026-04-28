@@ -382,6 +382,7 @@ HOTKEY_EXIT_COMBINATION=<cmd>+<option>+q
 INTERRUPT_LISTEN_DELAY_SECONDS=0.45
 AVATAR_IMAGE_PATH=
 AVATAR_SKIN=classic
+AVATAR_PACK_SKINS=vasya_pro,vasya_pro_female
 AVATAR_SIZE=210
 AVATAR_STATE_FILE=storage/avatar_widget.json
 AVATAR_CUSTOM_SKIN_FILE=storage/avatar_custom_skin.json
@@ -409,6 +410,9 @@ OBSIDIAN_VAULT_PATH=/абсолютный/путь/к/вашему/Obsidian/Vaul
 OBSIDIAN_EXPORT_NOTES_DIR=Vasya Inbox
 OBSIDIAN_EDIT_NOTES_DIR=Vasya Inbox
 OBSIDIAN_PROJECTS_DIR=Projects
+OBSIDIAN_DAILY_NOTES_DIR=Daily
+OBSIDIAN_DAILY_NOTES_DIRS=Daily,Ежедневные
+TASKS_BACKEND=obsidian_daily
 
 OS_ACTIONS_ENABLED=true
 OS_ALLOWED_URL_DOMAINS=github.com,notion.so,obsidian.md,google.com,yandex.ru,openweathermap.org

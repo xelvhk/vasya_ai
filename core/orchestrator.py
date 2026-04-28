@@ -45,9 +45,9 @@ def process_text_detailed(user_text: str) -> ProcessResult:
 def _run_routing_policy(user_text: str) -> ProcessResult:
     steps: tuple[RoutingStep, ...] = (
         RoutingStep("system_intent", _handle_system_intent),
-        RoutingStep("pending_project_idea", _handle_pending_project_idea),
         RoutingStep("pending_confirmation", _handle_pending_confirmation),
         RoutingStep("active_game", _handle_active_game),
+        RoutingStep("pending_project_idea", _handle_pending_project_idea),
         RoutingStep("intent_parser", _handle_parsed_intent),
     )
     for step in steps:

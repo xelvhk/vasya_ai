@@ -15,9 +15,11 @@ from core.intent_parser import parse_intent
 from core.router import route_intent
 from services.ollama_client import OllamaClientError
 from utils.logger import log_interaction_event
+from utils.logger import get_logging_context, set_logging_context
 from utils.system_intents import detect_system_intent
 from dataclasses import dataclass
 from typing import Callable
+from time import perf_counter
 
 
 @dataclass(frozen=True)
@@ -39,7 +41,21 @@ def process_text(user_text: str) -> str:
 
 
 def process_text_detailed(user_text: str) -> ProcessResult:
-    return _run_routing_policy(user_text)
+    request_id, session_id = get_logging_context()
+    set_logging_context(request_id=request_id, session_id=session_id)
+    started = perf_counter()
+    result = _run_routing_policy(user_text)
+    latency_ms = int((perf_counter() - started) * 1000)
+    log_interaction_event(
+        "input_contour",
+        {
+            "request_id": request_id,
+            "session_id": session_id,
+            "intent": result.intent,
+            "latency_ms": latency_ms,
+        },
+    )
+    return result
 
 
 def _run_routing_policy(user_text: str) -> ProcessResult:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
+from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +14,9 @@ from config.settings import (
     LOG_REDACT_SENSITIVE,
     VOICE_LOG_FILE,
 )
+
+_REQUEST_ID: ContextVar[str | None] = ContextVar("request_id", default=None)
+_SESSION_ID: ContextVar[str | None] = ContextVar("session_id", default=None)
 
 
 def log(message: str) -> None:
@@ -26,14 +31,33 @@ def log_voice_event(message: str) -> None:
 
 def log_interaction_event(event_type: str, payload: dict) -> None:
     safe_payload = _sanitize_payload(payload)
+    request_id = safe_payload.get("request_id") or _REQUEST_ID.get() or _new_request_id()
+    session_id = safe_payload.get("session_id") or _SESSION_ID.get() or _new_session_id()
     enriched_payload = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "event_type": event_type,
+        "request_id": request_id,
+        "session_id": session_id,
         **safe_payload,
     }
     line = json.dumps(enriched_payload, ensure_ascii=False)
     print(f"[INTERACTION] {line}")
     _append_raw_line(INTERACTION_LOG_FILE, line)
+
+
+def set_logging_context(*, request_id: str | None = None, session_id: str | None = None) -> None:
+    if request_id is not None:
+        _REQUEST_ID.set(request_id)
+    if session_id is not None:
+        _SESSION_ID.set(session_id)
+
+
+def get_logging_context() -> tuple[str, str]:
+    request_id = _REQUEST_ID.get() or _new_request_id()
+    session_id = _SESSION_ID.get() or _new_session_id()
+    _REQUEST_ID.set(request_id)
+    _SESSION_ID.set(session_id)
+    return request_id, session_id
 
 
 def _append_line(path_str: str, prefix: str, message: str) -> None:
@@ -134,3 +158,11 @@ def _truncate(value: str) -> str:
     if len(value) <= limit:
         return value
     return f"{value[:limit-3]}..."
+
+
+def _new_request_id() -> str:
+    return f"req-{uuid.uuid4().hex[:10]}"
+
+
+def _new_session_id() -> str:
+    return f"sess-{uuid.uuid4().hex[:10]}"

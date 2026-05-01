@@ -142,6 +142,8 @@ class LoggerRedactionTests(unittest.TestCase):
         payload = json.loads(lines[-1])
         self.assertEqual(payload["user_text"], "<redacted_text:15 chars>")
         self.assertEqual(payload["api_token"], "<redacted_secret>")
+        self.assertIn("request_id", payload)
+        self.assertIn("session_id", payload)
 
 
 if __name__ == "__main__":
@@ -168,6 +170,7 @@ def _load_api_deps_module():
     fastapi_module.WebSocket = WebSocket
 
     sys.modules["fastapi"] = fastapi_module
+    sys.modules.pop("config.settings", None)
     sys.modules.pop("apps.api.deps", None)
     api_deps = importlib.import_module("apps.api.deps")
     return api_deps, HTTPException

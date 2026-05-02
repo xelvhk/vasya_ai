@@ -1,0 +1,44 @@
+{
+  "id": "vasya_pro",
+  "title": "Vasya Pro Character Pack",
+  "states": {
+    "idle": [
+      "idle_01.webp",
+      "idle_02.webp",
+      "idle_03.webp",
+      "idle_04.webp",
+      "idle_05.webp",
+      "idle_06.webp",
+      "idle_07.webp",
+      "idle_08.webp"
+    ],
+    "listening": [
+      "listening_01.webp",
+      "listening_02.webp",
+      "listening_03.webp"
+    ],
+    "thinking": [
+      "thinking_01.webp",
+      "thinking_02.webp",
+      "thinking_03.webp"
+    ],
+    "speaking": [
+      "speaking_01.webp",
+      "speaking_02.webp",
+      "speaking_03.webp",
+      "speaking_04.webp",
+      "speaking_05.webp"
+    ],
+    "error": [
+      "error_01.webp",
+      "error_02.webp"
+    ]
+  },
+  "timing_ms": {
+    "idle": 250,
+    "listening": 400,
+    "thinking": 400,
+    "speaking": 90,
+    "error": 150
+  }
+}

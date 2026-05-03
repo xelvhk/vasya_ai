@@ -34,6 +34,7 @@ class IntentResult(BaseModel):
         "replace_obsidian_note",
         "sync_github_obsidian_project",
         "analyze_project_idea_to_obsidian",
+        "triage_obsidian_ideas",
         "speed_report",
         "morning_show",
         "start_dictation_mode",

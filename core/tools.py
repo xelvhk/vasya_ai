@@ -20,6 +20,8 @@ from services.github_obsidian_sync_service import (
     sync_github_project_to_obsidian,
     update_obsidian_note,
 )
+from services.obsidian_knowledge_service import triage_unstructured_ideas
+from services.obsidian_service import resolve_obsidian_vault_path
 from services.project_idea_planning_service import handle_project_idea_request
 from services.morning_show_service import get_morning_show_message
 from services.speed_report_service import build_voice_diagnostics_report
@@ -132,6 +134,19 @@ def _run_obsidian_tool(intent_result: IntentResult) -> str:
         idea = str(intent_result.data.get("idea", "")).strip()
         title = str(intent_result.data.get("title", "")).strip() or None
         return handle_project_idea_request(idea=idea, title=title)
+    if intent_result.intent == "triage_obsidian_ideas":
+        vault_path, error = resolve_obsidian_vault_path()
+        if error or vault_path is None:
+            return str(error or "Не удалось определить путь к Obsidian vault.")
+        result = triage_unstructured_ideas(vault_path)
+        if not result.get("ok"):
+            return str(result.get("error") or "Не удалось разобрать неразобранные идеи.")
+        updated = int(result.get("updated", 0))
+        skipped = int(result.get("skipped", 0))
+        return (
+            "Готово. Разобрала неразобранные идеи в Obsidian: "
+            f"обновила {updated}, пропустила {skipped}."
+        )
     mode = "replace" if intent_result.intent == "replace_obsidian_note" else "append"
     title = str(intent_result.data.get("title", "")).strip()
     text = str(intent_result.data.get("text", "")).strip()
@@ -279,6 +294,7 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
             "replace_obsidian_note",
             "sync_github_obsidian_project",
             "analyze_project_idea_to_obsidian",
+            "triage_obsidian_ideas",
         ),
         handler=_run_obsidian_tool,
     ),

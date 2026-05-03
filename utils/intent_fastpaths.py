@@ -323,6 +323,18 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     }:
         return IntentResult(intent="sync_github_obsidian_project", data={})
 
+    if normalized in {
+        "разбери неразобранные идеи",
+        "разложи неразобранные идеи",
+        "разбери идеи из inbox",
+        "разложи идеи из inbox",
+        "разбери идеи в обсидиане",
+        "разложи идеи в обсидиане",
+        "разбери идеи в обсидиан",
+        "разложи идеи в обсидиан",
+    }:
+        return IntentResult(intent="triage_obsidian_ideas", data={})
+
     idea_plan_patterns = (
         r"^(?:проанализируй|разбери|оцени)\s+идею\s+(.+?)\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b$",
         r"^(?:составь|распиши)\s+(?:план|задачи)\s+по\s+идее\s+(.+?)\s+в\s+заметк[уе]\s+(.+?)\s+в\s+обсидиан\b$",
@@ -476,6 +488,20 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     if normalized in {"прокрути вверх", "скролл вверх"}:
         return IntentResult(intent="os_scroll", data={"amount": 700})
 
+    daily_plan_patterns = (
+        r"^(план на сегодня|мой план на сегодня|что у меня на сегодня)\b",
+    )
+    for pattern in daily_plan_patterns:
+        if re.search(pattern, normalized):
+            return IntentResult(intent="get_tasks", data={"datetime": "сегодня"})
+
+    weekly_plan_patterns = (
+        r"^(план на неделю|мой план на неделю|что у меня на этой неделе)\b",
+    )
+    for pattern in weekly_plan_patterns:
+        if re.search(pattern, normalized):
+            return IntentResult(intent="get_tasks", data={"datetime": "на этой неделе"})
+
     list_tasks_patterns = (
         r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",
     )
@@ -555,6 +581,7 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "forget_user_profile",
         "sync_github_notion",
         "sync_github_obsidian_project",
+        "triage_obsidian_ideas",
         "analyze_project_idea_to_obsidian",
         "read_notion_page",
         "append_notion_page",

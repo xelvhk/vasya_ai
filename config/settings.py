@@ -233,15 +233,18 @@ OBSIDIAN_EDIT_NOTES_DIR = os.getenv(
 ).strip()
 OBSIDIAN_PROJECTS_DIR = os.getenv(
     "OBSIDIAN_PROJECTS_DIR",
-    "Projects",
+    "01_Projects",
 ).strip()
 OBSIDIAN_DAILY_NOTES_DIR = os.getenv(
     "OBSIDIAN_DAILY_NOTES_DIR",
-    "Daily",
+    "04_Tasks/Ежедневные",
 ).strip()
 OBSIDIAN_DAILY_NOTES_DIRS = [
     item.strip()
-    for item in os.getenv("OBSIDIAN_DAILY_NOTES_DIRS", "Daily,Ежедневные").split(",")
+    for item in os.getenv(
+        "OBSIDIAN_DAILY_NOTES_DIRS",
+        "04_Tasks/Ежедневные,04_Tasks/Еженедельные,Daily,Ежедневные,Еженедельные",
+    ).split(",")
     if item.strip()
 ]
 TASKS_BACKEND = os.getenv(

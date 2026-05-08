@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.1.0 (Draft)
+- Stabilized local voice pipeline (STT -> intent -> tool dispatch -> TTS)
+- Added production-oriented desktop shell baseline (avatar/tray/hotkey)
+- Added task and calendar core workflows with local-first storage
+- Added API security baseline (auth + throttling)
+- Added Obsidian/Notion adapter baseline for external knowledge workflows
+
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)
 - Faster conversational loop and quick chat profile

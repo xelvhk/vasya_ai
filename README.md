@@ -84,6 +84,13 @@ Security note:
 - Integration tokens from settings are stored in OS keyring when available.
 - Legacy token fields are migrated out of `storage/integrations.json` on first read/write.
 
+## Limitations / Responsible Use
+- Vasya is a local productivity assistant, not a medical, legal, or emergency system.
+- Voice recognition may be imperfect in noisy environments; verify important actions.
+- OS-level actions can affect active applications; keep confirmations enabled for risky operations.
+- External integrations (Google/Notion/GitHub) depend on your credentials, API limits, and network availability.
+- Store and use personal/sensitive data according to your own security and compliance requirements.
+
 ## Architecture
 ```text
 Input Layer

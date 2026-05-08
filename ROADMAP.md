@@ -94,6 +94,7 @@ Current status:
 - security hardening baseline (API auth strict mode, secrets storage via keyring, log redaction, safer dictation API host policy) landed in `v0.5.21`
 - API/WS rate-limit layer for anti-abuse protection landed in `v0.5.22`
 - security test baseline (e2e auth/throttling/log redaction) landed in `v0.5.23`
+- managed Obsidian vault bootstrap (folders/templates/frontmatter+links index/recommended plugin manifest) landed in `v0.5.24`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -221,6 +222,7 @@ Good future exports:
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs
 - `v0.5.23`: security test baseline (`SEC-007`) with e2e coverage for auth/throttling and real log-redaction writes
+- `v0.5.24`: managed Obsidian vault bootstrap (knowledge folder model, templates, metadata/link indexing, plugin-manifest helper)
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
 - `v0.6.x`: easier installation, starting with Windows, then Linux
 - `v0.7.x`: deeper Obsidian workflow and Notion adapter

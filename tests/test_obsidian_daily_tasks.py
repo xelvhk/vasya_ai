@@ -59,6 +59,31 @@ class ObsidianDailyTasksTests(unittest.TestCase):
         assert path is not None
         self.assertIn("Ежедневные", str(path))
 
+    def test_prioritizes_day_plan_section_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            daily_dir = vault / "Daily"
+            daily_dir.mkdir(parents=True, exist_ok=True)
+            note_path = daily_dir / "2026-04-29.md"
+            note_path.write_text(
+                (
+                    "# 2026-04-29\n\n"
+                    "## Задачи\n"
+                    "- [ ] Третья задача\n\n"
+                    "## План на день\n"
+                    "- [ ] Первая задача\n"
+                    "- [ ] Вторая задача\n"
+                ),
+                encoding="utf-8",
+            )
+            with patch(
+                "services.obsidian_daily_tasks_service.resolve_obsidian_vault_path",
+                return_value=(vault, None),
+            ):
+                items = daily.list_tasks_from_daily_notes(filter_date="2026-04-29")
+
+        self.assertEqual([item["task"] for item in items], ["Первая задача", "Вторая задача", "Третья задача"])
+
 
 if __name__ == "__main__":
     unittest.main()

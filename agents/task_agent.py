@@ -67,6 +67,14 @@ def handle_task_intent(intent_result: IntentResult) -> str:
                 spoken_items.append(item["task"])
 
         count = len(tasks)
+        if _is_compact_plan_context(date_context):
+            top = spoken_items[:3]
+            if count <= 3:
+                return f"План: {join_spoken_list(top)}."
+            return (
+                f"План: {join_spoken_list(top)}. "
+                f"И еще {count - 3} {pluralize_tasks(count - 3)} в заметке."
+            )
         if date_context:
             if count == 1:
                 return f"На {date_context} у тебя одна задача: {spoken_items[0]}."
@@ -235,3 +243,10 @@ def _format_task_count(count: int) -> str:
     if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
         return f"{count} задачи"
     return f"{count} задач"
+
+
+def _is_compact_plan_context(date_context: str | None) -> bool:
+    normalized = " ".join(str(date_context or "").strip().lower().split())
+    if not normalized:
+        return False
+    return "сегодня" in normalized or "недел" in normalized

@@ -92,6 +92,21 @@ MORNING_SHOW_GREETING_PHRASES = (
     "доброе утро",
 )
 
+START_DICTATION_MODE_PHRASES = (
+    "начни диктовку",
+    "включи диктовку",
+    "режим диктовки",
+    "начать диктовку",
+)
+
+STOP_DICTATION_MODE_PHRASES = (
+    "стоп диктовка",
+    "останови диктовку",
+    "выключи диктовку",
+    "заверши диктовку",
+    "стоп режим диктовки",
+)
+
 
 def detect_system_intent(user_text: str) -> IntentResult | None:
     normalized = " ".join(user_text.lower().strip().split())
@@ -132,5 +147,11 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
 
     if "утреннее шоу" in normalized_compact:
         return IntentResult(intent="morning_show", data={"force": True})
+
+    if normalized in START_DICTATION_MODE_PHRASES:
+        return IntentResult(intent="start_dictation_mode", data={})
+
+    if normalized in STOP_DICTATION_MODE_PHRASES:
+        return IntentResult(intent="stop_dictation_mode", data={})
 
     return None

@@ -21,6 +21,7 @@ class DailyTaskItem:
     note_path: str
     line_index: int
     date: str
+    section: str
 
     def as_dict(self) -> dict:
         return {
@@ -31,6 +32,7 @@ class DailyTaskItem:
             "note_path": self.note_path,
             "line_index": self.line_index,
             "date": self.date,
+            "section": self.section,
         }
 
 
@@ -154,7 +156,12 @@ def _read_note_tasks(date_key: str) -> list[DailyTaskItem]:
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
     result: list[DailyTaskItem] = []
+    current_section = ""
     for idx, line in enumerate(lines):
+        heading_match = re.match(r"^\s{0,3}#{1,6}\s+(.+)$", line.strip())
+        if heading_match:
+            current_section = _normalize_section_name(heading_match.group(1))
+            continue
         match = _CHECKBOX_RE.match(line)
         if not match:
             continue
@@ -172,9 +179,28 @@ def _read_note_tasks(date_key: str) -> list[DailyTaskItem]:
                 note_path=str(path),
                 line_index=idx,
                 date=date_key,
+                section=current_section,
             )
         )
-    return result
+    return sorted(
+        result,
+        key=lambda item: (_section_priority(item.section), item.line_index),
+    )
+
+
+def _normalize_section_name(raw: str) -> str:
+    return " ".join(str(raw or "").strip().lower().split())
+
+
+def _section_priority(section: str) -> int:
+    normalized = _normalize_section_name(section)
+    if normalized in {"план на день", "day plan", "daily plan"}:
+        return 0
+    if normalized in {"план недели", "план на неделю", "week plan", "weekly plan"}:
+        return 1
+    if normalized in {"задачи", "tasks", "todo", "to-do"}:
+        return 2
+    return 3
 
 
 def _find_tasks_insert_index(lines: list[str]) -> int | None:

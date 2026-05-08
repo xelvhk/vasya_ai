@@ -61,7 +61,7 @@ from services.runtime_prewarm_service import start_runtime_prewarm_async
 from services.os_action_service import execute_os_action
 from utils.chat_fast_replies import generate_local_chat_reply
 from utils.intent_fastpaths import detect_early_fast_intent, detect_fast_intent
-from utils.logger import log_interaction_event, log_voice_event
+from utils.logger import log_interaction_event, log_voice_event, start_logging_scope
 from utils.system_intents import detect_system_intent
 from voice.recorder import record_audio
 from voice.models import TranscriptionResult
@@ -144,6 +144,15 @@ class BargeInOutcome:
 
 
 def run_voice_interaction() -> AssistantControlAction:
+    request_id, session_id = start_logging_scope()
+    log_interaction_event(
+        "routing_step",
+        {
+            "step": "voice_interaction_started",
+            "request_id": request_id,
+            "session_id": session_id,
+        },
+    )
     start_runtime_prewarm_async()
     interaction_started = time.perf_counter()
     metrics = {

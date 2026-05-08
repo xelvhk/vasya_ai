@@ -912,8 +912,9 @@ def _rewrite_links_after_renames(vault_path: Path, renames: list[tuple[Path, Pat
     if not renames:
         return 0
     by_old_stem = {old.stem: new.stem for old, new in renames}
+    ideas_dir_norm = ideas_dir.replace("\\", "/")
     by_old_path = {
-        f"{ideas_dir.replace('\\', '/')}/{old.stem}": new.stem
+        f"{ideas_dir_norm}/{old.stem}": new.stem
         for old, new in renames
     }
 

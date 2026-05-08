@@ -128,6 +128,7 @@ Current previews:
 
 - Avatar widget concept  
 ![Avatar widget preview](docs/screenshots/avatar-widget.png)
+- Source concept component: `examples/ui/vasya_ai_widget_concept.jsx` (prototype, not connected to runtime by default).
 
 ## Roadmap
 Short roadmap:

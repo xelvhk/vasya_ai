@@ -13,7 +13,7 @@ from apps.api.rate_limit import (
 )
 from apps.api.schemas import PipelineRequest, PipelineResponse
 from services.benchmark_service import build_benchmark_snapshot, build_benchmark_text_report
-from utils.logger import log_interaction_event
+from utils.logger import log_interaction_event, start_logging_scope
 from voice.backend_registry import list_backend_registry
 from voice.pipeline import run_text_pipeline
 
@@ -38,6 +38,14 @@ def pipeline(payload: PipelineRequest) -> PipelineResponse:
     text = " ".join(payload.text.split())
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty.")
+    log_interaction_event(
+        "routing_step",
+        {
+            "step": "api_pipeline_inbound",
+            "user_text": text,
+            "path": "/v1/pipeline",
+        },
+    )
 
     events = run_text_pipeline(
         text,
@@ -90,6 +98,7 @@ async def voice_ws(websocket: WebSocket) -> None:
         return
 
     await websocket.accept()
+    _request_id, ws_session_id = start_logging_scope()
     try:
         await websocket.send_json(
             {
@@ -138,6 +147,15 @@ async def voice_ws(websocket: WebSocket) -> None:
             if not text:
                 await websocket.send_json({"type": "error", "message": "Empty text"})
                 continue
+            start_logging_scope(session_id=ws_session_id)
+            log_interaction_event(
+                "routing_step",
+                {
+                    "step": "api_ws_inbound",
+                    "user_text": text,
+                    "path": "/v1/ws/voice",
+                },
+            )
 
             speak_response = bool(payload.get("speak", False))
             tts_backend = str(payload.get("tts_backend", "default"))

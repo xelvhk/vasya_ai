@@ -52,6 +52,14 @@ def set_logging_context(*, request_id: str | None = None, session_id: str | None
         _SESSION_ID.set(session_id)
 
 
+def start_logging_scope(*, session_id: str | None = None) -> tuple[str, str]:
+    request_id = _new_request_id()
+    scoped_session_id = session_id or _new_session_id()
+    _REQUEST_ID.set(request_id)
+    _SESSION_ID.set(scoped_session_id)
+    return request_id, scoped_session_id
+
+
 def get_logging_context() -> tuple[str, str]:
     request_id = _REQUEST_ID.get() or _new_request_id()
     session_id = _SESSION_ID.get() or _new_session_id()

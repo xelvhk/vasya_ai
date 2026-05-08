@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from apps.api.deps import require_api_key
 from apps.api.rate_limit import check_http_rate_limit, resolve_client_id_from_request
 from apps.api.routes import chat, events, notes, realtime, recovery, system, tasks
-from utils.logger import log_interaction_event
+from utils.logger import log_interaction_event, start_logging_scope
 
 
 app = FastAPI(
@@ -28,6 +28,16 @@ app.include_router(realtime.router, dependencies=_secure)
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
+    request_id, session_id = start_logging_scope()
+    log_interaction_event(
+        "api_request_started",
+        {
+            "path": str(request.url.path),
+            "method": str(request.method).upper(),
+            "request_id": request_id,
+            "session_id": session_id,
+        },
+    )
     path = str(request.url.path)
     method = str(request.method).upper()
     if method == "POST" and path in {"/v1/chat", "/v1/pipeline"}:

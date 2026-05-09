@@ -267,6 +267,9 @@ def ensure_navigation_scaffold(vault_path: Path, *, dry_run: bool = True) -> dic
         "03_Knowledge/MOC — Knowledge.md": _moc_body("MOC — Knowledge", today, "knowledge"),
         "04_Tasks/MOC — Tasks.md": _moc_body("MOC — Tasks", today, "tasks"),
         "05_Logs/MOC — Weekly Review.md": _weekly_moc_body(today),
+        "Ежедневные/MOC — Daily.md": _moc_body("MOC — Daily", today, "daily"),
+        "Финансы/MOC — Finance.md": _moc_body("MOC — Finance", today, "finance"),
+        "Шаблоны/MOC — Templates.md": _moc_body("MOC — Templates", today, "templates"),
     }
     created: list[str] = []
     for relpath, body in scaffold.items():
@@ -283,7 +286,7 @@ def ensure_navigation_scaffold(vault_path: Path, *, dry_run: bool = True) -> dic
 def audit_metadata_standards(
     vault_path: Path,
     *,
-    required_fields: tuple[str, ...] = ("type", "status", "area", "created", "updated", "tags"),
+    required_fields: tuple[str, ...] = ("type", "status", "area", "parent", "created", "updated", "tags"),
 ) -> dict:
     resolved = Path(vault_path).expanduser()
     if not resolved.exists() or not resolved.is_dir():
@@ -325,7 +328,7 @@ def autofix_metadata_standards(
     *,
     dry_run: bool = True,
     limit: int = 500,
-    required_fields: tuple[str, ...] = ("type", "status", "area", "created", "updated", "tags"),
+    required_fields: tuple[str, ...] = ("type", "status", "area", "parent", "created", "updated", "tags"),
 ) -> dict:
     resolved = Path(vault_path).expanduser()
     if not resolved.exists() or not resolved.is_dir():
@@ -999,6 +1002,10 @@ def _fill_standard_frontmatter(
         fm["status"] = "todo" if inferred_type == "task" else "active"
     if "area" in required_fields and not _has_frontmatter_field(fm, "area"):
         fm["area"] = _infer_area_from_path(note_path)
+    if "parent" in required_fields and not _has_frontmatter_field(fm, "parent"):
+        parent = _infer_parent_from_path(note_path)
+        if parent:
+            fm["parent"] = parent
     if "created" in required_fields and not _has_frontmatter_field(fm, "created"):
         fm["created"] = today
     if "updated" in required_fields and not _has_frontmatter_field(fm, "updated"):
@@ -1037,9 +1044,33 @@ def _infer_area_from_path(note_path: Path) -> str:
         return "logs"
     if "99_Templates" in parts:
         return "templates"
+    if "Ежедневные" in parts:
+        return "daily"
+    if "Финансы" in parts:
+        return "finance"
+    if "Шаблоны" in parts:
+        return "templates"
     if "00_Inbox" in parts:
         return "inbox"
     return "general"
+
+
+def _infer_parent_from_path(note_path: Path) -> str:
+    rel = note_path.as_posix()
+    mapping = {
+        "/01_Projects/": "MOC — Projects",
+        "/03_Knowledge/": "MOC — Knowledge",
+        "/04_Tasks/": "MOC — Tasks",
+        "/05_Logs/": "MOC — Weekly Review",
+        "/Ежедневные/": "MOC — Daily",
+        "/Финансы/": "MOC — Finance",
+        "/Шаблоны/": "MOC — Templates",
+        "/99_Templates/": "MOC — Templates",
+    }
+    for key, parent in mapping.items():
+        if key in rel:
+            return parent
+    return ""
 
 
 def _parse_iso_date(value: str) -> date | None:
@@ -1064,6 +1095,7 @@ def _render_vault_health_markdown(report: dict, *, stale_days: int) -> str:
         "type: report",
         "status: active",
         "area: logs",
+        "parent: MOC — Weekly Review",
         f"created: {today}",
         f"updated: {today}",
         "tags:",

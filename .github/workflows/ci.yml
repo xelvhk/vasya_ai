@@ -24,4 +24,4 @@ jobs:
           pip install -r requirements.txt
 
       - name: Syntax check
-        run: python -m compileall .
+        run: python -m compileall agents apps assistant config core interfaces repositories scripts services tests utils voice main.py

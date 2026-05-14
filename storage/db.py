@@ -60,7 +60,79 @@ def initialize_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memory_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'manual',
+                last_ingested_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memory_chunks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER NOT NULL,
+                source_key TEXT NOT NULL,
+                external_id TEXT,
+                title TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                markdown_path TEXT NOT NULL,
+                url TEXT,
+                tags TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(source_id) REFERENCES memory_sources(id),
+                UNIQUE(source_key, external_id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_memory_chunks_source_id
+            ON memory_chunks(source_id)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_memory_chunks_created_at
+            ON memory_chunks(created_at)
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memory_sync_state (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                toolkit TEXT NOT NULL,
+                connection_id TEXT NOT NULL,
+                cursor TEXT,
+                last_synced_at_ts INTEGER,
+                last_items_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(toolkit, connection_id)
+            )
+            """
+        )
         _ensure_column(connection, "tasks", "datetime", "TEXT")
+        _ensure_column(connection, "memory_sources", "kind", "TEXT NOT NULL DEFAULT 'manual'")
+        _ensure_column(connection, "memory_sources", "last_ingested_at", "TEXT")
+        _ensure_column(connection, "memory_sources", "updated_at", "TEXT")
+        _ensure_column(connection, "memory_chunks", "external_id", "TEXT")
+        _ensure_column(connection, "memory_chunks", "url", "TEXT")
+        _ensure_column(connection, "memory_chunks", "tags", "TEXT NOT NULL DEFAULT '[]'")
+        _ensure_column(connection, "memory_chunks", "updated_at", "TEXT")
+        _ensure_column(connection, "memory_sync_state", "cursor", "TEXT")
+        _ensure_column(connection, "memory_sync_state", "last_synced_at_ts", "INTEGER")
+        _ensure_column(connection, "memory_sync_state", "last_items_count", "INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(connection, "memory_sync_state", "last_error", "TEXT")
+        _ensure_column(connection, "memory_sync_state", "updated_at", "TEXT")
 
     _migrate_legacy_json_if_needed()
 

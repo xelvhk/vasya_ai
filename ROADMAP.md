@@ -95,6 +95,9 @@ Current status:
 - API/WS rate-limit layer for anti-abuse protection landed in `v0.5.22`
 - security test baseline (e2e auth/throttling/log redaction) landed in `v0.5.23`
 - managed Obsidian vault bootstrap (folders/templates/frontmatter+links index/recommended plugin manifest) landed in `v0.5.24`
+- Memory Center foundation landed in `v0.5.25`: local memory sources/chunks, Markdown artifacts, sync-state tracking, and `/v1/memory/status`
+- GitHub/Notion/Obsidian Memory Center sync landed in `v0.5.26` with `/v1/memory/sync`
+- Desktop shell Memory Center controls landed in `v0.5.27`: status view and manual sync from the avatar/tray menu
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -218,6 +221,9 @@ Good future exports:
 - `v0.5.17`: pre-generated morning show cache and fast weather small-talk replies
 - `v0.5.18`: streaming/pipeline orchestration, WebSocket realtime mode, modular STT/TTS/LLM registry, and benchmark harness
 - `v0.5.19`: voice dictation to active focused field (`os_type_text`), including fast RU phrasings like "добавь текст..." and "продиктуй..."
+- `v0.5.25`: Memory Center foundation with provenance-backed local chunks, wiki artifacts, sync cursors, and status API
+- `v0.5.26`: source sync into Memory Center for GitHub commits/PRs, Notion page snapshots, and Obsidian vault notes
+- `v0.5.27`: desktop Memory Center surface with status summary and sync-now action
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs

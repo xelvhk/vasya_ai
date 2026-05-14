@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.deps import require_api_key
 from apps.api.rate_limit import check_http_rate_limit, resolve_client_id_from_request
-from apps.api.routes import chat, events, notes, realtime, recovery, system, tasks
+from apps.api.routes import chat, events, memory, notes, realtime, recovery, system, tasks
 from utils.logger import log_interaction_event, start_logging_scope
 
 
@@ -24,6 +24,7 @@ app.include_router(notes.router, dependencies=_secure)
 app.include_router(events.router, dependencies=_secure)
 app.include_router(recovery.router, dependencies=_secure)
 app.include_router(realtime.router, dependencies=_secure)
+app.include_router(memory.router, dependencies=_secure)
 
 
 @app.middleware("http")

@@ -39,3 +39,10 @@ class CreateNoteRequest(BaseModel):
 class CreateEventRequest(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     datetime: str | None = None
+
+
+class MemorySyncRequest(BaseModel):
+    source: str = Field(pattern="^(github|notion|obsidian|all)$")
+    force: bool = False
+    repo: str | None = Field(default=None, max_length=240)
+    page_id: str | None = Field(default=None, max_length=240)

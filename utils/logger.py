@@ -7,13 +7,17 @@ from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
 
-from config.settings import (
-    INTERACTION_LOG_FILE,
-    LOG_INCLUDE_TEXT_CONTENT,
-    LOG_MAX_FIELD_LENGTH,
-    LOG_REDACT_SENSITIVE,
-    VOICE_LOG_FILE,
+from config import settings as _settings
+
+VOICE_LOG_FILE = getattr(_settings, "VOICE_LOG_FILE", "storage/voice.log")
+INTERACTION_LOG_FILE = getattr(
+    _settings,
+    "INTERACTION_LOG_FILE",
+    "storage/interactions.log",
 )
+LOG_REDACT_SENSITIVE = getattr(_settings, "LOG_REDACT_SENSITIVE", True)
+LOG_INCLUDE_TEXT_CONTENT = getattr(_settings, "LOG_INCLUDE_TEXT_CONTENT", False)
+LOG_MAX_FIELD_LENGTH = getattr(_settings, "LOG_MAX_FIELD_LENGTH", 240)
 
 _REQUEST_ID: ContextVar[str | None] = ContextVar("request_id", default=None)
 _SESSION_ID: ContextVar[str | None] = ContextVar("session_id", default=None)

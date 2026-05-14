@@ -83,6 +83,17 @@ Knowledge/memory adapters:
 - Obsidian vault (local files)
 - Notion (optional remote adapter)
 
+Memory Center baseline:
+- `memory_sources` tracks connected/local sources by stable `source_key`
+- `memory_chunks` stores provenance-backed memory leaves and points to Markdown artifacts
+- `memory_sync_state` tracks per `(toolkit, connection_id)` cursors and sync timing
+- `services/memory_center_service.py` owns ingest/status/sync-state behavior
+- `services/memory_sync_service.py` connects GitHub, Notion, and Obsidian adapters to memory ingest
+- `apps/api/routes/memory.py` exposes `/v1/memory/status` for desktop/mobile clients
+- `scripts/avatar_widget.py` exposes Memory Center status and manual sync in the desktop/tray menu
+
+This is intentionally a thin local-first foundation rather than a full vector store. The next layer can add source adapters, summaries, entity/topic extraction, and Obsidian navigation without changing the public status contract.
+
 ## API surface
 
 Main API module: `apps/api/main.py`
@@ -92,6 +103,7 @@ Key routes:
 - chat/pipeline: `/v1/chat`, `/v1/pipeline`
 - realtime: `/v1/ws/voice`
 - tasks/notes/events/recovery
+- memory center: `/v1/memory/status`, `/v1/memory/sync`
 
 Security baseline:
 - token auth for `/v1/*` (default on)

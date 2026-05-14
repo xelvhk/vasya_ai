@@ -6,6 +6,9 @@
 - Added task and calendar core workflows with local-first storage
 - Added API security baseline (auth + throttling)
 - Added Obsidian/Notion adapter baseline for external knowledge workflows
+- Added Memory Center foundation: local memory sources/chunks, Markdown artifacts, sync-state tracking, and `/v1/memory/status`
+- Added Memory Center source sync for GitHub, Notion, and Obsidian through `/v1/memory/sync`
+- Added desktop Memory Center controls in the avatar/tray menu.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

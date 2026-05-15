@@ -20,6 +20,13 @@ from services.github_obsidian_sync_service import (
     sync_github_project_to_obsidian,
     update_obsidian_note,
 )
+from services.memory_center_service import (
+    build_memory_center_summary,
+    build_memory_search_summary,
+    get_memory_center_status,
+    search_memory_center,
+)
+from services.memory_sync_service import sync_memory_source
 from services.obsidian_knowledge_service import triage_unstructured_ideas
 from services.obsidian_service import resolve_obsidian_vault_path
 from services.project_idea_planning_service import handle_project_idea_request
@@ -151,6 +158,39 @@ def _run_obsidian_tool(intent_result: IntentResult) -> str:
     title = str(intent_result.data.get("title", "")).strip()
     text = str(intent_result.data.get("text", "")).strip()
     return update_obsidian_note(title=title, content=text, mode=mode)
+
+
+def _run_memory_center_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "memory_status":
+        return build_memory_center_summary(get_memory_center_status())
+    if intent_result.intent == "memory_sync":
+        force = bool(intent_result.data.get("force", False))
+        result = sync_memory_source("all", force=force)
+        ingested = int(result.get("ingested", 0))
+        if result.get("ok"):
+            successful = ", ".join(result.get("successful_sources", [])) or "нет новых источников"
+            errors = result.get("errors", [])
+            warning = f" Есть ошибки по источникам: {len(errors)}." if errors else ""
+            return (
+                "Memory Center обновлен. "
+                f"Источники: {successful}. "
+                f"Элементов: {ingested}.{warning}"
+            )
+        errors = result.get("errors") or []
+        if errors:
+            details = "; ".join(
+                str(item.get("error") or item.get("source") or "unknown")
+                for item in errors[:3]
+                if isinstance(item, dict)
+            )
+        else:
+            details = str(result.get("error", "unknown error"))
+        return f"Не удалось обновить Memory Center: {details}"
+
+    query = str(intent_result.data.get("query", "")).strip()
+    if not query:
+        return "Что найти в Memory Center?"
+    return build_memory_search_summary(search_memory_center(query, limit=5))
 
 
 def _run_speed_report_tool(intent_result: IntentResult) -> str:
@@ -297,6 +337,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
             "triage_obsidian_ideas",
         ),
         handler=_run_obsidian_tool,
+    ),
+    ToolSpec(
+        tool_id="memory_center",
+        description="Memory Center: статус, синхронизация и поиск по локальной памяти.",
+        intents=("memory_status", "memory_sync", "memory_search"),
+        handler=_run_memory_center_tool,
     ),
     ToolSpec(
         tool_id="speed_report",

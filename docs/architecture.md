@@ -91,7 +91,7 @@ Memory Center baseline:
 - `services/memory_sync_service.py` connects GitHub, Notion, and Obsidian adapters to memory ingest
 - `services/memory_scheduler_service.py` runs periodic non-forced sync in the desktop process
 - `apps/api/routes/memory.py` exposes `/v1/memory/status`, `/v1/memory/recent`, `/v1/memory/search`, and `/v1/memory/sync` for desktop/mobile clients
-- `scripts/avatar_widget.py` exposes Memory Center status, search, and manual sync in the desktop/tray menu
+- `scripts/avatar_widget.py` exposes Memory Center status, recent, search, and manual sync in the desktop/tray menu
 - `utils/intent_fastpaths.py` and `core/tools.py` expose fast voice/text Memory Center commands
 
 This is intentionally a thin local-first foundation rather than a full vector store. The next layer can add source adapters, summaries, entity/topic extraction, and Obsidian navigation without changing the public status contract.

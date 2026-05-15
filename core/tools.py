@@ -21,7 +21,9 @@ from services.github_obsidian_sync_service import (
     update_obsidian_note,
 )
 from services.memory_center_service import (
+    build_memory_daily_digest,
     build_memory_center_summary,
+    build_memory_digest_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
     get_memory_center_status,
@@ -167,6 +169,9 @@ def _run_memory_center_tool(intent_result: IntentResult) -> str:
         return build_memory_center_summary(get_memory_center_status())
     if intent_result.intent == "memory_recent":
         return build_memory_recent_summary(list_recent_memory_center(limit=5))
+    if intent_result.intent == "memory_digest":
+        date_text = str(intent_result.data.get("date", "")).strip() or None
+        return build_memory_digest_summary(build_memory_daily_digest(date_text))
     if intent_result.intent == "memory_sync":
         force = bool(intent_result.data.get("force", False))
         result = sync_memory_source("all", force=force)
@@ -345,7 +350,13 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool_id="memory_center",
         description="Memory Center: статус, синхронизация и поиск по локальной памяти.",
-        intents=("memory_status", "memory_sync", "memory_search", "memory_recent"),
+        intents=(
+            "memory_status",
+            "memory_sync",
+            "memory_search",
+            "memory_recent",
+            "memory_digest",
+        ),
         handler=_run_memory_center_tool,
     ),
     ToolSpec(

@@ -279,6 +279,15 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         return IntentResult(intent="memory_recent", data={})
 
     if normalized in {
+        "собери дайджест памяти",
+        "сделай дайджест памяти",
+        "собери memory digest",
+        "сделай memory digest",
+        "дайджест памяти",
+    }:
+        return IntentResult(intent="memory_digest", data={})
+
+    if normalized in {
         "синхронизируй память",
         "обнови память",
         "обнови memory center",
@@ -639,6 +648,7 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "memory_sync",
         "memory_search",
         "memory_recent",
+        "memory_digest",
         "os_open_url",
         "os_open_app",
         "os_type_text",

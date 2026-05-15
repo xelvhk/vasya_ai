@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 import hashlib
 import json
 from pathlib import Path
@@ -312,6 +313,43 @@ class MemoryCenterService:
             "items": items,
         }
 
+    def build_daily_digest(self, *, date_text: str | None = None) -> dict:
+        digest_date = _normalize_date_text(date_text)
+        initialize_database()
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                WHERE substr(updated_at, 1, 10) = ?
+                ORDER BY updated_at DESC, id DESC
+                """,
+                (digest_date,),
+            ).fetchall()
+
+        items: list[dict] = []
+        for row in rows:
+            chunk = _row_to_chunk(row)
+            markdown_text = _safe_read_text(Path(chunk.markdown_path))
+            item = _chunk_to_dict(chunk)
+            item["snippet"] = _build_snippet(markdown_text or chunk.title, chunk.title)
+            items.append(item)
+
+        digest_path = self.wiki_dir / "digests" / f"{digest_date}.md"
+        digest_path.parent.mkdir(parents=True, exist_ok=True)
+        digest_path.write_text(
+            _compose_daily_digest_markdown(digest_date, items),
+            encoding="utf-8",
+        )
+        return {
+            "ok": True,
+            "date": digest_date,
+            "count": len(items),
+            "path": str(digest_path),
+            "items": items[:20],
+        }
+
     def _markdown_path(
         self,
         *,
@@ -368,6 +406,10 @@ def search_memory_center(query: str, *, limit: int = 10) -> dict:
 
 def list_recent_memory_center(*, limit: int = 10) -> dict:
     return MemoryCenterService().list_recent(limit=limit)
+
+
+def build_memory_daily_digest(date_text: str | None = None) -> dict:
+    return MemoryCenterService().build_daily_digest(date_text=date_text)
 
 
 def build_memory_center_summary(status: dict) -> str:
@@ -475,6 +517,15 @@ def build_memory_recent_summary(result: dict) -> str:
         if markdown_path:
             lines.append(f"File: {markdown_path}")
     return "\n".join(lines)
+
+
+def build_memory_digest_summary(result: dict) -> str:
+    if not result.get("ok"):
+        return f"Не удалось собрать Memory digest: {result.get('error', 'unknown error')}"
+    digest_date = str(result.get("date") or "")
+    count = int(result.get("count") or 0)
+    path = str(result.get("path") or "")
+    return f"Memory digest {digest_date}: {count} chunks.\nFile: {path}"
 
 
 class MemorySyncPlanner:
@@ -692,6 +743,55 @@ def _safe_read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ""
+
+
+def _normalize_date_text(value: str | None) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return date.today().isoformat()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    return date.today().isoformat()
+
+
+def _compose_daily_digest_markdown(digest_date: str, items: list[dict]) -> str:
+    lines = [
+        "---",
+        "type: memory_digest",
+        f"date: {digest_date}",
+        "source: vasya_memory_center",
+        "---",
+        "",
+        f"# Memory Digest {digest_date}",
+        "",
+        f"Chunks: {len(items)}",
+        "",
+    ]
+    if not items:
+        lines.extend(["_No memory chunks for this date._", ""])
+        return "\n".join(lines)
+
+    by_source: dict[str, list[dict]] = {}
+    for item in items:
+        source_key = str(item.get("source_key") or "source")
+        by_source.setdefault(source_key, []).append(item)
+
+    for source_key, source_items in by_source.items():
+        lines.extend([f"## {source_key}", ""])
+        for item in source_items:
+            title = str(item.get("title") or "Untitled memory")
+            snippet = str(item.get("snippet") or "").strip()
+            markdown_path = str(item.get("markdown_path") or "").strip()
+            url = str(item.get("url") or "").strip()
+            lines.append(f"- **{title}**")
+            if snippet:
+                lines.append(f"  - {snippet}")
+            if markdown_path:
+                lines.append(f"  - File: `{markdown_path}`")
+            if url:
+                lines.append(f"  - URL: {url}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _build_snippet(text: str, query: str, *, radius: int = 90) -> str:

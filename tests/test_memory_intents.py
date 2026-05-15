@@ -36,6 +36,13 @@ class MemoryIntentFastpathTests(unittest.TestCase):
         self.assertEqual(intent.intent, "memory_recent")
         self.assertEqual(intent.data, {})
 
+    def test_memory_digest_phrase_routes_to_memory_digest(self) -> None:
+        intent = detect_fast_intent("собери дайджест памяти")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "memory_digest")
+        self.assertEqual(intent.data, {})
+
 
 class MemoryToolDispatchTests(unittest.TestCase):
     def test_memory_search_tool_returns_search_summary(self) -> None:

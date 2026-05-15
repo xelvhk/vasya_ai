@@ -104,6 +104,7 @@ Current status:
 - Voice/text Memory Center commands landed in `v0.5.31` for status, sync, and search
 - Memory Center recent view landed in `v0.5.32` for latest chunks and "what's new" commands
 - Desktop Memory Center recent view landed in `v0.5.33` through avatar/tray menu actions
+- Memory Center daily digest landed in `v0.5.34` with local Markdown artifacts and `/v1/memory/digest`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -236,6 +237,7 @@ Good future exports:
 - `v0.5.31`: fast voice/text intents for Memory Center status, sync, and search
 - `v0.5.32`: recent Memory Center endpoint and voice/text "what's new in memory" command
 - `v0.5.33`: desktop Memory Center recent action for latest chunks
+- `v0.5.34`: deterministic Memory Center daily digest endpoint and voice/text command
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs

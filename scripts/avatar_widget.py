@@ -57,7 +57,9 @@ from services.speed_report_service import (
 )
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.memory_center_service import (
+    build_memory_daily_digest,
     build_memory_center_summary,
+    build_memory_digest_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
     get_memory_center_status,
@@ -3200,6 +3202,10 @@ def main() -> None:
             memory_search_action.triggered.connect(self._search_memory_center)
             menu.addAction(memory_search_action)
 
+            memory_digest_action = QAction("Дайджест памяти за сегодня...", self)
+            memory_digest_action.triggered.connect(self._build_memory_center_digest)
+            menu.addAction(memory_digest_action)
+
             memory_sync_action = QAction("Синхронизировать память", self)
             memory_sync_action.triggered.connect(self._sync_memory_center_now)
             menu.addAction(memory_sync_action)
@@ -3349,6 +3355,14 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось выполнить поиск: {exc}"
             QMessageBox.information(self, "Поиск в памяти", text)
+
+        def _build_memory_center_digest(self) -> None:
+            try:
+                result = build_memory_daily_digest()
+                text = build_memory_digest_summary(result)
+            except Exception as exc:
+                text = f"Не удалось собрать дайджест памяти: {exc}"
+            QMessageBox.information(self, "Дайджест памяти", text)
 
         def _sync_memory_center_now(self) -> None:
             if self._interaction_lock.locked():

@@ -90,7 +90,7 @@ Memory Center baseline:
 - `services/memory_center_service.py` owns ingest/status/sync-state behavior
 - `services/memory_sync_service.py` connects GitHub, Notion, and Obsidian adapters to memory ingest
 - `services/memory_scheduler_service.py` runs periodic non-forced sync in the desktop process
-- `apps/api/routes/memory.py` exposes `/v1/memory/status` for desktop/mobile clients
+- `apps/api/routes/memory.py` exposes `/v1/memory/status`, `/v1/memory/search`, and `/v1/memory/sync` for desktop/mobile clients
 - `scripts/avatar_widget.py` exposes Memory Center status and manual sync in the desktop/tray menu
 
 This is intentionally a thin local-first foundation rather than a full vector store. The next layer can add source adapters, summaries, entity/topic extraction, and Obsidian navigation without changing the public status contract.
@@ -104,7 +104,7 @@ Key routes:
 - chat/pipeline: `/v1/chat`, `/v1/pipeline`
 - realtime: `/v1/ws/voice`
 - tasks/notes/events/recovery
-- memory center: `/v1/memory/status`, `/v1/memory/sync`
+- memory center: `/v1/memory/status`, `/v1/memory/search`, `/v1/memory/sync`
 
 Security baseline:
 - token auth for `/v1/*` (default on)

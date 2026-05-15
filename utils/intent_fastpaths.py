@@ -25,6 +25,10 @@ _COMMAND_MARKERS = (
     "помнишь",
     "обо мне",
     "про меня",
+    "памят",
+    "memory",
+    "memory center",
+    "мемори",
     "забуд",
     "личную память",
     "личная память",
@@ -253,6 +257,40 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         "забудь про меня все",
     }:
         return IntentResult(intent="forget_user_profile", data={"target": "все"})
+
+    if normalized in {
+        "покажи статус памяти",
+        "статус памяти",
+        "что в memory center",
+        "что в мемори центр",
+        "покажи memory center",
+        "покажи мемори центр",
+    }:
+        return IntentResult(intent="memory_status", data={})
+
+    if normalized in {
+        "синхронизируй память",
+        "обнови память",
+        "обнови memory center",
+        "синхронизируй memory center",
+        "обнови мемори центр",
+        "синхронизируй мемори центр",
+    }:
+        return IntentResult(intent="memory_sync", data={"force": True})
+
+    memory_search_prefixes = (
+        "найди в памяти ",
+        "поищи в памяти ",
+        "найди в memory center ",
+        "поищи в memory center ",
+        "найди в мемори центр ",
+        "поищи в мемори центр ",
+    )
+    for prefix in memory_search_prefixes:
+        if normalized.startswith(prefix):
+            query = compact_text[len(prefix):].strip(" .,:;!-")
+            if query:
+                return IntentResult(intent="memory_search", data={"query": query})
 
     if normalized in {
         "что ты помнишь",
@@ -587,6 +625,9 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "append_notion_page",
         "append_obsidian_note",
         "replace_obsidian_note",
+        "memory_status",
+        "memory_sync",
+        "memory_search",
         "os_open_url",
         "os_open_app",
         "os_type_text",

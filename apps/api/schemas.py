@@ -46,3 +46,7 @@ class MemorySyncRequest(BaseModel):
     force: bool = False
     repo: str | None = Field(default=None, max_length=240)
     page_id: str | None = Field(default=None, max_length=240)
+
+
+class MemoryDigestRequest(BaseModel):
+    date: str | None = Field(default=None, max_length=10)

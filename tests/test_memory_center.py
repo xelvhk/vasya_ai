@@ -9,6 +9,7 @@ from services.memory_center_service import (
     MemoryCenterService,
     MemorySyncPlanner,
     build_memory_center_summary,
+    build_memory_digest_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
 )
@@ -153,6 +154,33 @@ class MemoryCenterServiceTests(unittest.TestCase):
             self.assertEqual(result["items"][0]["title"], "Newer memory")
             self.assertEqual(result["items"][1]["title"], "Older memory")
 
+    def test_build_daily_digest_writes_markdown_summary(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "vasya.db"
+            wiki_dir = Path(tmp) / "memory_wiki"
+
+            with patch("storage.db.STORAGE_DB_FILE", str(db_path)), patch(
+                "services.memory_center_service.current_timestamp",
+                return_value="2026-05-15 10:00:00",
+            ):
+                service = MemoryCenterService(wiki_dir=wiki_dir)
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Merged PR",
+                    content="Merged Memory Center pull request.",
+                    external_id="pr-1",
+                )
+                result = service.build_daily_digest(date_text="2026-05-15")
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["count"], 1)
+            digest_path = Path(result["path"])
+            self.assertTrue(digest_path.exists())
+            digest = digest_path.read_text(encoding="utf-8")
+            self.assertIn("# Memory Digest 2026-05-15", digest)
+            self.assertIn("Merged PR", digest)
+
     def test_build_memory_center_summary_is_human_readable(self) -> None:
         status = {
             "status": "ready",
@@ -219,6 +247,20 @@ class MemoryCenterServiceTests(unittest.TestCase):
         self.assertIn("Recent: 1", summary)
         self.assertIn("New memory", summary)
         self.assertIn("/tmp/new.md", summary)
+
+    def test_build_memory_digest_summary_is_human_readable(self) -> None:
+        result = {
+            "ok": True,
+            "date": "2026-05-15",
+            "count": 2,
+            "path": "/tmp/digest.md",
+        }
+
+        summary = build_memory_digest_summary(result)
+
+        self.assertIn("Memory digest 2026-05-15", summary)
+        self.assertIn("2 chunks", summary)
+        self.assertIn("/tmp/digest.md", summary)
 
 
 if __name__ == "__main__":

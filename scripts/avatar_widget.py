@@ -58,8 +58,10 @@ from services.speed_report_service import (
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.memory_center_service import (
     build_memory_center_summary,
+    build_memory_recent_summary,
     build_memory_search_summary,
     get_memory_center_status,
+    list_recent_memory_center,
     search_memory_center,
 )
 from services.memory_scheduler_service import start_memory_background_scheduler
@@ -2312,6 +2314,7 @@ def main() -> None:
 
                 memory_menu = menu.addMenu("Memory Center")
                 memory_status_action = memory_menu.addAction("Статус памяти...")
+                memory_recent_action = memory_menu.addAction("Последнее в памяти...")
                 memory_search_action = memory_menu.addAction("Поиск в памяти...")
                 memory_sync_action = memory_menu.addAction("Синхронизировать память")
 
@@ -2332,6 +2335,7 @@ def main() -> None:
                     quick_action: self._open_quick_commands,
                     mic_test_action: self._run_quick_mic_test,
                     memory_status_action: self._show_memory_center_status,
+                    memory_recent_action: self._show_memory_center_recent,
                     memory_search_action: self._search_memory_center,
                     memory_sync_action: self._sync_memory_center_now,
                     settings_action: self._open_settings_dialog,
@@ -3188,6 +3192,10 @@ def main() -> None:
             memory_status_action.triggered.connect(self._show_memory_center_status)
             menu.addAction(memory_status_action)
 
+            memory_recent_action = QAction("Последнее в памяти...", self)
+            memory_recent_action.triggered.connect(self._show_memory_center_recent)
+            menu.addAction(memory_recent_action)
+
             memory_search_action = QAction("Поиск в памяти...", self)
             memory_search_action.triggered.connect(self._search_memory_center)
             menu.addAction(memory_search_action)
@@ -3317,6 +3325,14 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось прочитать Memory Center: {exc}"
             QMessageBox.information(self, "Memory Center", text)
+
+        def _show_memory_center_recent(self) -> None:
+            try:
+                result = list_recent_memory_center(limit=8)
+                text = build_memory_recent_summary(result)
+            except Exception as exc:
+                text = f"Не удалось прочитать последние записи: {exc}"
+            QMessageBox.information(self, "Последнее в памяти", text)
 
         def _search_memory_center(self) -> None:
             query, accepted = QInputDialog.getText(

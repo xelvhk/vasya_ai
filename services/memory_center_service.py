@@ -284,6 +284,34 @@ class MemoryCenterService:
             "items": items,
         }
 
+    def list_recent(self, *, limit: int = 10) -> dict:
+        safe_limit = min(50, max(1, int(limit)))
+        initialize_database()
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+
+        items = []
+        for row in rows:
+            chunk = _row_to_chunk(row)
+            markdown_text = _safe_read_text(Path(chunk.markdown_path))
+            item = _chunk_to_dict(chunk)
+            item["snippet"] = _build_snippet(markdown_text or chunk.title, chunk.title)
+            items.append(item)
+
+        return {
+            "count": len(items),
+            "items": items,
+        }
+
     def _markdown_path(
         self,
         *,
@@ -336,6 +364,10 @@ def get_memory_center_status() -> dict:
 
 def search_memory_center(query: str, *, limit: int = 10) -> dict:
     return MemoryCenterService().search(query, limit=limit)
+
+
+def list_recent_memory_center(*, limit: int = 10) -> dict:
+    return MemoryCenterService().list_recent(limit=limit)
 
 
 def build_memory_center_summary(status: dict) -> str:
@@ -417,6 +449,31 @@ def build_memory_search_summary(result: dict) -> str:
             lines.append(f"File: {markdown_path}")
         if url:
             lines.append(f"URL: {url}")
+    return "\n".join(lines)
+
+
+def build_memory_recent_summary(result: dict) -> str:
+    count = int(result.get("count") or 0)
+    lines = [f"Recent: {count}"]
+
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        lines.append("")
+        lines.append("No recent memory chunks yet.")
+        return "\n".join(lines)
+
+    for index, item in enumerate(items[:8], start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "Untitled memory")
+        source_key = str(item.get("source_key") or "source")
+        snippet = str(item.get("snippet") or "").strip()
+        markdown_path = str(item.get("markdown_path") or "").strip()
+        lines.extend(["", f"{index}. {title}", f"Source: {source_key}"])
+        if snippet:
+            lines.append(f"Snippet: {snippet}")
+        if markdown_path:
+            lines.append(f"File: {markdown_path}")
     return "\n".join(lines)
 
 

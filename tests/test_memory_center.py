@@ -9,6 +9,7 @@ from services.memory_center_service import (
     MemoryCenterService,
     MemorySyncPlanner,
     build_memory_center_summary,
+    build_memory_recent_summary,
     build_memory_search_summary,
 )
 
@@ -125,6 +126,33 @@ class MemoryCenterServiceTests(unittest.TestCase):
             self.assertIn("inspectable", item["snippet"])
             self.assertTrue(Path(item["markdown_path"]).exists())
 
+    def test_list_recent_returns_latest_chunks_first(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "vasya.db"
+            wiki_dir = Path(tmp) / "memory_wiki"
+
+            with patch("storage.db.STORAGE_DB_FILE", str(db_path)):
+                service = MemoryCenterService(wiki_dir=wiki_dir)
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Older memory",
+                    content="Older content.",
+                    external_id="older",
+                )
+                service.ingest_text(
+                    source_key="obsidian",
+                    source_name="Obsidian",
+                    title="Newer memory",
+                    content="Newer content.",
+                    external_id="newer",
+                )
+                result = service.list_recent(limit=2)
+
+            self.assertEqual(result["count"], 2)
+            self.assertEqual(result["items"][0]["title"], "Newer memory")
+            self.assertEqual(result["items"][1]["title"], "Older memory")
+
     def test_build_memory_center_summary_is_human_readable(self) -> None:
         status = {
             "status": "ready",
@@ -172,6 +200,25 @@ class MemoryCenterServiceTests(unittest.TestCase):
         self.assertIn("Results: 1", summary)
         self.assertIn("Memory Search", summary)
         self.assertIn("/tmp/memory.md", summary)
+
+    def test_build_memory_recent_summary_is_human_readable(self) -> None:
+        result = {
+            "count": 1,
+            "items": [
+                {
+                    "title": "New memory",
+                    "source_key": "obsidian",
+                    "snippet": "Fresh memory snippet.",
+                    "markdown_path": "/tmp/new.md",
+                }
+            ],
+        }
+
+        summary = build_memory_recent_summary(result)
+
+        self.assertIn("Recent: 1", summary)
+        self.assertIn("New memory", summary)
+        self.assertIn("/tmp/new.md", summary)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@
 - Added Memory Center search with snippets and provenance paths.
 - Added desktop Memory Center search from the avatar/tray menu.
 - Added fast voice/text commands for Memory Center status, sync, and search.
+- Added recent Memory Center view for latest chunks and "what's new" commands.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

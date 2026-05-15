@@ -56,7 +56,12 @@ from services.speed_report_service import (
     build_voice_tuning_hints,
 )
 from services.github_service import GitHubServiceError, fetch_recent_commits
-from services.memory_center_service import build_memory_center_summary, get_memory_center_status
+from services.memory_center_service import (
+    build_memory_center_summary,
+    build_memory_search_summary,
+    get_memory_center_status,
+    search_memory_center,
+)
 from services.memory_scheduler_service import start_memory_background_scheduler
 from services.memory_sync_service import sync_memory_source
 from services.notion_service import NotionServiceError, read_page_text
@@ -2307,6 +2312,7 @@ def main() -> None:
 
                 memory_menu = menu.addMenu("Memory Center")
                 memory_status_action = memory_menu.addAction("Статус памяти...")
+                memory_search_action = memory_menu.addAction("Поиск в памяти...")
                 memory_sync_action = memory_menu.addAction("Синхронизировать память")
 
                 settings_menu = menu.addMenu("Настройки")
@@ -2326,6 +2332,7 @@ def main() -> None:
                     quick_action: self._open_quick_commands,
                     mic_test_action: self._run_quick_mic_test,
                     memory_status_action: self._show_memory_center_status,
+                    memory_search_action: self._search_memory_center,
                     memory_sync_action: self._sync_memory_center_now,
                     settings_action: self._open_settings_dialog,
                     clear_memory_action: self._clear_personal_memory,
@@ -3181,6 +3188,10 @@ def main() -> None:
             memory_status_action.triggered.connect(self._show_memory_center_status)
             menu.addAction(memory_status_action)
 
+            memory_search_action = QAction("Поиск в памяти...", self)
+            memory_search_action.triggered.connect(self._search_memory_center)
+            menu.addAction(memory_search_action)
+
             memory_sync_action = QAction("Синхронизировать память", self)
             memory_sync_action.triggered.connect(self._sync_memory_center_now)
             menu.addAction(memory_sync_action)
@@ -3306,6 +3317,22 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось прочитать Memory Center: {exc}"
             QMessageBox.information(self, "Memory Center", text)
+
+        def _search_memory_center(self) -> None:
+            query, accepted = QInputDialog.getText(
+                self,
+                "Поиск в памяти",
+                "Что найти в Memory Center?",
+            )
+            normalized_query = " ".join(str(query or "").strip().split())
+            if not accepted or not normalized_query:
+                return
+            try:
+                result = search_memory_center(normalized_query, limit=8)
+                text = build_memory_search_summary(result)
+            except Exception as exc:
+                text = f"Не удалось выполнить поиск: {exc}"
+            QMessageBox.information(self, "Поиск в памяти", text)
 
         def _sync_memory_center_now(self) -> None:
             if self._interaction_lock.locked():

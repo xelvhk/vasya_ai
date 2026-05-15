@@ -9,6 +9,7 @@ from services.memory_center_service import (
     MemoryCenterService,
     MemorySyncPlanner,
     build_memory_center_summary,
+    build_memory_search_summary,
 )
 
 
@@ -150,6 +151,27 @@ class MemoryCenterServiceTests(unittest.TestCase):
         self.assertIn("Chunks: 7", summary)
         self.assertIn("GitHub vasya_ai", summary)
         self.assertIn("PR #7", summary)
+
+    def test_build_memory_search_summary_is_human_readable(self) -> None:
+        result = {
+            "query": "memory",
+            "count": 1,
+            "items": [
+                {
+                    "title": "Memory Search",
+                    "source_key": "github",
+                    "snippet": "Search should return memory provenance links.",
+                    "markdown_path": "/tmp/memory.md",
+                    "url": "https://github.com/example/repo",
+                }
+            ],
+        }
+
+        summary = build_memory_search_summary(result)
+
+        self.assertIn("Results: 1", summary)
+        self.assertIn("Memory Search", summary)
+        self.assertIn("/tmp/memory.md", summary)
 
 
 if __name__ == "__main__":

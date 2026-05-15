@@ -382,6 +382,44 @@ def build_memory_center_summary(status: dict) -> str:
     return "\n".join(lines)
 
 
+def build_memory_search_summary(result: dict) -> str:
+    query = str(result.get("query") or "").strip()
+    count = int(result.get("count") or 0)
+    lines = [
+        f"Query: {query or '-'}",
+        f"Results: {count}",
+    ]
+
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        lines.append("")
+        lines.append("No matching memory chunks found.")
+        return "\n".join(lines)
+
+    for index, item in enumerate(items[:8], start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "Untitled memory")
+        source_key = str(item.get("source_key") or "source")
+        snippet = str(item.get("snippet") or "").strip()
+        markdown_path = str(item.get("markdown_path") or "").strip()
+        url = str(item.get("url") or "").strip()
+        lines.extend(
+            [
+                "",
+                f"{index}. {title}",
+                f"Source: {source_key}",
+            ]
+        )
+        if snippet:
+            lines.append(f"Snippet: {snippet}")
+        if markdown_path:
+            lines.append(f"File: {markdown_path}")
+        if url:
+            lines.append(f"URL: {url}")
+    return "\n".join(lines)
+
+
 class MemorySyncPlanner:
     def __init__(self, *, default_interval_seconds: int | None = None) -> None:
         self.default_interval_seconds = int(

@@ -10,6 +10,7 @@
 - Added Memory Center source sync for GitHub, Notion, and Obsidian through `/v1/memory/sync`
 - Added desktop Memory Center controls in the avatar/tray menu.
 - Added background Memory Center sync scheduler for periodic source refresh.
+- Added Memory Center search with snippets and provenance paths.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

@@ -93,6 +93,37 @@ class MemoryCenterServiceTests(unittest.TestCase):
             self.assertEqual(status["sync_connections_count"], 1)
             self.assertEqual(status["sync_connections"][0]["last_items_count"], 3)
 
+    def test_search_returns_matching_chunks_with_snippets(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "vasya.db"
+            wiki_dir = Path(tmp) / "memory_wiki"
+
+            with patch("storage.db.STORAGE_DB_FILE", str(db_path)):
+                service = MemoryCenterService(wiki_dir=wiki_dir)
+                service.ingest_text(
+                    source_key="obsidian",
+                    source_name="Obsidian",
+                    title="Architecture decision",
+                    content="Vasya should keep Memory Center local-first and inspectable.",
+                    external_id="adr-1",
+                    tags=("architecture",),
+                )
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Unrelated commit",
+                    content="Update README screenshots.",
+                    external_id="commit-1",
+                    tags=("github",),
+                )
+                result = service.search("inspectable", limit=5)
+
+            self.assertEqual(result["count"], 1)
+            item = result["items"][0]
+            self.assertEqual(item["title"], "Architecture decision")
+            self.assertIn("inspectable", item["snippet"])
+            self.assertTrue(Path(item["markdown_path"]).exists())
+
     def test_build_memory_center_summary_is_human_readable(self) -> None:
         status = {
             "status": "ready",

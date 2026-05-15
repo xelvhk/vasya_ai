@@ -32,6 +32,30 @@ class ApiMemoryRoutesTests(unittest.TestCase):
         self.assertEqual(payload["chunks_count"], 0)
         self.assertEqual(payload["status"], "empty")
 
+    def test_memory_search_returns_results(self) -> None:
+        with TemporaryDirectory() as tmp:
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(Path(tmp) / "memory_wiki"),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                from services.memory_center_service import MemoryCenterService
+
+                service = MemoryCenterService(wiki_dir=Path(tmp) / "memory_wiki")
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Memory Search",
+                    content="Search should return provenance links.",
+                    external_id="search-1",
+                )
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/search", params={"query": "provenance"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["title"], "Memory Search")
+
 
 if __name__ == "__main__":
     unittest.main()

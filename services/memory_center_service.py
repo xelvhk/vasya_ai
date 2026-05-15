@@ -216,6 +216,74 @@ class MemoryCenterService:
             "latest_chunk": _chunk_to_dict(_row_to_chunk(latest)) if latest else None,
         }
 
+    def search(self, query: str, *, limit: int = 10) -> dict:
+        normalized_query = " ".join(str(query or "").strip().split())
+        if not normalized_query:
+            return {"query": "", "count": 0, "items": []}
+
+        safe_limit = min(50, max(1, int(limit)))
+        lowered_query = normalized_query.lower()
+        like_query = f"%{normalized_query}%"
+        initialize_database()
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                WHERE title LIKE ?
+                   OR source_key LIKE ?
+                   OR tags LIKE ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ?
+                """,
+                (like_query, like_query, like_query, safe_limit),
+            ).fetchall()
+            if len(rows) < safe_limit:
+                extra_rows = connection.execute(
+                    """
+                    SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                           url, tags, created_at, updated_at
+                    FROM memory_chunks
+                    ORDER BY updated_at DESC, id DESC
+                    LIMIT 200
+                    """
+                ).fetchall()
+                seen_ids = {int(row["id"]) for row in rows}
+                rows = list(rows) + [
+                    row for row in extra_rows if int(row["id"]) not in seen_ids
+                ]
+
+        items: list[dict] = []
+        seen: set[int] = set()
+        for row in rows:
+            chunk = _row_to_chunk(row)
+            if chunk.id in seen:
+                continue
+            markdown_text = _safe_read_text(Path(chunk.markdown_path))
+            haystack = " ".join(
+                [
+                    chunk.title,
+                    chunk.source_key,
+                    " ".join(chunk.tags),
+                    markdown_text,
+                ]
+            ).lower()
+            if lowered_query not in haystack:
+                continue
+            item = _chunk_to_dict(chunk)
+            item["snippet"] = _build_snippet(markdown_text or chunk.title, normalized_query)
+            items.append(item)
+            seen.add(chunk.id)
+            if len(items) >= safe_limit:
+                break
+
+        return {
+            "query": normalized_query,
+            "count": len(items),
+            "items": items,
+        }
+
     def _markdown_path(
         self,
         *,
@@ -264,6 +332,10 @@ class MemoryCenterService:
 
 def get_memory_center_status() -> dict:
     return MemoryCenterService().get_status()
+
+
+def search_memory_center(query: str, *, limit: int = 10) -> dict:
+    return MemoryCenterService().search(query, limit=limit)
 
 
 def build_memory_center_summary(status: dict) -> str:
@@ -518,6 +590,29 @@ def _sync_row_to_dict(row: sqlite3.Row) -> dict:
         "last_error": row["last_error"],
         "updated_at": row["updated_at"],
     }
+
+
+def _safe_read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def _build_snippet(text: str, query: str, *, radius: int = 90) -> str:
+    clean_text = " ".join(str(text or "").split())
+    if not clean_text:
+        return ""
+    lowered = clean_text.lower()
+    lowered_query = str(query or "").lower()
+    index = lowered.find(lowered_query)
+    if index < 0:
+        return clean_text[: radius * 2].strip()
+    start = max(0, index - radius)
+    end = min(len(clean_text), index + len(query) + radius)
+    prefix = "... " if start > 0 else ""
+    suffix = " ..." if end < len(clean_text) else ""
+    return f"{prefix}{clean_text[start:end].strip()}{suffix}"
 
 
 def _clean_text(value: str | None) -> str:

@@ -70,6 +70,25 @@ class MemoryToolDispatchTests(unittest.TestCase):
         self.assertIn("Memory Search", response)
         self.assertIn("/tmp/memory.md", response)
 
+    def test_memory_digest_tool_returns_digest_summary(self) -> None:
+        from core.tools import dispatch_tool
+
+        with patch(
+            "core.tools.build_memory_daily_digest",
+            return_value={
+                "ok": True,
+                "date": "2026-05-15",
+                "count": 2,
+                "path": "/tmp/memory_wiki/digests/2026-05-15.md",
+            },
+        ):
+            response = dispatch_tool(IntentResult(intent="memory_digest", data={}))
+
+        self.assertIsNotNone(response)
+        assert response is not None
+        self.assertIn("Memory digest 2026-05-15", response)
+        self.assertIn("/tmp/memory_wiki/digests/2026-05-15.md", response)
+
 
 if __name__ == "__main__":
     unittest.main()

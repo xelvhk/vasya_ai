@@ -57,6 +57,7 @@ from services.speed_report_service import (
 )
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.memory_center_service import build_memory_center_summary, get_memory_center_status
+from services.memory_scheduler_service import start_memory_background_scheduler
 from services.memory_sync_service import sync_memory_source
 from services.notion_service import NotionServiceError, read_page_text
 from services.morning_show_service import get_morning_show_message, reset_morning_show_today
@@ -1984,6 +1985,7 @@ def main() -> None:
             self._preload_avatar_packs()
             if VOICE_RUNTIME_PREWARM_ON_WIDGET_START:
                 start_runtime_prewarm_async()
+            start_memory_background_scheduler()
 
         def _resolve_avatar_path(self) -> Path | None:
             override_path = str(self._widget_state.get("avatar_image_path", "")).strip()

@@ -89,6 +89,7 @@ Memory Center baseline:
 - `memory_sync_state` tracks per `(toolkit, connection_id)` cursors and sync timing
 - `services/memory_center_service.py` owns ingest/status/sync-state behavior
 - `services/memory_sync_service.py` connects GitHub, Notion, and Obsidian adapters to memory ingest
+- `services/memory_scheduler_service.py` runs periodic non-forced sync in the desktop process
 - `apps/api/routes/memory.py` exposes `/v1/memory/status` for desktop/mobile clients
 - `scripts/avatar_widget.py` exposes Memory Center status and manual sync in the desktop/tray menu
 

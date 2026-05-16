@@ -9,6 +9,7 @@ from services.memory_center_service import (
     MemoryCenterService,
     MemorySyncPlanner,
     build_memory_center_summary,
+    build_memory_digest_history_summary,
     build_memory_digest_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
@@ -181,6 +182,22 @@ class MemoryCenterServiceTests(unittest.TestCase):
             self.assertIn("# Memory Digest 2026-05-15", digest)
             self.assertIn("Merged PR", digest)
 
+    def test_list_daily_digests_returns_latest_files(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-14.md").write_text("Chunks: 1\n", encoding="utf-8")
+            (digests_dir / "2026-05-15.md").write_text("Chunks: 3\n", encoding="utf-8")
+
+            service = MemoryCenterService(wiki_dir=wiki_dir)
+            result = service.list_daily_digests(limit=5)
+
+        self.assertEqual(result["count"], 2)
+        self.assertEqual(result["items"][0]["date"], "2026-05-15")
+        self.assertEqual(result["items"][0]["chunks_count"], 3)
+        self.assertEqual(result["items"][1]["date"], "2026-05-14")
+
     def test_build_memory_center_summary_is_human_readable(self) -> None:
         status = {
             "status": "ready",
@@ -261,6 +278,25 @@ class MemoryCenterServiceTests(unittest.TestCase):
         self.assertIn("Memory digest 2026-05-15", summary)
         self.assertIn("2 chunks", summary)
         self.assertIn("/tmp/digest.md", summary)
+
+    def test_build_memory_digest_history_summary_is_human_readable(self) -> None:
+        result = {
+            "count": 1,
+            "items": [
+                {
+                    "date": "2026-05-15",
+                    "chunks_count": 4,
+                    "path": "/tmp/memory_wiki/digests/2026-05-15.md",
+                    "updated_at": "2026-05-15 10:30:00",
+                }
+            ],
+        }
+
+        summary = build_memory_digest_history_summary(result)
+
+        self.assertIn("Memory digests: 1", summary)
+        self.assertIn("2026-05-15", summary)
+        self.assertIn("Chunks: 4", summary)
 
 
 if __name__ == "__main__":

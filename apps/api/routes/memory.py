@@ -6,6 +6,7 @@ from apps.api.schemas import MemoryDigestRequest, MemorySyncRequest
 from services.memory_center_service import (
     build_memory_daily_digest,
     get_memory_center_status,
+    list_memory_daily_digests,
     list_recent_memory_center,
     search_memory_center,
 )
@@ -35,6 +36,12 @@ def memory_recent(limit: int = 10) -> dict:
 @router.post("/digest")
 def memory_digest(payload: MemoryDigestRequest) -> dict:
     return build_memory_daily_digest(payload.date)
+
+
+@router.get("/digests")
+def memory_digests(limit: int = 10) -> dict:
+    safe_limit = min(50, max(1, int(limit)))
+    return list_memory_daily_digests(limit=safe_limit)
 
 
 @router.post("/sync")

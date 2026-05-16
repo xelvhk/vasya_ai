@@ -40,6 +40,7 @@ class IntentResult(BaseModel):
         "memory_search",
         "memory_recent",
         "memory_digest",
+        "memory_digest_history",
         "speed_report",
         "morning_show",
         "start_dictation_mode",

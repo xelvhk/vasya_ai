@@ -350,6 +350,34 @@ class MemoryCenterService:
             "items": items[:20],
         }
 
+    def list_daily_digests(self, *, limit: int = 10) -> dict:
+        safe_limit = min(50, max(1, int(limit)))
+        digest_dir = self.wiki_dir / "digests"
+        if not digest_dir.exists():
+            return {"count": 0, "items": []}
+
+        items: list[dict] = []
+        for path in digest_dir.glob("*.md"):
+            date_text = path.stem
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_text):
+                continue
+            text = _safe_read_text(path)
+            items.append(
+                {
+                    "date": date_text,
+                    "path": str(path),
+                    "chunks_count": _extract_digest_chunks_count(text),
+                    "updated_at": _format_file_timestamp(path),
+                }
+            )
+
+        items.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
+        limited = items[:safe_limit]
+        return {
+            "count": len(limited),
+            "items": limited,
+        }
+
     def _markdown_path(
         self,
         *,
@@ -410,6 +438,10 @@ def list_recent_memory_center(*, limit: int = 10) -> dict:
 
 def build_memory_daily_digest(date_text: str | None = None) -> dict:
     return MemoryCenterService().build_daily_digest(date_text=date_text)
+
+
+def list_memory_daily_digests(*, limit: int = 10) -> dict:
+    return MemoryCenterService().list_daily_digests(limit=limit)
 
 
 def build_memory_center_summary(status: dict) -> str:
@@ -526,6 +558,31 @@ def build_memory_digest_summary(result: dict) -> str:
     count = int(result.get("count") or 0)
     path = str(result.get("path") or "")
     return f"Memory digest {digest_date}: {count} chunks.\nFile: {path}"
+
+
+def build_memory_digest_history_summary(result: dict) -> str:
+    count = int(result.get("count") or 0)
+    lines = [f"Memory digests: {count}"]
+
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        lines.append("")
+        lines.append("No Memory digest files yet.")
+        return "\n".join(lines)
+
+    for index, item in enumerate(items[:8], start=1):
+        if not isinstance(item, dict):
+            continue
+        digest_date = str(item.get("date") or "unknown")
+        chunks_count = int(item.get("chunks_count") or 0)
+        path = str(item.get("path") or "").strip()
+        updated_at = str(item.get("updated_at") or "").strip()
+        lines.extend(["", f"{index}. {digest_date}", f"Chunks: {chunks_count}"])
+        if updated_at:
+            lines.append(f"Updated: {updated_at}")
+        if path:
+            lines.append(f"File: {path}")
+    return "\n".join(lines)
 
 
 class MemorySyncPlanner:
@@ -792,6 +849,20 @@ def _compose_daily_digest_markdown(digest_date: str, items: list[dict]) -> str:
                 lines.append(f"  - URL: {url}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _extract_digest_chunks_count(text: str) -> int:
+    match = re.search(r"^Chunks:\s*(\d+)\s*$", text, flags=re.MULTILINE)
+    if not match:
+        return 0
+    return int(match.group(1))
+
+
+def _format_file_timestamp(path: Path) -> str:
+    try:
+        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(path.stat().st_mtime))
+    except OSError:
+        return ""
 
 
 def _build_snippet(text: str, query: str, *, radius: int = 90) -> str:

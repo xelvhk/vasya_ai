@@ -60,9 +60,11 @@ from services.memory_center_service import (
     build_memory_daily_digest,
     build_memory_center_summary,
     build_memory_digest_summary,
+    build_memory_digest_history_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
     get_memory_center_status,
+    list_memory_daily_digests,
     list_recent_memory_center,
     search_memory_center,
 )
@@ -3206,6 +3208,10 @@ def main() -> None:
             memory_digest_action.triggered.connect(self._build_memory_center_digest)
             menu.addAction(memory_digest_action)
 
+            memory_digests_action = QAction("История дайджестов...", self)
+            memory_digests_action.triggered.connect(self._show_memory_center_digests)
+            menu.addAction(memory_digests_action)
+
             memory_sync_action = QAction("Синхронизировать память", self)
             memory_sync_action.triggered.connect(self._sync_memory_center_now)
             menu.addAction(memory_sync_action)
@@ -3363,6 +3369,14 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось собрать дайджест памяти: {exc}"
             QMessageBox.information(self, "Дайджест памяти", text)
+
+        def _show_memory_center_digests(self) -> None:
+            try:
+                result = list_memory_daily_digests(limit=12)
+                text = build_memory_digest_history_summary(result)
+            except Exception as exc:
+                text = f"Не удалось прочитать историю дайджестов: {exc}"
+            QMessageBox.information(self, "История дайджестов", text)
 
         def _sync_memory_center_now(self) -> None:
             if self._interaction_lock.locked():

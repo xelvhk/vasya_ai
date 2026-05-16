@@ -17,6 +17,7 @@
 - Added desktop recent Memory Center view from the avatar/tray menu.
 - Added deterministic Memory Center daily digest artifacts through `/v1/memory/digest` and fast voice/text commands.
 - Added desktop Memory Center daily digest action from the avatar/tray menu.
+- Added Memory Center digest history via `/v1/memory/digests`, desktop menu action, and fast voice/text command.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

@@ -118,6 +118,25 @@ class ApiMemoryRoutesTests(unittest.TestCase):
         self.assertTrue(digest_path.exists())
         self.assertIn("Digest Memory", digest_path.read_text(encoding="utf-8"))
 
+    def test_memory_digests_returns_history(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-15.md").write_text("Chunks: 2\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/digests", params={"limit": 5})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["date"], "2026-05-15")
+        self.assertEqual(payload["items"][0]["chunks_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

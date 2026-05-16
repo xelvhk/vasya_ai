@@ -43,6 +43,13 @@ class MemoryIntentFastpathTests(unittest.TestCase):
         self.assertEqual(intent.intent, "memory_digest")
         self.assertEqual(intent.data, {})
 
+    def test_memory_digest_history_phrase_routes_to_memory_digest_history(self) -> None:
+        intent = detect_fast_intent("покажи дайджесты памяти")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "memory_digest_history")
+        self.assertEqual(intent.data, {})
+
 
 class MemoryToolDispatchTests(unittest.TestCase):
     def test_memory_search_tool_returns_search_summary(self) -> None:
@@ -88,6 +95,29 @@ class MemoryToolDispatchTests(unittest.TestCase):
         assert response is not None
         self.assertIn("Memory digest 2026-05-15", response)
         self.assertIn("/tmp/memory_wiki/digests/2026-05-15.md", response)
+
+    def test_memory_digest_history_tool_returns_history_summary(self) -> None:
+        from core.tools import dispatch_tool
+
+        with patch(
+            "core.tools.list_memory_daily_digests",
+            return_value={
+                "count": 1,
+                "items": [
+                    {
+                        "date": "2026-05-15",
+                        "chunks_count": 3,
+                        "path": "/tmp/memory_wiki/digests/2026-05-15.md",
+                    }
+                ],
+            },
+        ):
+            response = dispatch_tool(IntentResult(intent="memory_digest_history", data={}))
+
+        self.assertIsNotNone(response)
+        assert response is not None
+        self.assertIn("Memory digests: 1", response)
+        self.assertIn("2026-05-15", response)
 
 
 if __name__ == "__main__":

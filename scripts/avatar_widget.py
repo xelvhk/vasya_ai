@@ -92,11 +92,12 @@ def _run_mic_health_check(duration_seconds: float = 2.0) -> tuple[bool, str]:
 
 def main() -> None:
     try:
-        from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal
+        from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal, QUrl
         from PySide6.QtGui import (
             QAction,
             QActionGroup,
             QColor,
+            QDesktopServices,
             QFont,
             QGuiApplication,
             QImage,
@@ -3212,6 +3213,10 @@ def main() -> None:
             memory_digests_action.triggered.connect(self._show_memory_center_digests)
             menu.addAction(memory_digests_action)
 
+            open_latest_digest_action = QAction("Открыть последний дайджест", self)
+            open_latest_digest_action.triggered.connect(self._open_latest_memory_digest)
+            menu.addAction(open_latest_digest_action)
+
             memory_sync_action = QAction("Синхронизировать память", self)
             memory_sync_action.triggered.connect(self._sync_memory_center_now)
             menu.addAction(memory_sync_action)
@@ -3377,6 +3382,40 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось прочитать историю дайджестов: {exc}"
             QMessageBox.information(self, "История дайджестов", text)
+
+        def _open_latest_memory_digest(self) -> None:
+            try:
+                result = list_memory_daily_digests(limit=1)
+                items = result.get("items")
+                if not isinstance(items, list) or not items:
+                    QMessageBox.information(
+                        self,
+                        "Memory digest",
+                        "Пока нет файлов дайджеста.",
+                    )
+                    return
+                item = items[0] if isinstance(items[0], dict) else {}
+                path = str(item.get("path") or "").strip()
+                if not path:
+                    QMessageBox.information(
+                        self,
+                        "Memory digest",
+                        "Не удалось определить путь к дайджесту.",
+                    )
+                    return
+                opened = QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+                if not opened:
+                    QMessageBox.information(
+                        self,
+                        "Memory digest",
+                        f"Не удалось открыть файл:\n{path}",
+                    )
+            except Exception as exc:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    f"Не удалось открыть последний дайджест: {exc}",
+                )
 
         def _sync_memory_center_now(self) -> None:
             if self._interaction_lock.locked():

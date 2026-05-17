@@ -299,6 +299,10 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         "покажи дайджесты за неделю",
         "дайджесты памяти за неделю",
         "история дайджестов за неделю",
+        "дайджесты за последнюю неделю",
+        "дайджесты памяти за последние 7 дней",
+        "дайджесты памяти за 7 дней",
+        "история дайджестов за 7 дней",
         "memory digests for week",
     }:
         return IntentResult(intent="memory_digest_history", data={"range": "7d"})
@@ -307,6 +311,10 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         "покажи дайджесты за месяц",
         "дайджесты памяти за месяц",
         "история дайджестов за месяц",
+        "дайджесты за последний месяц",
+        "дайджесты памяти за последние 30 дней",
+        "дайджесты памяти за 30 дней",
+        "история дайджестов за 30 дней",
         "memory digests for month",
     }:
         return IntentResult(intent="memory_digest_history", data={"range": "30d"})

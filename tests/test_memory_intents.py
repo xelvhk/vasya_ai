@@ -58,8 +58,22 @@ class MemoryIntentFastpathTests(unittest.TestCase):
         self.assertEqual(intent.intent, "memory_digest_history")
         self.assertEqual(intent.data, {"range": "7d"})
 
+    def test_memory_digest_history_seven_days_phrase_routes_with_range(self) -> None:
+        intent = detect_fast_intent("дайджесты памяти за 7 дней")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "memory_digest_history")
+        self.assertEqual(intent.data, {"range": "7d"})
+
     def test_memory_digest_history_month_phrase_routes_with_range(self) -> None:
         intent = detect_fast_intent("дайджесты памяти за месяц")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "memory_digest_history")
+        self.assertEqual(intent.data, {"range": "30d"})
+
+    def test_memory_digest_history_thirty_days_phrase_routes_with_range(self) -> None:
+        intent = detect_fast_intent("дайджесты памяти за 30 дней")
         self.assertIsNotNone(intent)
         assert intent is not None
         self.assertEqual(intent.intent, "memory_digest_history")
@@ -146,6 +160,19 @@ class MemoryToolDispatchTests(unittest.TestCase):
 
         self.assertIsNotNone(response)
         list_mock.assert_called_once_with(limit=8, date_from="2026-05-11", date_to="2026-05-17")
+
+    def test_memory_digest_history_tool_applies_month_range(self) -> None:
+        from core.tools import dispatch_tool
+
+        with patch("core.tools.date") as mock_date, patch(
+            "core.tools.list_memory_daily_digests",
+            return_value={"count": 0, "items": []},
+        ) as list_mock:
+            mock_date.today.return_value = date(2026, 5, 17)
+            response = dispatch_tool(IntentResult(intent="memory_digest_history", data={"range": "30d"}))
+
+        self.assertIsNotNone(response)
+        list_mock.assert_called_once_with(limit=8, date_from="2026-04-18", date_to="2026-05-17")
 
 
 if __name__ == "__main__":

@@ -3213,6 +3213,18 @@ def main() -> None:
             memory_digests_action.triggered.connect(self._show_memory_center_digests)
             menu.addAction(memory_digests_action)
 
+            memory_digests_week_action = QAction("Дайджесты за 7 дней...", self)
+            memory_digests_week_action.triggered.connect(
+                lambda: self._show_memory_center_digests_with_range("7d")
+            )
+            menu.addAction(memory_digests_week_action)
+
+            memory_digests_month_action = QAction("Дайджесты за 30 дней...", self)
+            memory_digests_month_action.triggered.connect(
+                lambda: self._show_memory_center_digests_with_range("30d")
+            )
+            menu.addAction(memory_digests_month_action)
+
             open_latest_digest_action = QAction("Открыть последний дайджест", self)
             open_latest_digest_action.triggered.connect(self._open_latest_memory_digest)
             menu.addAction(open_latest_digest_action)
@@ -3382,6 +3394,36 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось прочитать историю дайджестов: {exc}"
             QMessageBox.information(self, "История дайджестов", text)
+
+        def _show_memory_center_digests_with_range(self, range_value: str) -> None:
+            try:
+                today = datetime.now(timezone.utc).date()
+                if range_value == "7d":
+                    start_date = (today - timedelta(days=6)).isoformat()
+                    end_date = today.isoformat()
+                    result = list_memory_daily_digests(
+                        limit=12,
+                        date_from=start_date,
+                        date_to=end_date,
+                    )
+                    title = "Дайджесты за 7 дней"
+                elif range_value == "30d":
+                    start_date = (today - timedelta(days=29)).isoformat()
+                    end_date = today.isoformat()
+                    result = list_memory_daily_digests(
+                        limit=12,
+                        date_from=start_date,
+                        date_to=end_date,
+                    )
+                    title = "Дайджесты за 30 дней"
+                else:
+                    result = list_memory_daily_digests(limit=12)
+                    title = "История дайджестов"
+                text = build_memory_digest_history_summary(result)
+            except Exception as exc:
+                text = f"Не удалось прочитать историю дайджестов: {exc}"
+                title = "История дайджестов"
+            QMessageBox.information(self, title, text)
 
         def _open_latest_memory_digest(self) -> None:
             try:

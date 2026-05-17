@@ -198,6 +198,26 @@ class MemoryCenterServiceTests(unittest.TestCase):
         self.assertEqual(result["items"][0]["chunks_count"], 3)
         self.assertEqual(result["items"][1]["date"], "2026-05-14")
 
+    def test_list_daily_digests_filters_by_date_range(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-14.md").write_text("Chunks: 1\n", encoding="utf-8")
+            (digests_dir / "2026-05-15.md").write_text("Chunks: 2\n", encoding="utf-8")
+            (digests_dir / "2026-05-16.md").write_text("Chunks: 3\n", encoding="utf-8")
+
+            service = MemoryCenterService(wiki_dir=wiki_dir)
+            result = service.list_daily_digests(
+                limit=10,
+                date_from="2026-05-15",
+                date_to="2026-05-16",
+            )
+
+        self.assertEqual(result["count"], 2)
+        self.assertEqual(result["items"][0]["date"], "2026-05-16")
+        self.assertEqual(result["items"][1]["date"], "2026-05-15")
+
     def test_build_memory_center_summary_is_human_readable(self) -> None:
         status = {
             "status": "ready",

@@ -108,6 +108,7 @@ Current status:
 - Desktop Memory Center daily digest action landed in `v0.5.35` through the avatar/tray menu
 - Memory Center digest history landed in `v0.5.36` with `/v1/memory/digests`, desktop action, and fast command
 - Desktop open-latest digest action landed in `v0.5.37` through the avatar/tray menu
+- Memory digest history date-range filters landed in `v0.5.38` through `/v1/memory/digests`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -244,6 +245,7 @@ Good future exports:
 - `v0.5.35`: desktop Memory Center daily digest action
 - `v0.5.36`: Memory Center digest history endpoint, desktop action, and voice/text command
 - `v0.5.37`: desktop action to open the latest Memory digest file
+- `v0.5.38`: digest history date-range filters (`date_from`, `date_to`)
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs

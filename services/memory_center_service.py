@@ -350,8 +350,16 @@ class MemoryCenterService:
             "items": items[:20],
         }
 
-    def list_daily_digests(self, *, limit: int = 10) -> dict:
+    def list_daily_digests(
+        self,
+        *,
+        limit: int = 10,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict:
         safe_limit = min(50, max(1, int(limit)))
+        normalized_from = _normalize_optional_date_text(date_from)
+        normalized_to = _normalize_optional_date_text(date_to)
         digest_dir = self.wiki_dir / "digests"
         if not digest_dir.exists():
             return {"count": 0, "items": []}
@@ -360,6 +368,8 @@ class MemoryCenterService:
         for path in digest_dir.glob("*.md"):
             date_text = path.stem
             if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_text):
+                continue
+            if not _is_date_in_range(date_text, date_from=normalized_from, date_to=normalized_to):
                 continue
             text = _safe_read_text(path)
             items.append(
@@ -440,8 +450,17 @@ def build_memory_daily_digest(date_text: str | None = None) -> dict:
     return MemoryCenterService().build_daily_digest(date_text=date_text)
 
 
-def list_memory_daily_digests(*, limit: int = 10) -> dict:
-    return MemoryCenterService().list_daily_digests(limit=limit)
+def list_memory_daily_digests(
+    *,
+    limit: int = 10,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    return MemoryCenterService().list_daily_digests(
+        limit=limit,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 def build_memory_center_summary(status: dict) -> str:
@@ -809,6 +828,28 @@ def _normalize_date_text(value: str | None) -> str:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
         return text
     return date.today().isoformat()
+
+
+def _normalize_optional_date_text(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    return None
+
+
+def _is_date_in_range(
+    date_text: str,
+    *,
+    date_from: str | None,
+    date_to: str | None,
+) -> bool:
+    if date_from and date_text < date_from:
+        return False
+    if date_to and date_text > date_to:
+        return False
+    return True
 
 
 def _compose_daily_digest_markdown(digest_date: str, items: list[dict]) -> str:

@@ -39,9 +39,17 @@ def memory_digest(payload: MemoryDigestRequest) -> dict:
 
 
 @router.get("/digests")
-def memory_digests(limit: int = 10) -> dict:
+def memory_digests(
+    limit: int = 10,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
     safe_limit = min(50, max(1, int(limit)))
-    return list_memory_daily_digests(limit=safe_limit)
+    return list_memory_daily_digests(
+        limit=safe_limit,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 @router.post("/sync")

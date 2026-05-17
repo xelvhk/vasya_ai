@@ -177,15 +177,9 @@ def _run_memory_center_tool(intent_result: IntentResult) -> str:
         return build_memory_digest_summary(build_memory_daily_digest(date_text))
     if intent_result.intent == "memory_digest_history":
         range_value = str(intent_result.data.get("range", "")).strip().lower()
-        if range_value == "7d":
-            end_date = date.today().isoformat()
-            start_date = (date.today() - timedelta(days=6)).isoformat()
-            result = list_memory_daily_digests(limit=8, date_from=start_date, date_to=end_date)
-            return build_memory_digest_history_summary(result)
-        if range_value == "30d":
-            end_date = date.today().isoformat()
-            start_date = (date.today() - timedelta(days=29)).isoformat()
-            result = list_memory_daily_digests(limit=8, date_from=start_date, date_to=end_date)
+        date_from, date_to = _resolve_digest_range_dates(range_value)
+        if date_from and date_to:
+            result = list_memory_daily_digests(limit=8, date_from=date_from, date_to=date_to)
             return build_memory_digest_history_summary(result)
         return build_memory_digest_history_summary(list_memory_daily_digests(limit=8))
     if intent_result.intent == "memory_sync":
@@ -221,6 +215,16 @@ def _run_memory_center_tool(intent_result: IntentResult) -> str:
 def _run_speed_report_tool(intent_result: IntentResult) -> str:
     _ = intent_result
     return build_voice_diagnostics_report(limit=24)
+
+
+def _resolve_digest_range_dates(range_value: str) -> tuple[str | None, str | None]:
+    if range_value == "7d":
+        today = date.today()
+        return (today - timedelta(days=6)).isoformat(), today.isoformat()
+    if range_value == "30d":
+        today = date.today()
+        return (today - timedelta(days=29)).isoformat(), today.isoformat()
+    return None, None
 
 
 def _run_mic_test_tool(intent_result: IntentResult) -> str:

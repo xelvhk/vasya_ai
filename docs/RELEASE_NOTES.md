@@ -23,6 +23,7 @@
 - Added digest history presets through `/v1/memory/digests?range=7d|30d` for quick period queries.
 - Added fast voice/text digest-history commands for week/month ranges.
 - Added desktop quick actions for digest history presets: 7 days and 30 days.
+- Expanded fast digest-history phrases for natural week/month and 7/30-day wording.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

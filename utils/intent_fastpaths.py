@@ -296,6 +296,22 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         return IntentResult(intent="memory_digest_history", data={})
 
     if normalized in {
+        "покажи дайджесты за неделю",
+        "дайджесты памяти за неделю",
+        "история дайджестов за неделю",
+        "memory digests for week",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "7d"})
+
+    if normalized in {
+        "покажи дайджесты за месяц",
+        "дайджесты памяти за месяц",
+        "история дайджестов за месяц",
+        "memory digests for month",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "30d"})
+
+    if normalized in {
         "синхронизируй память",
         "обнови память",
         "обнови memory center",

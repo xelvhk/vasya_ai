@@ -21,6 +21,7 @@
 - Added desktop action to open the latest Memory digest file directly from the tray menu.
 - Added date-range filtering for digest history through `/v1/memory/digests?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`.
 - Added digest history presets through `/v1/memory/digests?range=7d|30d` for quick period queries.
+- Added fast voice/text digest-history commands for week/month ranges.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

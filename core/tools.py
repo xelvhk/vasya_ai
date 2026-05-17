@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Callable
 
 from agents.calendar_agent import handle_calendar_intent
@@ -175,6 +176,17 @@ def _run_memory_center_tool(intent_result: IntentResult) -> str:
         date_text = str(intent_result.data.get("date", "")).strip() or None
         return build_memory_digest_summary(build_memory_daily_digest(date_text))
     if intent_result.intent == "memory_digest_history":
+        range_value = str(intent_result.data.get("range", "")).strip().lower()
+        if range_value == "7d":
+            end_date = date.today().isoformat()
+            start_date = (date.today() - timedelta(days=6)).isoformat()
+            result = list_memory_daily_digests(limit=8, date_from=start_date, date_to=end_date)
+            return build_memory_digest_history_summary(result)
+        if range_value == "30d":
+            end_date = date.today().isoformat()
+            start_date = (date.today() - timedelta(days=29)).isoformat()
+            result = list_memory_daily_digests(limit=8, date_from=start_date, date_to=end_date)
+            return build_memory_digest_history_summary(result)
         return build_memory_digest_history_summary(list_memory_daily_digests(limit=8))
     if intent_result.intent == "memory_sync":
         force = bool(intent_result.data.get("force", False))

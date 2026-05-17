@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 import unittest
 from unittest.mock import patch
 
@@ -49,6 +50,20 @@ class MemoryIntentFastpathTests(unittest.TestCase):
         assert intent is not None
         self.assertEqual(intent.intent, "memory_digest_history")
         self.assertEqual(intent.data, {})
+
+    def test_memory_digest_history_week_phrase_routes_with_range(self) -> None:
+        intent = detect_fast_intent("дайджесты памяти за неделю")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "memory_digest_history")
+        self.assertEqual(intent.data, {"range": "7d"})
+
+    def test_memory_digest_history_month_phrase_routes_with_range(self) -> None:
+        intent = detect_fast_intent("дайджесты памяти за месяц")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "memory_digest_history")
+        self.assertEqual(intent.data, {"range": "30d"})
 
 
 class MemoryToolDispatchTests(unittest.TestCase):
@@ -118,6 +133,19 @@ class MemoryToolDispatchTests(unittest.TestCase):
         assert response is not None
         self.assertIn("Memory digests: 1", response)
         self.assertIn("2026-05-15", response)
+
+    def test_memory_digest_history_tool_applies_week_range(self) -> None:
+        from core.tools import dispatch_tool
+
+        with patch("core.tools.date") as mock_date, patch(
+            "core.tools.list_memory_daily_digests",
+            return_value={"count": 0, "items": []},
+        ) as list_mock:
+            mock_date.today.return_value = date(2026, 5, 17)
+            response = dispatch_tool(IntentResult(intent="memory_digest_history", data={"range": "7d"}))
+
+        self.assertIsNotNone(response)
+        list_mock.assert_called_once_with(limit=8, date_from="2026-05-11", date_to="2026-05-17")
 
 
 if __name__ == "__main__":

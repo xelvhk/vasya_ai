@@ -21,6 +21,7 @@
 - Added desktop action to open the latest Memory digest file directly from the tray menu.
 - Added date-range filtering for digest history through `/v1/memory/digests?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`.
 - Added digest history presets through `/v1/memory/digests?range=7d|30d` for quick period queries.
+- Added digest history day presets through `/v1/memory/digests?range=today|yesterday`.
 - Added fast voice/text digest-history commands for week/month ranges.
 - Added desktop quick actions for digest history presets: 7 days and 30 days.
 - Expanded fast digest-history phrases for natural week/month and 7/30-day wording.

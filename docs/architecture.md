@@ -90,7 +90,7 @@ Memory Center baseline:
 - `services/memory_center_service.py` owns ingest/status/recent/search/digest/sync-state behavior
 - `services/memory_sync_service.py` connects GitHub, Notion, and Obsidian adapters to memory ingest
 - `services/memory_scheduler_service.py` runs periodic non-forced sync in the desktop process
-- `apps/api/routes/memory.py` exposes `/v1/memory/status`, `/v1/memory/recent`, `/v1/memory/search`, `/v1/memory/digest`, `/v1/memory/digests` (with optional `date_from`/`date_to` or `range=7d|30d`), and `/v1/memory/sync` for desktop/mobile clients
+- `apps/api/routes/memory.py` exposes `/v1/memory/status`, `/v1/memory/recent`, `/v1/memory/search`, `/v1/memory/digest`, `/v1/memory/digests` (with optional `date_from`/`date_to` or `range=today|yesterday|7d|30d`), and `/v1/memory/sync` for desktop/mobile clients
 - `scripts/avatar_widget.py` exposes Memory Center status, recent, search, daily digest, digest history, and manual sync in the desktop/tray menu
 - `utils/intent_fastpaths.py` and `core/tools.py` expose fast voice/text Memory Center commands
 

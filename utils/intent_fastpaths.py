@@ -320,6 +320,20 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         return IntentResult(intent="memory_digest_history", data={"range": "30d"})
 
     if normalized in {
+        "дайджесты за сегодня",
+        "дайджесты памяти за сегодня",
+        "история дайджестов за сегодня",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "today"})
+
+    if normalized in {
+        "дайджесты за вчера",
+        "дайджесты памяти за вчера",
+        "история дайджестов за вчера",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "yesterday"})
+
+    if normalized in {
         "синхронизируй память",
         "обнови память",
         "обнови memory center",

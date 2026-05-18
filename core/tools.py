@@ -218,6 +218,12 @@ def _run_speed_report_tool(intent_result: IntentResult) -> str:
 
 
 def _resolve_digest_range_dates(range_value: str) -> tuple[str | None, str | None]:
+    if range_value == "today":
+        today = date.today().isoformat()
+        return today, today
+    if range_value == "yesterday":
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        return yesterday, yesterday
     if range_value == "7d":
         today = date.today()
         return (today - timedelta(days=6)).isoformat(), today.isoformat()

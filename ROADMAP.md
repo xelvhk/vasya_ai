@@ -114,6 +114,7 @@ Current status:
 - Desktop digest history day presets landed in `v0.5.41` with quick today/yesterday tray actions
 - Desktop open-digest day actions landed in `v0.5.42` with quick open today/yesterday tray actions
 - Memory digest day presets landed in `v0.5.43` through `/v1/memory/digests?range=today|yesterday`
+- Memory latest-digest endpoint landed in `v0.5.44` through `/v1/memory/digests/latest`
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -256,6 +257,7 @@ Good future exports:
 - `v0.5.41`: desktop digest history day presets (today, yesterday)
 - `v0.5.42`: desktop open-digest day actions (today, yesterday)
 - `v0.5.43`: digest history day presets (`range=today|yesterday`)
+- `v0.5.44`: direct latest digest endpoint (`/v1/memory/digests/latest`)
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs

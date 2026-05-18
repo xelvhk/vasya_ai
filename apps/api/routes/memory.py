@@ -60,6 +60,30 @@ def memory_digests(
     )
 
 
+@router.get("/digests/latest")
+def memory_latest_digest(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    range: str | None = None,
+) -> dict:
+    resolved_from, resolved_to = _resolve_digest_range(
+        date_from=date_from,
+        date_to=date_to,
+        range_value=range,
+    )
+    result = list_memory_daily_digests(
+        limit=1,
+        date_from=resolved_from,
+        date_to=resolved_to,
+    )
+    items = result.get("items")
+    latest = items[0] if isinstance(items, list) and items else None
+    return {
+        "ok": latest is not None,
+        "item": latest,
+    }
+
+
 @router.post("/sync")
 def memory_sync(payload: MemorySyncRequest) -> dict:
     return sync_memory_source(

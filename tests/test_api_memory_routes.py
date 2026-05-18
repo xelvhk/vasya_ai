@@ -190,6 +190,34 @@ class ApiMemoryRoutesTests(unittest.TestCase):
         self.assertEqual(payload["items"][0]["date"], "2026-05-17")
         self.assertEqual(payload["items"][1]["date"], "2026-05-11")
 
+    def test_memory_digests_supports_today_and_yesterday_presets(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-16.md").write_text("Chunks: 2\n", encoding="utf-8")
+            (digests_dir / "2026-05-17.md").write_text("Chunks: 3\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False), patch(
+                "apps.api.routes.memory.date"
+            ) as mock_date:
+                mock_date.today.return_value = date(2026, 5, 17)
+                with TestClient(api_main.app) as client:
+                    today_response = client.get("/v1/memory/digests", params={"range": "today"})
+                    yesterday_response = client.get("/v1/memory/digests", params={"range": "yesterday"})
+
+        self.assertEqual(today_response.status_code, 200)
+        today_payload = today_response.json()
+        self.assertEqual(today_payload["count"], 1)
+        self.assertEqual(today_payload["items"][0]["date"], "2026-05-17")
+
+        self.assertEqual(yesterday_response.status_code, 200)
+        yesterday_payload = yesterday_response.json()
+        self.assertEqual(yesterday_payload["count"], 1)
+        self.assertEqual(yesterday_payload["items"][0]["date"], "2026-05-16")
+
 
 if __name__ == "__main__":
     unittest.main()

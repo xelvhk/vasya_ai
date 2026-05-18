@@ -77,6 +77,12 @@ def _resolve_digest_range(
     range_value: str | None,
 ) -> tuple[str | None, str | None]:
     normalized_range = str(range_value or "").strip().lower()
+    if normalized_range == "today":
+        today = date.today().isoformat()
+        return today, today
+    if normalized_range == "yesterday":
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        return yesterday, yesterday
     if normalized_range == "7d":
         today = date.today()
         return (today - timedelta(days=6)).isoformat(), today.isoformat()

@@ -3225,6 +3225,18 @@ def main() -> None:
             )
             menu.addAction(memory_digests_yesterday_action)
 
+            open_today_digest_action = QAction("Открыть дайджест за сегодня", self)
+            open_today_digest_action.triggered.connect(
+                lambda: self._open_memory_digest_with_range("today")
+            )
+            menu.addAction(open_today_digest_action)
+
+            open_yesterday_digest_action = QAction("Открыть дайджест за вчера", self)
+            open_yesterday_digest_action.triggered.connect(
+                lambda: self._open_memory_digest_with_range("yesterday")
+            )
+            menu.addAction(open_yesterday_digest_action)
+
             memory_digests_week_action = QAction("Дайджесты за 7 дней...", self)
             memory_digests_week_action.triggered.connect(
                 lambda: self._show_memory_center_digests_with_range("7d")
@@ -3454,6 +3466,50 @@ def main() -> None:
                 title = "История дайджестов"
             QMessageBox.information(self, title, text)
 
+        def _open_memory_digest_with_range(self, range_value: str) -> None:
+            try:
+                today = datetime.now(timezone.utc).date()
+                if range_value == "today":
+                    target_date = today.isoformat()
+                    title = "Memory digest"
+                elif range_value == "yesterday":
+                    target_date = (today - timedelta(days=1)).isoformat()
+                    title = "Memory digest"
+                else:
+                    target_date = ""
+                    title = "Memory digest"
+
+                if not target_date:
+                    QMessageBox.information(
+                        self,
+                        title,
+                        "Не удалось определить дату дайджеста.",
+                    )
+                    return
+
+                result = list_memory_daily_digests(
+                    limit=1,
+                    date_from=target_date,
+                    date_to=target_date,
+                )
+                items = result.get("items")
+                if not isinstance(items, list) or not items:
+                    QMessageBox.information(
+                        self,
+                        title,
+                        f"Нет дайджеста за {target_date}.",
+                    )
+                    return
+                first_item = items[0] if isinstance(items[0], dict) else {}
+                path = str(first_item.get("path") or "").strip()
+                self._open_memory_digest_path(path)
+            except Exception as exc:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    f"Не удалось открыть дайджест: {exc}",
+                )
+
         def _open_latest_memory_digest(self) -> None:
             try:
                 result = list_memory_daily_digests(limit=1)
@@ -3467,25 +3523,28 @@ def main() -> None:
                     return
                 item = items[0] if isinstance(items[0], dict) else {}
                 path = str(item.get("path") or "").strip()
-                if not path:
-                    QMessageBox.information(
-                        self,
-                        "Memory digest",
-                        "Не удалось определить путь к дайджесту.",
-                    )
-                    return
-                opened = QDesktopServices.openUrl(QUrl.fromLocalFile(path))
-                if not opened:
-                    QMessageBox.information(
-                        self,
-                        "Memory digest",
-                        f"Не удалось открыть файл:\n{path}",
-                    )
+                self._open_memory_digest_path(path)
             except Exception as exc:
                 QMessageBox.information(
                     self,
                     "Memory digest",
                     f"Не удалось открыть последний дайджест: {exc}",
+                )
+
+        def _open_memory_digest_path(self, path: str) -> None:
+            if not path:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    "Не удалось определить путь к дайджесту.",
+                )
+                return
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+            if not opened:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    f"Не удалось открыть файл:\n{path}",
                 )
 
         def _sync_memory_center_now(self) -> None:

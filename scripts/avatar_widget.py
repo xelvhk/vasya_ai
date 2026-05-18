@@ -3213,6 +3213,18 @@ def main() -> None:
             memory_digests_action.triggered.connect(self._show_memory_center_digests)
             menu.addAction(memory_digests_action)
 
+            memory_digests_today_action = QAction("Дайджесты за сегодня...", self)
+            memory_digests_today_action.triggered.connect(
+                lambda: self._show_memory_center_digests_with_range("today")
+            )
+            menu.addAction(memory_digests_today_action)
+
+            memory_digests_yesterday_action = QAction("Дайджесты за вчера...", self)
+            memory_digests_yesterday_action.triggered.connect(
+                lambda: self._show_memory_center_digests_with_range("yesterday")
+            )
+            menu.addAction(memory_digests_yesterday_action)
+
             memory_digests_week_action = QAction("Дайджесты за 7 дней...", self)
             memory_digests_week_action.triggered.connect(
                 lambda: self._show_memory_center_digests_with_range("7d")
@@ -3398,7 +3410,24 @@ def main() -> None:
         def _show_memory_center_digests_with_range(self, range_value: str) -> None:
             try:
                 today = datetime.now(timezone.utc).date()
-                if range_value == "7d":
+                if range_value == "today":
+                    start_date = today.isoformat()
+                    end_date = today.isoformat()
+                    result = list_memory_daily_digests(
+                        limit=12,
+                        date_from=start_date,
+                        date_to=end_date,
+                    )
+                    title = "Дайджесты за сегодня"
+                elif range_value == "yesterday":
+                    yesterday = (today - timedelta(days=1)).isoformat()
+                    result = list_memory_daily_digests(
+                        limit=12,
+                        date_from=yesterday,
+                        date_to=yesterday,
+                    )
+                    title = "Дайджесты за вчера"
+                elif range_value == "7d":
                     start_date = (today - timedelta(days=6)).isoformat()
                     end_date = today.isoformat()
                     result = list_memory_daily_digests(

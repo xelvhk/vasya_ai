@@ -604,6 +604,24 @@ def build_memory_digest_history_summary(result: dict) -> str:
     return "\n".join(lines)
 
 
+def build_memory_digest_latest_summary(result: dict) -> str:
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        return "No Memory digest files yet."
+
+    first = items[0] if isinstance(items[0], dict) else {}
+    digest_date = str(first.get("date") or "unknown")
+    chunks_count = int(first.get("chunks_count") or 0)
+    path = str(first.get("path") or "").strip()
+    updated_at = str(first.get("updated_at") or "").strip()
+    lines = [f"Latest digest: {digest_date}", f"Chunks: {chunks_count}"]
+    if updated_at:
+        lines.append(f"Updated: {updated_at}")
+    if path:
+        lines.append(f"File: {path}")
+    return "\n".join(lines)
+
+
 class MemorySyncPlanner:
     def __init__(self, *, default_interval_seconds: int | None = None) -> None:
         self.default_interval_seconds = int(

@@ -23,6 +23,7 @@
 - Added digest history presets through `/v1/memory/digests?range=7d|30d` for quick period queries.
 - Added digest history day presets through `/v1/memory/digests?range=today|yesterday`.
 - Added `/v1/memory/digests/latest` for a direct latest-digest lookup with the same range/date filters.
+- Added fast voice/text command for latest Memory digest lookup.
 - Added fast voice/text digest-history commands for week/month ranges.
 - Added desktop quick actions for digest history presets: 7 days and 30 days.
 - Expanded fast digest-history phrases for natural week/month and 7/30-day wording.

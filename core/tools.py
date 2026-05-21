@@ -26,6 +26,7 @@ from services.memory_center_service import (
     build_memory_center_summary,
     build_memory_digest_summary,
     build_memory_digest_history_summary,
+    build_memory_digest_latest_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
     get_memory_center_status,
@@ -182,6 +183,8 @@ def _run_memory_center_tool(intent_result: IntentResult) -> str:
             result = list_memory_daily_digests(limit=8, date_from=date_from, date_to=date_to)
             return build_memory_digest_history_summary(result)
         return build_memory_digest_history_summary(list_memory_daily_digests(limit=8))
+    if intent_result.intent == "memory_digest_latest":
+        return build_memory_digest_latest_summary(list_memory_daily_digests(limit=1))
     if intent_result.intent == "memory_sync":
         force = bool(intent_result.data.get("force", False))
         result = sync_memory_source("all", force=force)
@@ -383,6 +386,7 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
             "memory_recent",
             "memory_digest",
             "memory_digest_history",
+            "memory_digest_latest",
         ),
         handler=_run_memory_center_tool,
     ),

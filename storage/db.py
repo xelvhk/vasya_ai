@@ -8,9 +8,18 @@ from datetime import datetime
 from config.settings import CALENDAR_STORAGE_FILE, STORAGE_DB_FILE, TASK_STORAGE_FILE
 
 
+class ManagedConnection(sqlite3.Connection):
+    """Ensure `with get_connection()` also closes the sqlite handle."""
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+        should_suppress = super().__exit__(exc_type, exc_value, traceback)
+        self.close()
+        return should_suppress
+
+
 def get_connection() -> sqlite3.Connection:
     _ensure_storage_dir()
-    connection = sqlite3.connect(STORAGE_DB_FILE)
+    connection = sqlite3.connect(STORAGE_DB_FILE, factory=ManagedConnection)
     connection.row_factory = sqlite3.Row
     return connection
 

@@ -1,0 +1,958 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+import hashlib
+import json
+from pathlib import Path
+import re
+import sqlite3
+import time
+
+from config.settings import MEMORY_SYNC_INTERVAL_SECONDS, MEMORY_WIKI_DIR
+from storage.db import current_timestamp, get_connection, initialize_database
+
+
+@dataclass(frozen=True)
+class MemoryChunk:
+    id: int
+    source_key: str
+    title: str
+    content_hash: str
+    markdown_path: str
+    external_id: str | None
+    url: str | None
+    tags: tuple[str, ...]
+    created_at: str
+    updated_at: str
+
+
+@dataclass(frozen=True)
+class SyncDecision:
+    due: bool
+    toolkit: str
+    connection_id: str
+    last_synced_at_ts: int | None
+    next_sync_at_ts: int | None
+    cursor: str | None
+    last_error: str | None
+
+
+class MemoryCenterService:
+    def __init__(self, *, wiki_dir: str | Path | None = None) -> None:
+        self.wiki_dir = Path(wiki_dir or MEMORY_WIKI_DIR).expanduser()
+
+    def ingest_text(
+        self,
+        *,
+        source_key: str,
+        source_name: str,
+        title: str,
+        content: str,
+        external_id: str | None = None,
+        url: str | None = None,
+        tags: tuple[str, ...] = (),
+        source_kind: str = "manual",
+    ) -> MemoryChunk:
+        safe_source_key = _normalize_key(source_key)
+        safe_title = _clean_text(title) or "Untitled memory"
+        clean_content = _clean_text(content)
+        if not safe_source_key:
+            raise ValueError("source_key is required")
+        if not clean_content:
+            raise ValueError("content is required")
+
+        initialize_database()
+        now = current_timestamp()
+        content_hash = hashlib.sha256(clean_content.encode("utf-8")).hexdigest()
+        dedupe_external_id = external_id or content_hash
+        markdown_path = self._markdown_path(
+            source_key=safe_source_key,
+            title=safe_title,
+            external_id=dedupe_external_id,
+            content_hash=content_hash,
+        )
+        self._write_markdown(
+            path=markdown_path,
+            source_key=safe_source_key,
+            title=safe_title,
+            content=clean_content,
+            external_id=external_id,
+            url=url,
+            tags=tags,
+            content_hash=content_hash,
+        )
+
+        with get_connection() as connection:
+            source_id = _upsert_source(
+                connection,
+                source_key=safe_source_key,
+                name=_clean_text(source_name) or safe_source_key,
+                kind=_normalize_key(source_kind) or "manual",
+                timestamp=now,
+            )
+            try:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO memory_chunks (
+                        source_id, source_key, external_id, title, content_hash,
+                        markdown_path, url, tags, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        source_id,
+                        safe_source_key,
+                        dedupe_external_id,
+                        safe_title,
+                        content_hash,
+                        str(markdown_path),
+                        url,
+                        json.dumps(list(tags), ensure_ascii=False),
+                        now,
+                        now,
+                    ),
+                )
+                chunk_id = int(cursor.lastrowid)
+            except sqlite3.IntegrityError:
+                row = connection.execute(
+                    """
+                    SELECT id
+                    FROM memory_chunks
+                    WHERE source_key = ? AND external_id = ?
+                    """,
+                    (safe_source_key, dedupe_external_id),
+                ).fetchone()
+                chunk_id = int(row["id"])
+                connection.execute(
+                    """
+                    UPDATE memory_chunks
+                    SET title = ?, content_hash = ?, markdown_path = ?, url = ?,
+                        tags = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        safe_title,
+                        content_hash,
+                        str(markdown_path),
+                        url,
+                        json.dumps(list(tags), ensure_ascii=False),
+                        now,
+                        chunk_id,
+                    ),
+                )
+            connection.execute(
+                """
+                UPDATE memory_sources
+                SET last_ingested_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (now, now, source_id),
+            )
+            chunk_row = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                WHERE id = ?
+                """,
+                (chunk_id,),
+            ).fetchone()
+
+        return _row_to_chunk(chunk_row)
+
+    def get_status(self) -> dict:
+        initialize_database()
+        with get_connection() as connection:
+            source_rows = connection.execute(
+                """
+                SELECT s.id, s.source_key, s.name, s.kind, s.last_ingested_at,
+                       s.created_at, s.updated_at, COUNT(c.id) AS chunks_count
+                FROM memory_sources s
+                LEFT JOIN memory_chunks c ON c.source_id = s.id
+                GROUP BY s.id
+                ORDER BY s.updated_at DESC, s.id DESC
+                """
+            ).fetchall()
+            chunks_count = connection.execute(
+                "SELECT COUNT(*) FROM memory_chunks"
+            ).fetchone()[0]
+            latest = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+            sync_rows = connection.execute(
+                """
+                SELECT toolkit, connection_id, cursor, last_synced_at_ts,
+                       last_items_count, last_error, updated_at
+                FROM memory_sync_state
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 25
+                """
+            ).fetchall()
+
+        sources = [
+            {
+                "source_key": row["source_key"],
+                "name": row["name"],
+                "kind": row["kind"],
+                "last_ingested_at": row["last_ingested_at"],
+                "chunks_count": int(row["chunks_count"]),
+            }
+            for row in source_rows
+        ]
+        return {
+            "status": "ready" if chunks_count else "empty",
+            "wiki_dir": str(self.wiki_dir),
+            "sources_count": len(sources),
+            "chunks_count": int(chunks_count),
+            "sources": sources,
+            "sync_connections_count": len(sync_rows),
+            "sync_connections": [_sync_row_to_dict(row) for row in sync_rows],
+            "latest_chunk": _chunk_to_dict(_row_to_chunk(latest)) if latest else None,
+        }
+
+    def search(self, query: str, *, limit: int = 10) -> dict:
+        normalized_query = " ".join(str(query or "").strip().split())
+        if not normalized_query:
+            return {"query": "", "count": 0, "items": []}
+
+        safe_limit = min(50, max(1, int(limit)))
+        lowered_query = normalized_query.lower()
+        like_query = f"%{normalized_query}%"
+        initialize_database()
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                WHERE title LIKE ?
+                   OR source_key LIKE ?
+                   OR tags LIKE ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ?
+                """,
+                (like_query, like_query, like_query, safe_limit),
+            ).fetchall()
+            if len(rows) < safe_limit:
+                extra_rows = connection.execute(
+                    """
+                    SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                           url, tags, created_at, updated_at
+                    FROM memory_chunks
+                    ORDER BY updated_at DESC, id DESC
+                    LIMIT 200
+                    """
+                ).fetchall()
+                seen_ids = {int(row["id"]) for row in rows}
+                rows = list(rows) + [
+                    row for row in extra_rows if int(row["id"]) not in seen_ids
+                ]
+
+        items: list[dict] = []
+        seen: set[int] = set()
+        for row in rows:
+            chunk = _row_to_chunk(row)
+            if chunk.id in seen:
+                continue
+            markdown_text = _safe_read_text(Path(chunk.markdown_path))
+            haystack = " ".join(
+                [
+                    chunk.title,
+                    chunk.source_key,
+                    " ".join(chunk.tags),
+                    markdown_text,
+                ]
+            ).lower()
+            if lowered_query not in haystack:
+                continue
+            item = _chunk_to_dict(chunk)
+            item["snippet"] = _build_snippet(markdown_text or chunk.title, normalized_query)
+            items.append(item)
+            seen.add(chunk.id)
+            if len(items) >= safe_limit:
+                break
+
+        return {
+            "query": normalized_query,
+            "count": len(items),
+            "items": items,
+        }
+
+    def list_recent(self, *, limit: int = 10) -> dict:
+        safe_limit = min(50, max(1, int(limit)))
+        initialize_database()
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+
+        items = []
+        for row in rows:
+            chunk = _row_to_chunk(row)
+            markdown_text = _safe_read_text(Path(chunk.markdown_path))
+            item = _chunk_to_dict(chunk)
+            item["snippet"] = _build_snippet(markdown_text or chunk.title, chunk.title)
+            items.append(item)
+
+        return {
+            "count": len(items),
+            "items": items,
+        }
+
+    def build_daily_digest(self, *, date_text: str | None = None) -> dict:
+        digest_date = _normalize_date_text(date_text)
+        initialize_database()
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, source_key, external_id, title, content_hash, markdown_path,
+                       url, tags, created_at, updated_at
+                FROM memory_chunks
+                WHERE substr(updated_at, 1, 10) = ?
+                ORDER BY updated_at DESC, id DESC
+                """,
+                (digest_date,),
+            ).fetchall()
+
+        items: list[dict] = []
+        for row in rows:
+            chunk = _row_to_chunk(row)
+            markdown_text = _safe_read_text(Path(chunk.markdown_path))
+            item = _chunk_to_dict(chunk)
+            item["snippet"] = _build_snippet(markdown_text or chunk.title, chunk.title)
+            items.append(item)
+
+        digest_path = self.wiki_dir / "digests" / f"{digest_date}.md"
+        digest_path.parent.mkdir(parents=True, exist_ok=True)
+        digest_path.write_text(
+            _compose_daily_digest_markdown(digest_date, items),
+            encoding="utf-8",
+        )
+        return {
+            "ok": True,
+            "date": digest_date,
+            "count": len(items),
+            "path": str(digest_path),
+            "items": items[:20],
+        }
+
+    def list_daily_digests(
+        self,
+        *,
+        limit: int = 10,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict:
+        safe_limit = min(50, max(1, int(limit)))
+        normalized_from = _normalize_optional_date_text(date_from)
+        normalized_to = _normalize_optional_date_text(date_to)
+        digest_dir = self.wiki_dir / "digests"
+        if not digest_dir.exists():
+            return {"count": 0, "items": []}
+
+        items: list[dict] = []
+        for path in digest_dir.glob("*.md"):
+            date_text = path.stem
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_text):
+                continue
+            if not _is_date_in_range(date_text, date_from=normalized_from, date_to=normalized_to):
+                continue
+            text = _safe_read_text(path)
+            items.append(
+                {
+                    "date": date_text,
+                    "path": str(path),
+                    "chunks_count": _extract_digest_chunks_count(text),
+                    "updated_at": _format_file_timestamp(path),
+                }
+            )
+
+        items.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
+        limited = items[:safe_limit]
+        return {
+            "count": len(limited),
+            "items": limited,
+        }
+
+    def _markdown_path(
+        self,
+        *,
+        source_key: str,
+        title: str,
+        external_id: str,
+        content_hash: str,
+    ) -> Path:
+        slug = _slugify(title)
+        suffix = _slugify(external_id) or content_hash[:12]
+        return self.wiki_dir / source_key / f"{slug}-{suffix[:32]}.md"
+
+    def _write_markdown(
+        self,
+        *,
+        path: Path,
+        source_key: str,
+        title: str,
+        content: str,
+        external_id: str | None,
+        url: str | None,
+        tags: tuple[str, ...],
+        content_hash: str,
+    ) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tag_lines = "\n".join(f"  - {tag}" for tag in tags)
+        frontmatter = [
+            "---",
+            "type: memory_chunk",
+            f"source_key: {source_key}",
+            f"title: {_quote_yaml(title)}",
+            f"external_id: {external_id or ''}",
+            f"url: {url or ''}",
+            f"content_hash: {content_hash}",
+            "tags:",
+            tag_lines or "  - memory",
+            "---",
+            "",
+            f"# {title}",
+            "",
+            content,
+            "",
+        ]
+        path.write_text("\n".join(frontmatter), encoding="utf-8")
+
+
+def get_memory_center_status() -> dict:
+    return MemoryCenterService().get_status()
+
+
+def search_memory_center(query: str, *, limit: int = 10) -> dict:
+    return MemoryCenterService().search(query, limit=limit)
+
+
+def list_recent_memory_center(*, limit: int = 10) -> dict:
+    return MemoryCenterService().list_recent(limit=limit)
+
+
+def build_memory_daily_digest(date_text: str | None = None) -> dict:
+    return MemoryCenterService().build_daily_digest(date_text=date_text)
+
+
+def list_memory_daily_digests(
+    *,
+    limit: int = 10,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    return MemoryCenterService().list_daily_digests(
+        limit=limit,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+def build_memory_center_summary(status: dict) -> str:
+    state = str(status.get("status") or "unknown")
+    sources_count = int(status.get("sources_count") or 0)
+    chunks_count = int(status.get("chunks_count") or 0)
+    lines = [
+        f"Status: {state}",
+        f"Sources: {sources_count}",
+        f"Chunks: {chunks_count}",
+    ]
+
+    latest = status.get("latest_chunk")
+    if isinstance(latest, dict) and latest.get("title"):
+        lines.append(f"Latest: {latest.get('title')}")
+
+    sources = status.get("sources")
+    if isinstance(sources, list) and sources:
+        lines.extend(["", "Sources"])
+        for item in sources[:6]:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or item.get("source_key") or "Source")
+            count = int(item.get("chunks_count") or 0)
+            last = str(item.get("last_ingested_at") or "never")
+            lines.append(f"- {name}: {count} chunks, last {last}")
+
+    sync_connections = status.get("sync_connections")
+    if isinstance(sync_connections, list) and sync_connections:
+        lines.extend(["", "Sync"])
+        for item in sync_connections[:6]:
+            if not isinstance(item, dict):
+                continue
+            toolkit = str(item.get("toolkit") or "source")
+            connection_id = str(item.get("connection_id") or "default")
+            last_items_count = int(item.get("last_items_count") or 0)
+            error = str(item.get("last_error") or "").strip()
+            suffix = f", error: {error}" if error else ""
+            lines.append(f"- {toolkit}/{connection_id}: {last_items_count} items{suffix}")
+
+    if len(lines) <= 3:
+        lines.append("")
+        lines.append("Memory Center is empty. Run sync to ingest GitHub, Notion, or Obsidian context.")
+    return "\n".join(lines)
+
+
+def build_memory_search_summary(result: dict) -> str:
+    query = str(result.get("query") or "").strip()
+    count = int(result.get("count") or 0)
+    lines = [
+        f"Query: {query or '-'}",
+        f"Results: {count}",
+    ]
+
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        lines.append("")
+        lines.append("No matching memory chunks found.")
+        return "\n".join(lines)
+
+    for index, item in enumerate(items[:8], start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "Untitled memory")
+        source_key = str(item.get("source_key") or "source")
+        snippet = str(item.get("snippet") or "").strip()
+        markdown_path = str(item.get("markdown_path") or "").strip()
+        url = str(item.get("url") or "").strip()
+        lines.extend(
+            [
+                "",
+                f"{index}. {title}",
+                f"Source: {source_key}",
+            ]
+        )
+        if snippet:
+            lines.append(f"Snippet: {snippet}")
+        if markdown_path:
+            lines.append(f"File: {markdown_path}")
+        if url:
+            lines.append(f"URL: {url}")
+    return "\n".join(lines)
+
+
+def build_memory_recent_summary(result: dict) -> str:
+    count = int(result.get("count") or 0)
+    lines = [f"Recent: {count}"]
+
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        lines.append("")
+        lines.append("No recent memory chunks yet.")
+        return "\n".join(lines)
+
+    for index, item in enumerate(items[:8], start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "Untitled memory")
+        source_key = str(item.get("source_key") or "source")
+        snippet = str(item.get("snippet") or "").strip()
+        markdown_path = str(item.get("markdown_path") or "").strip()
+        lines.extend(["", f"{index}. {title}", f"Source: {source_key}"])
+        if snippet:
+            lines.append(f"Snippet: {snippet}")
+        if markdown_path:
+            lines.append(f"File: {markdown_path}")
+    return "\n".join(lines)
+
+
+def build_memory_digest_summary(result: dict) -> str:
+    if not result.get("ok"):
+        return f"Не удалось собрать Memory digest: {result.get('error', 'unknown error')}"
+    digest_date = str(result.get("date") or "")
+    count = int(result.get("count") or 0)
+    path = str(result.get("path") or "")
+    return f"Memory digest {digest_date}: {count} chunks.\nFile: {path}"
+
+
+def build_memory_digest_history_summary(result: dict) -> str:
+    count = int(result.get("count") or 0)
+    lines = [f"Memory digests: {count}"]
+
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        lines.append("")
+        lines.append("No Memory digest files yet.")
+        return "\n".join(lines)
+
+    for index, item in enumerate(items[:8], start=1):
+        if not isinstance(item, dict):
+            continue
+        digest_date = str(item.get("date") or "unknown")
+        chunks_count = int(item.get("chunks_count") or 0)
+        path = str(item.get("path") or "").strip()
+        updated_at = str(item.get("updated_at") or "").strip()
+        lines.extend(["", f"{index}. {digest_date}", f"Chunks: {chunks_count}"])
+        if updated_at:
+            lines.append(f"Updated: {updated_at}")
+        if path:
+            lines.append(f"File: {path}")
+    return "\n".join(lines)
+
+
+def build_memory_digest_latest_summary(result: dict) -> str:
+    items = result.get("items")
+    if not isinstance(items, list) or not items:
+        return "No Memory digest files yet."
+
+    first = items[0] if isinstance(items[0], dict) else {}
+    digest_date = str(first.get("date") or "unknown")
+    chunks_count = int(first.get("chunks_count") or 0)
+    path = str(first.get("path") or "").strip()
+    updated_at = str(first.get("updated_at") or "").strip()
+    lines = [f"Latest digest: {digest_date}", f"Chunks: {chunks_count}"]
+    if updated_at:
+        lines.append(f"Updated: {updated_at}")
+    if path:
+        lines.append(f"File: {path}")
+    return "\n".join(lines)
+
+
+class MemorySyncPlanner:
+    def __init__(self, *, default_interval_seconds: int | None = None) -> None:
+        self.default_interval_seconds = int(
+            default_interval_seconds or MEMORY_SYNC_INTERVAL_SECONDS
+        )
+
+    def should_sync(
+        self,
+        toolkit: str,
+        connection_id: str,
+        *,
+        now_ts: int | None = None,
+        interval_seconds: int | None = None,
+    ) -> SyncDecision:
+        initialize_database()
+        safe_toolkit = _normalize_key(toolkit)
+        safe_connection_id = _normalize_key(connection_id) or "default"
+        if not safe_toolkit:
+            raise ValueError("toolkit is required")
+
+        current_ts = int(now_ts if now_ts is not None else time.time())
+        interval = int(interval_seconds or self.default_interval_seconds)
+        with get_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT cursor, last_synced_at_ts, last_error
+                FROM memory_sync_state
+                WHERE toolkit = ? AND connection_id = ?
+                """,
+                (safe_toolkit, safe_connection_id),
+            ).fetchone()
+
+        if not row or row["last_synced_at_ts"] is None:
+            return SyncDecision(
+                due=True,
+                toolkit=safe_toolkit,
+                connection_id=safe_connection_id,
+                last_synced_at_ts=None,
+                next_sync_at_ts=None,
+                cursor=row["cursor"] if row else None,
+                last_error=row["last_error"] if row else None,
+            )
+
+        last_synced_at_ts = int(row["last_synced_at_ts"])
+        next_sync_at_ts = last_synced_at_ts + interval
+        return SyncDecision(
+            due=current_ts >= next_sync_at_ts,
+            toolkit=safe_toolkit,
+            connection_id=safe_connection_id,
+            last_synced_at_ts=last_synced_at_ts,
+            next_sync_at_ts=next_sync_at_ts,
+            cursor=row["cursor"],
+            last_error=row["last_error"],
+        )
+
+    def record_success(
+        self,
+        toolkit: str,
+        connection_id: str,
+        *,
+        cursor: str | None,
+        synced_at_ts: int | None = None,
+        items_count: int = 0,
+    ) -> None:
+        self._upsert_state(
+            toolkit,
+            connection_id,
+            cursor=cursor,
+            synced_at_ts=synced_at_ts,
+            items_count=items_count,
+            error=None,
+        )
+
+    def record_error(
+        self,
+        toolkit: str,
+        connection_id: str,
+        *,
+        error: str,
+        synced_at_ts: int | None = None,
+    ) -> None:
+        self._upsert_state(
+            toolkit,
+            connection_id,
+            cursor=None,
+            synced_at_ts=synced_at_ts,
+            items_count=0,
+            error=_clean_text(error)[:500],
+        )
+
+    def _upsert_state(
+        self,
+        toolkit: str,
+        connection_id: str,
+        *,
+        cursor: str | None,
+        synced_at_ts: int | None,
+        items_count: int,
+        error: str | None,
+    ) -> None:
+        initialize_database()
+        safe_toolkit = _normalize_key(toolkit)
+        safe_connection_id = _normalize_key(connection_id) or "default"
+        if not safe_toolkit:
+            raise ValueError("toolkit is required")
+
+        now = current_timestamp()
+        ts = int(synced_at_ts if synced_at_ts is not None else time.time())
+        with get_connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO memory_sync_state (
+                    toolkit, connection_id, cursor, last_synced_at_ts,
+                    last_items_count, last_error, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(toolkit, connection_id) DO UPDATE SET
+                    cursor = COALESCE(excluded.cursor, memory_sync_state.cursor),
+                    last_synced_at_ts = excluded.last_synced_at_ts,
+                    last_items_count = excluded.last_items_count,
+                    last_error = excluded.last_error,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    safe_toolkit,
+                    safe_connection_id,
+                    cursor,
+                    ts,
+                    max(0, int(items_count)),
+                    error,
+                    now,
+                    now,
+                ),
+            )
+
+
+def _upsert_source(
+    connection: sqlite3.Connection,
+    *,
+    source_key: str,
+    name: str,
+    kind: str,
+    timestamp: str,
+) -> int:
+    connection.execute(
+        """
+        INSERT INTO memory_sources (source_key, name, kind, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(source_key) DO UPDATE SET
+            name = excluded.name,
+            kind = excluded.kind,
+            updated_at = excluded.updated_at
+        """,
+        (source_key, name, kind, timestamp, timestamp),
+    )
+    row = connection.execute(
+        "SELECT id FROM memory_sources WHERE source_key = ?",
+        (source_key,),
+    ).fetchone()
+    return int(row["id"])
+
+
+def _row_to_chunk(row: sqlite3.Row) -> MemoryChunk:
+    raw_tags = row["tags"] or "[]"
+    try:
+        loaded_tags = json.loads(raw_tags)
+    except json.JSONDecodeError:
+        loaded_tags = []
+    tags = tuple(str(item) for item in loaded_tags if str(item).strip())
+    return MemoryChunk(
+        id=int(row["id"]),
+        source_key=str(row["source_key"]),
+        title=str(row["title"]),
+        content_hash=str(row["content_hash"]),
+        markdown_path=str(row["markdown_path"]),
+        external_id=row["external_id"],
+        url=row["url"],
+        tags=tags,
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+    )
+
+
+def _chunk_to_dict(chunk: MemoryChunk) -> dict:
+    return {
+        "id": chunk.id,
+        "source_key": chunk.source_key,
+        "title": chunk.title,
+        "content_hash": chunk.content_hash,
+        "markdown_path": chunk.markdown_path,
+        "external_id": chunk.external_id,
+        "url": chunk.url,
+        "tags": list(chunk.tags),
+        "created_at": chunk.created_at,
+        "updated_at": chunk.updated_at,
+    }
+
+
+def _sync_row_to_dict(row: sqlite3.Row) -> dict:
+    return {
+        "toolkit": row["toolkit"],
+        "connection_id": row["connection_id"],
+        "cursor": row["cursor"],
+        "last_synced_at_ts": row["last_synced_at_ts"],
+        "last_items_count": int(row["last_items_count"] or 0),
+        "last_error": row["last_error"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def _safe_read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def _normalize_date_text(value: str | None) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return date.today().isoformat()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    return date.today().isoformat()
+
+
+def _normalize_optional_date_text(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    return None
+
+
+def _is_date_in_range(
+    date_text: str,
+    *,
+    date_from: str | None,
+    date_to: str | None,
+) -> bool:
+    if date_from and date_text < date_from:
+        return False
+    if date_to and date_text > date_to:
+        return False
+    return True
+
+
+def _compose_daily_digest_markdown(digest_date: str, items: list[dict]) -> str:
+    lines = [
+        "---",
+        "type: memory_digest",
+        f"date: {digest_date}",
+        "source: vasya_memory_center",
+        "---",
+        "",
+        f"# Memory Digest {digest_date}",
+        "",
+        f"Chunks: {len(items)}",
+        "",
+    ]
+    if not items:
+        lines.extend(["_No memory chunks for this date._", ""])
+        return "\n".join(lines)
+
+    by_source: dict[str, list[dict]] = {}
+    for item in items:
+        source_key = str(item.get("source_key") or "source")
+        by_source.setdefault(source_key, []).append(item)
+
+    for source_key, source_items in by_source.items():
+        lines.extend([f"## {source_key}", ""])
+        for item in source_items:
+            title = str(item.get("title") or "Untitled memory")
+            snippet = str(item.get("snippet") or "").strip()
+            markdown_path = str(item.get("markdown_path") or "").strip()
+            url = str(item.get("url") or "").strip()
+            lines.append(f"- **{title}**")
+            if snippet:
+                lines.append(f"  - {snippet}")
+            if markdown_path:
+                lines.append(f"  - File: `{markdown_path}`")
+            if url:
+                lines.append(f"  - URL: {url}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _extract_digest_chunks_count(text: str) -> int:
+    match = re.search(r"^Chunks:\s*(\d+)\s*$", text, flags=re.MULTILINE)
+    if not match:
+        return 0
+    return int(match.group(1))
+
+
+def _format_file_timestamp(path: Path) -> str:
+    try:
+        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(path.stat().st_mtime))
+    except OSError:
+        return ""
+
+
+def _build_snippet(text: str, query: str, *, radius: int = 90) -> str:
+    clean_text = " ".join(str(text or "").split())
+    if not clean_text:
+        return ""
+    lowered = clean_text.lower()
+    lowered_query = str(query or "").lower()
+    index = lowered.find(lowered_query)
+    if index < 0:
+        return clean_text[: radius * 2].strip()
+    start = max(0, index - radius)
+    end = min(len(clean_text), index + len(query) + radius)
+    prefix = "... " if start > 0 else ""
+    suffix = " ..." if end < len(clean_text) else ""
+    return f"{prefix}{clean_text[start:end].strip()}{suffix}"
+
+
+def _clean_text(value: str | None) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def _normalize_key(value: str | None) -> str:
+    return re.sub(r"[^a-z0-9_-]+", "_", str(value or "").strip().lower()).strip("_")
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9а-яА-ЯёЁ_-]+", "-", value.strip().lower())
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug[:80] or "memory"
+
+
+def _quote_yaml(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)

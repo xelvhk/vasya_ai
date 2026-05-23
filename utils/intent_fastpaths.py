@@ -25,6 +25,10 @@ _COMMAND_MARKERS = (
     "помнишь",
     "обо мне",
     "про меня",
+    "памят",
+    "memory",
+    "memory center",
+    "мемори",
     "забуд",
     "личную память",
     "личная память",
@@ -253,6 +257,112 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         "забудь про меня все",
     }:
         return IntentResult(intent="forget_user_profile", data={"target": "все"})
+
+    if normalized in {
+        "покажи статус памяти",
+        "статус памяти",
+        "что в memory center",
+        "что в мемори центр",
+        "покажи memory center",
+        "покажи мемори центр",
+    }:
+        return IntentResult(intent="memory_status", data={})
+
+    if normalized in {
+        "что нового в памяти",
+        "что нового в memory center",
+        "что нового в мемори центр",
+        "последнее в памяти",
+        "последние записи в памяти",
+        "покажи последние записи памяти",
+    }:
+        return IntentResult(intent="memory_recent", data={})
+
+    if normalized in {
+        "собери дайджест памяти",
+        "сделай дайджест памяти",
+        "собери memory digest",
+        "сделай memory digest",
+        "дайджест памяти",
+    }:
+        return IntentResult(intent="memory_digest", data={})
+
+    if normalized in {
+        "покажи дайджесты памяти",
+        "история дайджестов памяти",
+        "покажи историю дайджестов",
+        "покажи memory digests",
+    }:
+        return IntentResult(intent="memory_digest_history", data={})
+
+    if normalized in {
+        "последний дайджест памяти",
+        "покажи последний дайджест",
+        "покажи последний memory digest",
+    }:
+        return IntentResult(intent="memory_digest_latest", data={})
+
+    if normalized in {
+        "покажи дайджесты за неделю",
+        "дайджесты памяти за неделю",
+        "история дайджестов за неделю",
+        "дайджесты за последнюю неделю",
+        "дайджесты памяти за последние 7 дней",
+        "дайджесты памяти за 7 дней",
+        "история дайджестов за 7 дней",
+        "memory digests for week",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "7d"})
+
+    if normalized in {
+        "покажи дайджесты за месяц",
+        "дайджесты памяти за месяц",
+        "история дайджестов за месяц",
+        "дайджесты за последний месяц",
+        "дайджесты памяти за последние 30 дней",
+        "дайджесты памяти за 30 дней",
+        "история дайджестов за 30 дней",
+        "memory digests for month",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "30d"})
+
+    if normalized in {
+        "дайджесты за сегодня",
+        "дайджесты памяти за сегодня",
+        "история дайджестов за сегодня",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "today"})
+
+    if normalized in {
+        "дайджесты за вчера",
+        "дайджесты памяти за вчера",
+        "история дайджестов за вчера",
+    }:
+        return IntentResult(intent="memory_digest_history", data={"range": "yesterday"})
+
+    if normalized in {
+        "синхронизируй память",
+        "обнови память",
+        "обнови memory center",
+        "синхронизируй memory center",
+        "обнови мемори центр",
+        "синхронизируй мемори центр",
+    }:
+        return IntentResult(intent="memory_sync", data={"force": True})
+
+    memory_search_prefixes = (
+        "найди в памяти ",
+        "поищи в памяти ",
+        "найди в memory center ",
+        "поищи в memory center ",
+        "найди в мемори центр ",
+        "поищи в мемори центр ",
+    )
+    for prefix in memory_search_prefixes:
+        if normalized.startswith(prefix):
+            query = compact_text[len(prefix):].strip(" .,:;!-")
+            if query:
+                return IntentResult(intent="memory_search", data={"query": query})
 
     if normalized in {
         "что ты помнишь",
@@ -587,6 +697,13 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "append_notion_page",
         "append_obsidian_note",
         "replace_obsidian_note",
+        "memory_status",
+        "memory_sync",
+        "memory_search",
+        "memory_recent",
+        "memory_digest",
+        "memory_digest_history",
+        "memory_digest_latest",
         "os_open_url",
         "os_open_app",
         "os_type_text",

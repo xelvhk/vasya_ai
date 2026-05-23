@@ -83,6 +83,19 @@ Knowledge/memory adapters:
 - Obsidian vault (local files)
 - Notion (optional remote adapter)
 
+Memory Center baseline:
+- `memory_sources` tracks connected/local sources by stable `source_key`
+- `memory_chunks` stores provenance-backed memory leaves and points to Markdown artifacts
+- `memory_sync_state` tracks per `(toolkit, connection_id)` cursors and sync timing
+- `services/memory_center_service.py` owns ingest/status/recent/search/digest/sync-state behavior
+- `services/memory_sync_service.py` connects GitHub, Notion, and Obsidian adapters to memory ingest
+- `services/memory_scheduler_service.py` runs periodic non-forced sync in the desktop process
+- `apps/api/routes/memory.py` exposes `/v1/memory/status`, `/v1/memory/recent`, `/v1/memory/search`, `/v1/memory/digest`, `/v1/memory/digests`, `/v1/memory/digests/latest` (with optional `date_from`/`date_to` or `range=today|yesterday|7d|30d`), and `/v1/memory/sync` for desktop/mobile clients
+- `scripts/avatar_widget.py` exposes Memory Center status, recent, search, daily digest, digest history, and manual sync in the desktop/tray menu
+- `utils/intent_fastpaths.py` and `core/tools.py` expose fast voice/text Memory Center commands
+
+This is intentionally a thin local-first foundation rather than a full vector store. Daily digest artifacts provide deterministic, inspectable Markdown summaries before adding LLM-based synthesis, entity/topic extraction, and Obsidian navigation.
+
 ## API surface
 
 Main API module: `apps/api/main.py`
@@ -92,6 +105,7 @@ Key routes:
 - chat/pipeline: `/v1/chat`, `/v1/pipeline`
 - realtime: `/v1/ws/voice`
 - tasks/notes/events/recovery
+- memory center: `/v1/memory/status`, `/v1/memory/recent`, `/v1/memory/search`, `/v1/memory/digest`, `/v1/memory/digests`, `/v1/memory/sync`
 
 Security baseline:
 - token auth for `/v1/*` (default on)

@@ -56,6 +56,20 @@ from services.speed_report_service import (
     build_voice_tuning_hints,
 )
 from services.github_service import GitHubServiceError, fetch_recent_commits
+from services.memory_center_service import (
+    build_memory_daily_digest,
+    build_memory_center_summary,
+    build_memory_digest_summary,
+    build_memory_digest_history_summary,
+    build_memory_recent_summary,
+    build_memory_search_summary,
+    get_memory_center_status,
+    list_memory_daily_digests,
+    list_recent_memory_center,
+    search_memory_center,
+)
+from services.memory_scheduler_service import start_memory_background_scheduler
+from services.memory_sync_service import sync_memory_source
 from services.notion_service import NotionServiceError, read_page_text
 from services.morning_show_service import get_morning_show_message, reset_morning_show_today
 from services.runtime_prewarm_service import start_runtime_prewarm_async
@@ -78,11 +92,12 @@ def _run_mic_health_check(duration_seconds: float = 2.0) -> tuple[bool, str]:
 
 def main() -> None:
     try:
-        from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal
+        from PySide6.QtCore import QObject, QPoint, QRectF, Qt, QTimer, Signal, QUrl
         from PySide6.QtGui import (
             QAction,
             QActionGroup,
             QColor,
+            QDesktopServices,
             QFont,
             QGuiApplication,
             QImage,
@@ -1982,6 +1997,7 @@ def main() -> None:
             self._preload_avatar_packs()
             if VOICE_RUNTIME_PREWARM_ON_WIDGET_START:
                 start_runtime_prewarm_async()
+            start_memory_background_scheduler()
 
         def _resolve_avatar_path(self) -> Path | None:
             override_path = str(self._widget_state.get("avatar_image_path", "")).strip()
@@ -2301,6 +2317,12 @@ def main() -> None:
                 quick_action = interaction_menu.addAction("Быстрые команды")
                 mic_test_action = interaction_menu.addAction("Тест микрофона")
 
+                memory_menu = menu.addMenu("Memory Center")
+                memory_status_action = memory_menu.addAction("Статус памяти...")
+                memory_recent_action = memory_menu.addAction("Последнее в памяти...")
+                memory_search_action = memory_menu.addAction("Поиск в памяти...")
+                memory_sync_action = memory_menu.addAction("Синхронизировать память")
+
                 settings_menu = menu.addMenu("Настройки")
                 settings_action = settings_menu.addAction("Открыть настройки...")
                 clear_memory_action = settings_menu.addAction("Очистить личную память...")
@@ -2317,6 +2339,10 @@ def main() -> None:
                     text_action: self._open_text_command_dialog,
                     quick_action: self._open_quick_commands,
                     mic_test_action: self._run_quick_mic_test,
+                    memory_status_action: self._show_memory_center_status,
+                    memory_recent_action: self._show_memory_center_recent,
+                    memory_search_action: self._search_memory_center,
+                    memory_sync_action: self._sync_memory_center_now,
                     settings_action: self._open_settings_dialog,
                     clear_memory_action: self._clear_personal_memory,
                     quit_action: self.quit_application,
@@ -3167,6 +3193,34 @@ def main() -> None:
             diagnostics_action.triggered.connect(self._show_speed_diagnostics)
             menu.addAction(diagnostics_action)
 
+            memory_status_action = QAction("Memory Center...", self)
+            memory_status_action.triggered.connect(self._show_memory_center_status)
+            menu.addAction(memory_status_action)
+
+            memory_recent_action = QAction("Последнее в памяти...", self)
+            memory_recent_action.triggered.connect(self._show_memory_center_recent)
+            menu.addAction(memory_recent_action)
+
+            memory_search_action = QAction("Поиск в памяти...", self)
+            memory_search_action.triggered.connect(self._search_memory_center)
+            menu.addAction(memory_search_action)
+
+            memory_digest_action = QAction("Дайджест памяти за сегодня...", self)
+            memory_digest_action.triggered.connect(self._build_memory_center_digest)
+            menu.addAction(memory_digest_action)
+
+            memory_digests_action = QAction("История дайджестов...", self)
+            memory_digests_action.triggered.connect(self._show_memory_center_digests)
+            menu.addAction(memory_digests_action)
+
+            open_latest_digest_action = QAction("Открыть последний дайджест", self)
+            open_latest_digest_action.triggered.connect(self._open_latest_memory_digest)
+            menu.addAction(open_latest_digest_action)
+
+            memory_sync_action = QAction("Синхронизировать память", self)
+            memory_sync_action.triggered.connect(self._sync_memory_center_now)
+            menu.addAction(memory_sync_action)
+
             settings_action = QAction("Настройки...", self)
             settings_action.triggered.connect(self._open_settings_dialog)
             menu.addAction(settings_action)
@@ -3280,6 +3334,142 @@ def main() -> None:
                 f"Рекомендации:\n{hints}"
             )
             QMessageBox.information(self, "Диагностика скорости", text)
+
+        def _show_memory_center_status(self) -> None:
+            try:
+                status = get_memory_center_status()
+                text = build_memory_center_summary(status)
+            except Exception as exc:
+                text = f"Не удалось прочитать Memory Center: {exc}"
+            QMessageBox.information(self, "Memory Center", text)
+
+        def _show_memory_center_recent(self) -> None:
+            try:
+                result = list_recent_memory_center(limit=8)
+                text = build_memory_recent_summary(result)
+            except Exception as exc:
+                text = f"Не удалось прочитать последние записи: {exc}"
+            QMessageBox.information(self, "Последнее в памяти", text)
+
+        def _search_memory_center(self) -> None:
+            query, accepted = QInputDialog.getText(
+                self,
+                "Поиск в памяти",
+                "Что найти в Memory Center?",
+            )
+            normalized_query = " ".join(str(query or "").strip().split())
+            if not accepted or not normalized_query:
+                return
+            try:
+                result = search_memory_center(normalized_query, limit=8)
+                text = build_memory_search_summary(result)
+            except Exception as exc:
+                text = f"Не удалось выполнить поиск: {exc}"
+            QMessageBox.information(self, "Поиск в памяти", text)
+
+        def _build_memory_center_digest(self) -> None:
+            try:
+                result = build_memory_daily_digest()
+                text = build_memory_digest_summary(result)
+            except Exception as exc:
+                text = f"Не удалось собрать дайджест памяти: {exc}"
+            QMessageBox.information(self, "Дайджест памяти", text)
+
+        def _show_memory_center_digests(self) -> None:
+            try:
+                result = list_memory_daily_digests(limit=12)
+                text = build_memory_digest_history_summary(result)
+            except Exception as exc:
+                text = f"Не удалось прочитать историю дайджестов: {exc}"
+            QMessageBox.information(self, "История дайджестов", text)
+
+        def _open_latest_memory_digest(self) -> None:
+            try:
+                result = list_memory_daily_digests(limit=1)
+                items = result.get("items")
+                if not isinstance(items, list) or not items:
+                    QMessageBox.information(
+                        self,
+                        "Memory digest",
+                        "Пока нет файлов дайджеста.",
+                    )
+                    return
+                item = items[0] if isinstance(items[0], dict) else {}
+                path = str(item.get("path") or "").strip()
+                self._open_memory_digest_path(path)
+            except Exception as exc:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    f"Не удалось открыть последний дайджест: {exc}",
+                )
+
+        def _open_memory_digest_path(self, path: str) -> None:
+            if not path:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    "Не удалось определить путь к дайджесту.",
+                )
+                return
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+            if not opened:
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    f"Не удалось открыть файл:\n{path}",
+                )
+
+        def _sync_memory_center_now(self) -> None:
+            if self._interaction_lock.locked():
+                QMessageBox.information(
+                    self,
+                    "Memory Center",
+                    "Сначала дождись завершения текущего запроса.",
+                )
+                return
+
+            assistant_state.set(AssistantStateName.THINKING, "Синхронизирую Memory Center...")
+
+            def worker() -> None:
+                try:
+                    result = sync_memory_source("all", force=True)
+                    ingested = int(result.get("ingested", 0))
+                    ok = bool(result.get("ok"))
+                    if ok:
+                        successful = ", ".join(result.get("successful_sources", [])) or "нет новых источников"
+                        errors = result.get("errors", [])
+                        warning = f" Ошибки: {len(errors)}." if errors else ""
+                        message = (
+                            "Memory Center обновлен. "
+                            f"Источники: {successful}. "
+                            f"Добавлено/обновлено элементов: {ingested}.{warning}"
+                        )
+                    else:
+                        errors = result.get("errors") or []
+                        if errors:
+                            details = "; ".join(
+                                str(item.get("error") or item.get("source") or "unknown")
+                                for item in errors[:3]
+                                if isinstance(item, dict)
+                            )
+                        else:
+                            details = str(result.get("error", "unknown error"))
+                        message = f"Не удалось обновить Memory Center: {details}"
+                except Exception as exc:
+                    ok = False
+                    message = f"Не удалось обновить Memory Center: {exc}"
+
+                def finish() -> None:
+                    assistant_state.set(
+                        AssistantStateName.IDLE if ok else AssistantStateName.ERROR,
+                        message,
+                    )
+                    QMessageBox.information(self, "Memory Center", message)
+
+                QTimer.singleShot(0, finish)
+
+            threading.Thread(target=worker, daemon=True).start()
 
         def _run_quick_mic_test(self) -> None:
             if self._interaction_lock.locked():

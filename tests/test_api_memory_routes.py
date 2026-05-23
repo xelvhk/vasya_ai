@@ -1,0 +1,264 @@
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+from unittest.mock import patch
+
+try:
+    from fastapi.testclient import TestClient
+
+    from apps.api import main as api_main
+
+    _FASTAPI_AVAILABLE = True
+except ModuleNotFoundError:
+    _FASTAPI_AVAILABLE = False
+
+
+@unittest.skipUnless(_FASTAPI_AVAILABLE, "fastapi is not installed in the current virtual environment")
+class ApiMemoryRoutesTests(unittest.TestCase):
+    def test_memory_status_returns_center_metrics(self) -> None:
+        with TemporaryDirectory() as tmp:
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(Path(tmp) / "memory_wiki"),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/status")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["sources_count"], 0)
+        self.assertEqual(payload["chunks_count"], 0)
+        self.assertEqual(payload["status"], "empty")
+
+    def test_memory_search_returns_results(self) -> None:
+        with TemporaryDirectory() as tmp:
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(Path(tmp) / "memory_wiki"),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                from services.memory_center_service import MemoryCenterService
+
+                service = MemoryCenterService(wiki_dir=Path(tmp) / "memory_wiki")
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Memory Search",
+                    content="Search should return provenance links.",
+                    external_id="search-1",
+                )
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/search", params={"query": "provenance"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["title"], "Memory Search")
+
+    def test_memory_recent_returns_latest_items(self) -> None:
+        with TemporaryDirectory() as tmp:
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(Path(tmp) / "memory_wiki"),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                from services.memory_center_service import MemoryCenterService
+
+                service = MemoryCenterService(wiki_dir=Path(tmp) / "memory_wiki")
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Recent Memory",
+                    content="Recent content.",
+                    external_id="recent-1",
+                )
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/recent", params={"limit": 5})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["title"], "Recent Memory")
+
+    def test_memory_digest_writes_daily_markdown(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch(
+                "services.memory_center_service.current_timestamp",
+                return_value="2026-05-15 10:00:00",
+            ), patch(
+                "apps.api.deps.VASYA_API_REQUIRE_AUTH",
+                False,
+            ):
+                from services.memory_center_service import MemoryCenterService
+
+                service = MemoryCenterService(wiki_dir=wiki_dir)
+                service.ingest_text(
+                    source_key="github",
+                    source_name="GitHub",
+                    title="Digest Memory",
+                    content="Digest endpoint should write a local Markdown artifact.",
+                    external_id="digest-1",
+                )
+                with TestClient(api_main.app) as client:
+                    response = client.post(
+                        "/v1/memory/digest",
+                        json={"date": "2026-05-15"},
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["date"], "2026-05-15")
+        self.assertEqual(payload["count"], 1)
+        digest_path = Path(payload["path"])
+        self.assertTrue(digest_path.exists())
+        self.assertIn("Digest Memory", digest_path.read_text(encoding="utf-8"))
+
+    def test_memory_digests_returns_history(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-15.md").write_text("Chunks: 2\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/digests", params={"limit": 5})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["date"], "2026-05-15")
+        self.assertEqual(payload["items"][0]["chunks_count"], 2)
+
+    def test_memory_digests_supports_date_range_filter(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-14.md").write_text("Chunks: 1\n", encoding="utf-8")
+            (digests_dir / "2026-05-15.md").write_text("Chunks: 2\n", encoding="utf-8")
+            (digests_dir / "2026-05-16.md").write_text("Chunks: 3\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                with TestClient(api_main.app) as client:
+                    response = client.get(
+                        "/v1/memory/digests",
+                        params={
+                            "limit": 10,
+                            "date_from": "2026-05-15",
+                            "date_to": "2026-05-16",
+                        },
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["items"][0]["date"], "2026-05-16")
+        self.assertEqual(payload["items"][1]["date"], "2026-05-15")
+
+    def test_memory_digests_supports_range_preset(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-10.md").write_text("Chunks: 1\n", encoding="utf-8")
+            (digests_dir / "2026-05-11.md").write_text("Chunks: 2\n", encoding="utf-8")
+            (digests_dir / "2026-05-17.md").write_text("Chunks: 3\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False), patch(
+                "apps.api.routes.memory.date"
+            ) as mock_date:
+                mock_date.today.return_value = date(2026, 5, 17)
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/digests", params={"range": "7d"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["items"][0]["date"], "2026-05-17")
+        self.assertEqual(payload["items"][1]["date"], "2026-05-11")
+
+    def test_memory_digests_supports_today_and_yesterday_presets(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-16.md").write_text("Chunks: 2\n", encoding="utf-8")
+            (digests_dir / "2026-05-17.md").write_text("Chunks: 3\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False), patch(
+                "apps.api.routes.memory.date"
+            ) as mock_date:
+                mock_date.today.return_value = date(2026, 5, 17)
+                with TestClient(api_main.app) as client:
+                    today_response = client.get("/v1/memory/digests", params={"range": "today"})
+                    yesterday_response = client.get("/v1/memory/digests", params={"range": "yesterday"})
+
+        self.assertEqual(today_response.status_code, 200)
+        today_payload = today_response.json()
+        self.assertEqual(today_payload["count"], 1)
+        self.assertEqual(today_payload["items"][0]["date"], "2026-05-17")
+
+        self.assertEqual(yesterday_response.status_code, 200)
+        yesterday_payload = yesterday_response.json()
+        self.assertEqual(yesterday_payload["count"], 1)
+        self.assertEqual(yesterday_payload["items"][0]["date"], "2026-05-16")
+
+    def test_memory_latest_digest_returns_single_latest_item(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-16.md").write_text("Chunks: 2\n", encoding="utf-8")
+            (digests_dir / "2026-05-17.md").write_text("Chunks: 3\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                with TestClient(api_main.app) as client:
+                    response = client.get("/v1/memory/digests/latest")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["item"]["date"], "2026-05-17")
+        self.assertEqual(payload["item"]["chunks_count"], 3)
+
+    def test_memory_latest_digest_returns_empty_payload_when_not_found(self) -> None:
+        with TemporaryDirectory() as tmp:
+            wiki_dir = Path(tmp) / "memory_wiki"
+            digests_dir = wiki_dir / "digests"
+            digests_dir.mkdir(parents=True, exist_ok=True)
+            (digests_dir / "2026-05-17.md").write_text("Chunks: 3\n", encoding="utf-8")
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")), patch(
+                "services.memory_center_service.MEMORY_WIKI_DIR",
+                str(wiki_dir),
+            ), patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False):
+                with TestClient(api_main.app) as client:
+                    response = client.get(
+                        "/v1/memory/digests/latest",
+                        params={"date_from": "2026-05-16", "date_to": "2026-05-16"},
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload["ok"])
+        self.assertIsNone(payload["item"])
+
+
+if __name__ == "__main__":
+    unittest.main()

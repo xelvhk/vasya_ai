@@ -296,6 +296,18 @@ INTEGRATIONS_STATE_FILE = os.getenv(
     "INTEGRATIONS_STATE_FILE",
     "storage/integrations.json",
 ).strip()
+MEMORY_WIKI_DIR = os.getenv(
+    "MEMORY_WIKI_DIR",
+    "storage/memory_wiki",
+).strip()
+MEMORY_BACKGROUND_SYNC_ENABLED = os.getenv(
+    "MEMORY_BACKGROUND_SYNC_ENABLED",
+    "true",
+).lower() == "true"
+MEMORY_BACKGROUND_SYNC_TICK_SECONDS = int(
+    os.getenv("MEMORY_BACKGROUND_SYNC_TICK_SECONDS", "1200")
+)
+MEMORY_SYNC_INTERVAL_SECONDS = int(os.getenv("MEMORY_SYNC_INTERVAL_SECONDS", "1200"))
 INTEGRATIONS_SECRETS_FILE = os.getenv(
     "INTEGRATIONS_SECRETS_FILE",
     "storage/integration_secrets.json",

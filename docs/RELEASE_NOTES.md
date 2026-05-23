@@ -6,6 +6,31 @@
 - Added task and calendar core workflows with local-first storage
 - Added API security baseline (auth + throttling)
 - Added Obsidian/Notion adapter baseline for external knowledge workflows
+- Added Memory Center foundation: local memory sources/chunks, Markdown artifacts, sync-state tracking, and `/v1/memory/status`
+- Added Memory Center source sync for GitHub, Notion, and Obsidian through `/v1/memory/sync`
+- Added desktop Memory Center controls in the avatar/tray menu.
+- Added background Memory Center sync scheduler for periodic source refresh.
+- Added Memory Center search with snippets and provenance paths.
+- Added desktop Memory Center search from the avatar/tray menu.
+- Added fast voice/text commands for Memory Center status, sync, and search.
+- Added recent Memory Center view for latest chunks and "what's new" commands.
+- Added desktop recent Memory Center view from the avatar/tray menu.
+- Added deterministic Memory Center daily digest artifacts through `/v1/memory/digest` and fast voice/text commands.
+- Added desktop Memory Center daily digest action from the avatar/tray menu.
+- Added Memory Center digest history via `/v1/memory/digests`, desktop menu action, and fast voice/text command.
+- Added desktop action to open the latest Memory digest file directly from the tray menu.
+- Added date-range filtering for digest history through `/v1/memory/digests?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`.
+- Added digest history presets through `/v1/memory/digests?range=7d|30d` for quick period queries.
+- Added digest history day presets through `/v1/memory/digests?range=today|yesterday`.
+- Added `/v1/memory/digests/latest` for a direct latest-digest lookup with the same range/date filters.
+- Added fast voice/text command for latest Memory digest lookup.
+- Added fast voice/text digest-history commands for week/month ranges.
+- Added desktop quick actions for digest history presets: 7 days and 30 days.
+- Expanded fast digest-history phrases for natural week/month and 7/30-day wording.
+- Added fast digest-history voice phrases for today and yesterday.
+- Added desktop quick actions for digest history presets: today and yesterday.
+- Added desktop quick actions to open digest files for today and yesterday.
+- Simplified tray digest menu by removing overlapping day/week/month duplicate actions.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

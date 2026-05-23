@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Callable
 
 from agents.calendar_agent import handle_calendar_intent
@@ -20,6 +21,20 @@ from services.github_obsidian_sync_service import (
     sync_github_project_to_obsidian,
     update_obsidian_note,
 )
+from services.memory_center_service import (
+    build_memory_daily_digest,
+    build_memory_center_summary,
+    build_memory_digest_summary,
+    build_memory_digest_history_summary,
+    build_memory_digest_latest_summary,
+    build_memory_recent_summary,
+    build_memory_search_summary,
+    get_memory_center_status,
+    list_memory_daily_digests,
+    list_recent_memory_center,
+    search_memory_center,
+)
+from services.memory_sync_service import sync_memory_source
 from services.obsidian_knowledge_service import triage_unstructured_ideas
 from services.obsidian_service import resolve_obsidian_vault_path
 from services.project_idea_planning_service import handle_project_idea_request
@@ -153,9 +168,72 @@ def _run_obsidian_tool(intent_result: IntentResult) -> str:
     return update_obsidian_note(title=title, content=text, mode=mode)
 
 
+def _run_memory_center_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "memory_status":
+        return build_memory_center_summary(get_memory_center_status())
+    if intent_result.intent == "memory_recent":
+        return build_memory_recent_summary(list_recent_memory_center(limit=5))
+    if intent_result.intent == "memory_digest":
+        date_text = str(intent_result.data.get("date", "")).strip() or None
+        return build_memory_digest_summary(build_memory_daily_digest(date_text))
+    if intent_result.intent == "memory_digest_history":
+        range_value = str(intent_result.data.get("range", "")).strip().lower()
+        date_from, date_to = _resolve_digest_range_dates(range_value)
+        if date_from and date_to:
+            result = list_memory_daily_digests(limit=8, date_from=date_from, date_to=date_to)
+            return build_memory_digest_history_summary(result)
+        return build_memory_digest_history_summary(list_memory_daily_digests(limit=8))
+    if intent_result.intent == "memory_digest_latest":
+        return build_memory_digest_latest_summary(list_memory_daily_digests(limit=1))
+    if intent_result.intent == "memory_sync":
+        force = bool(intent_result.data.get("force", False))
+        result = sync_memory_source("all", force=force)
+        ingested = int(result.get("ingested", 0))
+        if result.get("ok"):
+            successful = ", ".join(result.get("successful_sources", [])) or "нет новых источников"
+            errors = result.get("errors", [])
+            warning = f" Есть ошибки по источникам: {len(errors)}." if errors else ""
+            return (
+                "Memory Center обновлен. "
+                f"Источники: {successful}. "
+                f"Элементов: {ingested}.{warning}"
+            )
+        errors = result.get("errors") or []
+        if errors:
+            details = "; ".join(
+                str(item.get("error") or item.get("source") or "unknown")
+                for item in errors[:3]
+                if isinstance(item, dict)
+            )
+        else:
+            details = str(result.get("error", "unknown error"))
+        return f"Не удалось обновить Memory Center: {details}"
+
+    query = str(intent_result.data.get("query", "")).strip()
+    if not query:
+        return "Что найти в Memory Center?"
+    return build_memory_search_summary(search_memory_center(query, limit=5))
+
+
 def _run_speed_report_tool(intent_result: IntentResult) -> str:
     _ = intent_result
     return build_voice_diagnostics_report(limit=24)
+
+
+def _resolve_digest_range_dates(range_value: str) -> tuple[str | None, str | None]:
+    if range_value == "today":
+        today = date.today().isoformat()
+        return today, today
+    if range_value == "yesterday":
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        return yesterday, yesterday
+    if range_value == "7d":
+        today = date.today()
+        return (today - timedelta(days=6)).isoformat(), today.isoformat()
+    if range_value == "30d":
+        today = date.today()
+        return (today - timedelta(days=29)).isoformat(), today.isoformat()
+    return None, None
 
 
 def _run_mic_test_tool(intent_result: IntentResult) -> str:
@@ -297,6 +375,20 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
             "triage_obsidian_ideas",
         ),
         handler=_run_obsidian_tool,
+    ),
+    ToolSpec(
+        tool_id="memory_center",
+        description="Memory Center: статус, синхронизация и поиск по локальной памяти.",
+        intents=(
+            "memory_status",
+            "memory_sync",
+            "memory_search",
+            "memory_recent",
+            "memory_digest",
+            "memory_digest_history",
+            "memory_digest_latest",
+        ),
+        handler=_run_memory_center_tool,
     ),
     ToolSpec(
         tool_id="speed_report",

@@ -110,14 +110,14 @@ class ApiMemoryRoutesTests(unittest.TestCase):
                         json={"date": "2026-05-15"},
                     )
 
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertTrue(payload["ok"])
-        self.assertEqual(payload["date"], "2026-05-15")
-        self.assertEqual(payload["count"], 1)
-        digest_path = Path(payload["path"])
-        self.assertTrue(digest_path.exists())
-        self.assertIn("Digest Memory", digest_path.read_text(encoding="utf-8"))
+                self.assertEqual(response.status_code, 200)
+                payload = response.json()
+                self.assertTrue(payload["ok"])
+                self.assertEqual(payload["date"], "2026-05-15")
+                self.assertEqual(payload["count"], 1)
+                digest_path = Path(payload["path"])
+                self.assertTrue(digest_path.exists())
+                self.assertIn("Digest Memory", digest_path.read_text(encoding="utf-8"))
 
     def test_memory_digests_returns_history(self) -> None:
         with TemporaryDirectory() as tmp:

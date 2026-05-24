@@ -263,8 +263,29 @@ class MemoryCenterServiceTests(unittest.TestCase):
         summary = build_memory_search_summary(result)
 
         self.assertIn("Results: 1", summary)
-        self.assertIn("Memory Search", summary)
+        self.assertIn("[github] Memory Search", summary)
         self.assertIn("/tmp/memory.md", summary)
+        self.assertNotIn("Source:", summary)
+        self.assertNotIn("Snippet:", summary)
+
+    def test_build_memory_search_summary_truncates_long_snippet(self) -> None:
+        result = {
+            "query": "memory",
+            "count": 1,
+            "items": [
+                {
+                    "title": "Long snippet",
+                    "source_key": "obsidian",
+                    "snippet": "x" * 240,
+                    "markdown_path": "/tmp/long.md",
+                }
+            ],
+        }
+
+        summary = build_memory_search_summary(result)
+
+        self.assertIn("[obsidian] Long snippet", summary)
+        self.assertIn("...", summary)
 
     def test_build_memory_recent_summary_is_human_readable(self) -> None:
         result = {

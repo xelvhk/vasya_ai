@@ -526,18 +526,12 @@ def build_memory_search_summary(result: dict) -> str:
             continue
         title = str(item.get("title") or "Untitled memory")
         source_key = str(item.get("source_key") or "source")
-        snippet = str(item.get("snippet") or "").strip()
+        snippet = _summarize_text(str(item.get("snippet") or "").strip(), limit=140)
         markdown_path = str(item.get("markdown_path") or "").strip()
         url = str(item.get("url") or "").strip()
-        lines.extend(
-            [
-                "",
-                f"{index}. {title}",
-                f"Source: {source_key}",
-            ]
-        )
+        lines.extend(["", f"{index}. [{source_key}] {title}"])
         if snippet:
-            lines.append(f"Snippet: {snippet}")
+            lines.append(snippet)
         if markdown_path:
             lines.append(f"File: {markdown_path}")
         if url:
@@ -938,6 +932,15 @@ def _build_snippet(text: str, query: str, *, radius: int = 90) -> str:
     prefix = "... " if start > 0 else ""
     suffix = " ..." if end < len(clean_text) else ""
     return f"{prefix}{clean_text[start:end].strip()}{suffix}"
+
+
+def _summarize_text(text: str, *, limit: int) -> str:
+    clean_text = " ".join(str(text or "").split())
+    if not clean_text:
+        return ""
+    if len(clean_text) <= limit:
+        return clean_text
+    return f"{clean_text[: max(0, limit - 3)].rstrip()}..."
 
 
 def _clean_text(value: str | None) -> str:

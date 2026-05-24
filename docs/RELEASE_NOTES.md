@@ -31,6 +31,7 @@
 - Added desktop quick actions for digest history presets: today and yesterday.
 - Added desktop quick actions to open digest files for today and yesterday.
 - Simplified tray digest menu by removing overlapping day/week/month duplicate actions.
+- Added doctor diagnostics baseline with structured `OK/WARN/FAIL` checks, actionable fix hints, and API auth + memory path validation.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

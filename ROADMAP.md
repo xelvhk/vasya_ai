@@ -117,6 +117,7 @@ Current status:
 - Memory latest-digest endpoint landed in `v0.5.44` through `/v1/memory/digests/latest`
 - Memory latest-digest fast command landed in `v0.5.45` for quick voice/text lookup
 - Tray digest UX simplification landed in `v0.5.46` with compact non-duplicative actions
+- Doctor diagnostics baseline landed in `v0.5.49` with structured OK/WARN/FAIL checks and actionable fix hints
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -262,6 +263,7 @@ Good future exports:
 - `v0.5.44`: direct latest digest endpoint (`/v1/memory/digests/latest`)
 - `v0.5.45`: latest digest fast command (`memory_digest_latest`)
 - `v0.5.46`: tray digest UX simplification (remove duplicate day/week/month actions)
+- `v0.5.49`: doctor diagnostics baseline with structured status levels and remediation hints
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs

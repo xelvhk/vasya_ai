@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import importlib
 import os
 import platform
@@ -17,11 +18,22 @@ from config.settings import (  # noqa: E402
     GOOGLE_CALENDAR_CREDENTIALS_FILE,
     GOOGLE_CALENDAR_ENABLED,
     GOOGLE_CALENDAR_TOKEN_FILE,
+    MEMORY_WIKI_DIR,
     OLLAMA_MODEL,
     OLLAMA_URL,
     STORAGE_DB_FILE,
+    VASYA_API_AUTH_TOKEN,
+    VASYA_API_REQUIRE_AUTH,
 )
 from utils.platform_runtime import get_platform_name  # noqa: E402
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    name: str
+    status: str
+    message: str
+    fix: str | None = None
 
 
 def main() -> None:
@@ -30,39 +42,60 @@ def main() -> None:
     print(f"python: {platform.python_version()}")
     print()
 
+    results = run_checks()
+    has_failures = any(result.status == "FAIL" for result in results)
+    has_warnings = any(result.status == "WARN" for result in results)
+
+    for result in results:
+        _print_result(result)
+        print()
+
+    print(_build_summary(results))
+    if has_failures:
+        sys.exit(1)
+    if has_warnings:
+        sys.exit(2)
+
+
+def run_checks() -> list[CheckResult]:
     checks = [
+        check_env_file,
         check_virtualenv,
         check_python_modules,
         check_ollama_binary,
         check_ollama_server,
         check_storage,
+        check_memory_wiki_dir,
+        check_api_auth_config,
         check_google_calendar,
         check_autostart,
     ]
-
-    failed = False
-    for check in checks:
-        ok = check()
-        failed = failed or not ok
-        print()
-
-    if failed:
-        print("doctor result: issues found")
-        sys.exit(1)
-
-    print("doctor result: all key checks passed")
+    return [check() for check in checks]
 
 
-def check_virtualenv() -> bool:
-    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+def check_env_file() -> CheckResult:
+    env_path = ROOT_DIR / ".env"
+    if env_path.exists():
+        return report("env file", "OK", f"found .env at {env_path}")
     return report(
-        "virtualenv",
-        in_venv,
-        "virtual environment is active" if in_venv else "virtual environment is not active",
+        "env file",
+        "WARN",
+        f".env is missing at {env_path}",
+        fix="Copy .env.example to .env and adjust local values.",
     )
 
 
-def check_python_modules() -> bool:
+def check_virtualenv() -> CheckResult:
+    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    return report(
+        "virtualenv",
+        "OK" if in_venv else "WARN",
+        "virtual environment is active" if in_venv else "virtual environment is not active",
+        None if in_venv else "Activate environment: source .venv/bin/activate",
+    )
+
+
+def check_python_modules() -> CheckResult:
     modules = [
         "faster_whisper",
         "sounddevice",
@@ -82,91 +115,154 @@ def check_python_modules() -> bool:
     if missing:
         return report(
             "python dependencies",
-            False,
+            "FAIL",
             f"missing modules: {', '.join(missing)}",
+            fix="Install dependencies: pip install -r requirements.txt",
         )
-    return report("python dependencies", True, "core modules are available")
+    return report("python dependencies", "OK", "core modules are available")
 
 
-def check_ollama_binary() -> bool:
+def check_ollama_binary() -> CheckResult:
     found = shutil.which("ollama") is not None
     return report(
         "ollama binary",
-        found,
+        "OK" if found else "FAIL",
         "ollama command found" if found else "ollama command not found",
+        None if found else "Install Ollama from https://ollama.com/download",
     )
 
 
-def check_ollama_server() -> bool:
+def check_ollama_server() -> CheckResult:
     try:
         response = requests.get(_healthcheck_url(), timeout=2)
         response.raise_for_status()
         payload = response.json()
     except Exception as exc:
-        return report("ollama server", False, f"cannot reach Ollama: {exc}")
+        return report(
+            "ollama server",
+            "WARN",
+            f"cannot reach Ollama: {exc}",
+            fix="Start local server: ollama serve",
+        )
 
     models = [item.get("name", "") for item in payload.get("models", [])]
     has_model = any(name.startswith(OLLAMA_MODEL) for name in models)
     if has_model:
-        return report("ollama server", True, f"Ollama is up and model '{OLLAMA_MODEL}' is available")
+        return report("ollama server", "OK", f"Ollama is up and model '{OLLAMA_MODEL}' is available")
     return report(
         "ollama server",
-        False,
+        "WARN",
         f"Ollama is up but model '{OLLAMA_MODEL}' is not available",
+        fix=f"Pull model: ollama pull {OLLAMA_MODEL}",
     )
 
 
-def check_storage() -> bool:
+def check_storage() -> CheckResult:
     db_path = Path(STORAGE_DB_FILE)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with sqlite3.connect(db_path) as connection:
             connection.execute("SELECT 1")
     except Exception as exc:
-        return report("storage", False, f"cannot open SQLite storage: {exc}")
+        return report("storage", "FAIL", f"cannot open SQLite storage: {exc}")
 
-    return report("storage", True, f"SQLite storage is accessible at {db_path}")
+    return report("storage", "OK", f"SQLite storage is accessible at {db_path}")
 
 
-def check_google_calendar() -> bool:
+def check_memory_wiki_dir() -> CheckResult:
+    wiki_dir = Path(MEMORY_WIKI_DIR).expanduser()
+    try:
+        wiki_dir.mkdir(parents=True, exist_ok=True)
+        probe = wiki_dir / ".doctor-write-probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+    except Exception as exc:
+        return report("memory wiki path", "FAIL", f"cannot write memory wiki directory: {exc}")
+    return report("memory wiki path", "OK", f"memory wiki is writable at {wiki_dir}")
+
+
+def check_api_auth_config() -> CheckResult:
+    if not VASYA_API_REQUIRE_AUTH:
+        return report(
+            "api auth config",
+            "WARN",
+            "VASYA_API_REQUIRE_AUTH is disabled",
+            fix="Set VASYA_API_REQUIRE_AUTH=true for secure default.",
+        )
+    if not VASYA_API_AUTH_TOKEN:
+        return report(
+            "api auth config",
+            "FAIL",
+            "VASYA_API_REQUIRE_AUTH=true but VASYA_API_AUTH_TOKEN is empty",
+            fix="Set VASYA_API_AUTH_TOKEN in .env before exposing API.",
+        )
+    return report("api auth config", "OK", "API auth token is configured")
+
+
+def check_google_calendar() -> CheckResult:
     if not GOOGLE_CALENDAR_ENABLED:
-        return report("google calendar", True, "integration is disabled")
+        return report("google calendar", "OK", "integration is disabled")
 
     credentials_exists = Path(GOOGLE_CALENDAR_CREDENTIALS_FILE).exists()
     token_exists = Path(GOOGLE_CALENDAR_TOKEN_FILE).exists()
 
     if credentials_exists and token_exists:
-        return report("google calendar", True, "credentials and token are present")
+        return report("google calendar", "OK", "credentials and token are present")
     if credentials_exists:
-        return report("google calendar", True, "credentials present, token not created yet")
+        return report("google calendar", "WARN", "credentials present, token not created yet")
     return report(
         "google calendar",
-        False,
+        "WARN",
         f"credentials file not found: {GOOGLE_CALENDAR_CREDENTIALS_FILE}",
+        fix="Place OAuth credentials file or disable GOOGLE_CALENDAR_ENABLED.",
     )
 
 
-def check_autostart() -> bool:
+def check_autostart() -> CheckResult:
     if get_platform_name() != "macos":
-        return report("autostart", True, "not applicable on this platform")
+        return report("autostart", "OK", "not applicable on this platform")
 
     try:
         from scripts.autostart_macos import is_autostart_enabled
     except Exception as exc:
-        return report("autostart", False, f"cannot inspect autostart: {exc}")
+        return report("autostart", "WARN", f"cannot inspect autostart: {exc}")
 
     enabled = is_autostart_enabled()
     return report(
         "autostart",
-        True,
+        "OK",
         "launch at login is enabled" if enabled else "launch at login is disabled",
     )
 
 
-def report(name: str, ok: bool, message: str) -> bool:
-    status = "OK" if ok else "FAIL"
-    print(f"[{status}] {name}: {message}")
-    return ok
+def report(name: str, status: str, message: str, *, fix: str | None = None) -> CheckResult:
+    normalized_status = status.strip().upper()
+    if normalized_status not in {"OK", "WARN", "FAIL"}:
+        raise ValueError(f"unsupported status: {status}")
+    return CheckResult(name=name, status=normalized_status, message=message, fix=fix)
+
+
+def _print_result(result: CheckResult) -> None:
+    print(f"[{result.status}] {result.name}: {result.message}")
+    if result.fix and result.status in {"WARN", "FAIL"}:
+        print(f"  Fix: {result.fix}")
+
+
+def _build_summary(results: list[CheckResult]) -> str:
+    total = len(results)
+    ok_count = sum(1 for result in results if result.status == "OK")
+    warn_count = sum(1 for result in results if result.status == "WARN")
+    fail_count = sum(1 for result in results if result.status == "FAIL")
+    if fail_count:
+        state = "issues found"
+    elif warn_count:
+        state = "warnings found"
+    else:
+        state = "all key checks passed"
+    return (
+        f"doctor result: {state} "
+        f"(ok={ok_count}, warn={warn_count}, fail={fail_count}, total={total})"
+    )
 
 
 def _healthcheck_url() -> str:

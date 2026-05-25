@@ -31,6 +31,7 @@
 - Added desktop quick actions for digest history presets: today and yesterday.
 - Added desktop quick actions to open digest files for today and yesterday.
 - Simplified tray digest menu by removing overlapping day/week/month duplicate actions.
+- Replaced separate digest build/open tray actions with one-click "latest digest" action that auto-builds today digest when no file exists.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

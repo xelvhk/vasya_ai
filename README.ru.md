@@ -257,6 +257,14 @@ bash scripts/setup_mac.sh
 python scripts/doctor.py
 ```
 
+Флаги doctor:
+
+```bash
+python scripts/doctor.py --json
+python scripts/doctor.py --strict
+python scripts/doctor.py --quiet
+```
+
 1. Клонировать репозиторий
 
 ```bash

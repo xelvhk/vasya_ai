@@ -118,6 +118,7 @@ Current status:
 - Memory latest-digest fast command landed in `v0.5.45` for quick voice/text lookup
 - Tray digest UX simplification landed in `v0.5.46` with compact non-duplicative actions
 - Tray one-click latest digest action landed in `v0.5.47` with auto-build fallback when no digest file exists
+- Memory search UX polish landed in `v0.5.48` with compact scan-friendly result formatting
 
 Targets:
 - menu bar app or lightweight desktop shell
@@ -264,6 +265,7 @@ Good future exports:
 - `v0.5.45`: latest digest fast command (`memory_digest_latest`)
 - `v0.5.46`: tray digest UX simplification (remove duplicate day/week/month actions)
 - `v0.5.47`: one-click latest digest tray action with auto-build fallback
+- `v0.5.48`: memory search result formatting polish for compact desktop popup reading
 - `v0.5.20`: continuous dictation mode (start/stop), punctuation helpers, focus-safe typing guardrails, and optional API text target
 - `v0.5.21`: security hardening baseline (strict API auth defaults, keyring-backed integration secrets, log redaction controls, safer dictation API host allowlist)
 - `v0.5.22`: API/WS throttling layer (HTTP route limits, WS session/message limits) with anti-abuse logs

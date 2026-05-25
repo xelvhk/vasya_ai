@@ -3360,7 +3360,71 @@ def main() -> None:
                 text = build_memory_search_summary(result)
             except Exception as exc:
                 text = f"Не удалось выполнить поиск: {exc}"
+                QMessageBox.information(self, "Поиск в памяти", text)
+                return
             QMessageBox.information(self, "Поиск в памяти", text)
+            self._prompt_open_memory_search_result(result)
+
+        def _prompt_open_memory_search_result(self, result: dict) -> None:
+            items = result.get("items")
+            if not isinstance(items, list) or not items:
+                return
+
+            actions: list[tuple[str, str]] = []
+            for item in items[:8]:
+                if not isinstance(item, dict):
+                    continue
+                title = str(item.get("title") or "Untitled memory").strip()
+                short_title = title if len(title) <= 42 else f"{title[:39].rstrip()}..."
+                markdown_path = str(item.get("markdown_path") or "").strip()
+                url = str(item.get("url") or "").strip()
+                if markdown_path:
+                    actions.append((f"Файл: {short_title}", markdown_path))
+                if url:
+                    actions.append((f"URL: {short_title}", url))
+
+            if not actions:
+                return
+
+            labels = [label for label, _ in actions]
+            selected_label, accepted = QInputDialog.getItem(
+                self,
+                "Открыть результат",
+                "Быстрое действие:",
+                labels,
+                0,
+                False,
+            )
+            if not accepted:
+                return
+
+            selected_label = str(selected_label)
+            for label, target in actions:
+                if label != selected_label:
+                    continue
+                if label.startswith("Файл: "):
+                    self._open_memory_search_file(target)
+                else:
+                    self._open_memory_search_url(target)
+                return
+
+        def _open_memory_search_file(self, path: str) -> None:
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+            if not opened:
+                QMessageBox.information(
+                    self,
+                    "Поиск в памяти",
+                    f"Не удалось открыть файл:\n{path}",
+                )
+
+        def _open_memory_search_url(self, url: str) -> None:
+            opened = QDesktopServices.openUrl(QUrl(url))
+            if not opened:
+                QMessageBox.information(
+                    self,
+                    "Поиск в памяти",
+                    f"Не удалось открыть URL:\n{url}",
+                )
 
         def _open_or_build_latest_memory_digest(self) -> None:
             try:

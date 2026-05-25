@@ -61,6 +61,13 @@ python scripts/doctor.py
 python main.py
 ```
 
+Doctor flags:
+```bash
+python scripts/doctor.py --json
+python scripts/doctor.py --strict
+python scripts/doctor.py --quiet
+```
+
 Optional API mode:
 ```bash
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload

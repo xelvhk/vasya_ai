@@ -59,7 +59,6 @@ from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.memory_center_service import (
     build_memory_daily_digest,
     build_memory_center_summary,
-    build_memory_digest_summary,
     build_memory_digest_history_summary,
     build_memory_recent_summary,
     build_memory_search_summary,
@@ -3205,17 +3204,13 @@ def main() -> None:
             memory_search_action.triggered.connect(self._search_memory_center)
             menu.addAction(memory_search_action)
 
-            memory_digest_action = QAction("Дайджест памяти за сегодня...", self)
-            memory_digest_action.triggered.connect(self._build_memory_center_digest)
+            memory_digest_action = QAction("Последний дайджест памяти...", self)
+            memory_digest_action.triggered.connect(self._open_or_build_latest_memory_digest)
             menu.addAction(memory_digest_action)
 
             memory_digests_action = QAction("История дайджестов...", self)
             memory_digests_action.triggered.connect(self._show_memory_center_digests)
             menu.addAction(memory_digests_action)
-
-            open_latest_digest_action = QAction("Открыть последний дайджест", self)
-            open_latest_digest_action.triggered.connect(self._open_latest_memory_digest)
-            menu.addAction(open_latest_digest_action)
 
             memory_sync_action = QAction("Синхронизировать память", self)
             memory_sync_action.triggered.connect(self._sync_memory_center_now)
@@ -3367,13 +3362,24 @@ def main() -> None:
                 text = f"Не удалось выполнить поиск: {exc}"
             QMessageBox.information(self, "Поиск в памяти", text)
 
-        def _build_memory_center_digest(self) -> None:
+        def _open_or_build_latest_memory_digest(self) -> None:
             try:
-                result = build_memory_daily_digest()
-                text = build_memory_digest_summary(result)
+                result = list_memory_daily_digests(limit=1)
+                items = result.get("items")
+                if isinstance(items, list) and items and isinstance(items[0], dict):
+                    path = str(items[0].get("path") or "").strip()
+                    if path:
+                        self._open_memory_digest_path(path)
+                        return
+                digest_result = build_memory_daily_digest()
+                digest_path = str(digest_result.get("path") or "").strip()
+                self._open_memory_digest_path(digest_path)
             except Exception as exc:
-                text = f"Не удалось собрать дайджест памяти: {exc}"
-            QMessageBox.information(self, "Дайджест памяти", text)
+                QMessageBox.information(
+                    self,
+                    "Memory digest",
+                    f"Не удалось открыть дайджест: {exc}",
+                )
 
         def _show_memory_center_digests(self) -> None:
             try:
@@ -3382,27 +3388,6 @@ def main() -> None:
             except Exception as exc:
                 text = f"Не удалось прочитать историю дайджестов: {exc}"
             QMessageBox.information(self, "История дайджестов", text)
-
-        def _open_latest_memory_digest(self) -> None:
-            try:
-                result = list_memory_daily_digests(limit=1)
-                items = result.get("items")
-                if not isinstance(items, list) or not items:
-                    QMessageBox.information(
-                        self,
-                        "Memory digest",
-                        "Пока нет файлов дайджеста.",
-                    )
-                    return
-                item = items[0] if isinstance(items[0], dict) else {}
-                path = str(item.get("path") or "").strip()
-                self._open_memory_digest_path(path)
-            except Exception as exc:
-                QMessageBox.information(
-                    self,
-                    "Memory digest",
-                    f"Не удалось открыть последний дайджест: {exc}",
-                )
 
         def _open_memory_digest_path(self, path: str) -> None:
             if not path:

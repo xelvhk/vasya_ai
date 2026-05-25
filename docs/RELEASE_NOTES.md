@@ -34,6 +34,7 @@
 - Replaced separate digest build/open tray actions with one-click "latest digest" action that auto-builds today digest when no file exists.
 - Polished Memory search popup formatting with compact source+title rows and shortened snippets for faster scanning.
 - Added doctor diagnostics baseline with structured `OK/WARN/FAIL` checks, actionable fix hints, and API auth + memory path validation.
+- Added Memory search quick-open tray actions to open matched local files and source URLs directly after search.
 
 ## v0.5.10
 - API gateway foundation added for future web/mobile clients (`apps/api`)

@@ -50,3 +50,8 @@ class MemorySyncRequest(BaseModel):
 
 class MemoryDigestRequest(BaseModel):
     date: str | None = Field(default=None, max_length=10)
+
+
+class MorningBriefRequest(BaseModel):
+    save_markdown: bool = True
+    use_llm: bool = True

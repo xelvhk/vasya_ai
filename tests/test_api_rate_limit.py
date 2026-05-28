@@ -60,6 +60,19 @@ class RateLimitTests(unittest.TestCase):
         recovered = rate_limit.check_http_rate_limit(path, client_id, now=after_window)
         self.assertTrue(recovered.allowed)
 
+    def test_morning_brief_uses_http_rate_limit(self) -> None:
+        path = "/v1/morning-brief"
+        client_id = "brief-client"
+        now = 40_000.0
+
+        for index in range(rate_limit.API_RATE_LIMIT_MORNING_BRIEF_MAX):
+            decision = rate_limit.check_http_rate_limit(path, client_id, now=now + index * 0.01)
+            self.assertTrue(decision.allowed)
+
+        blocked = rate_limit.check_http_rate_limit(path, client_id, now=now + 0.5)
+        self.assertFalse(blocked.allowed)
+        self.assertGreaterEqual(blocked.retry_after_seconds, 1)
+
     def test_ws_connection_limit(self) -> None:
         client_id = "ws-client"
         for _ in range(rate_limit.API_RATE_LIMIT_WS_CONNECTIONS_MAX):

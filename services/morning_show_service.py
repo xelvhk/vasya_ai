@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Thread
 from urllib.parse import quote
@@ -15,8 +16,29 @@ from config.settings import (
     MORNING_SHOW_PREWARM_ENABLED,
     MORNING_SHOW_STATE_FILE,
     MORNING_SHOW_WEATHER_CACHE_MINUTES,
+    MEMORY_WIKI_DIR,
 )
-from services.task_service import count_open_tasks
+from services.calendar_service import get_events
+from services.memory_center_service import (
+    list_memory_daily_digests,
+    list_recent_memory_center,
+    get_memory_center_status,
+)
+from services.ollama_client import generate
+from services.task_service import get_tasks
+
+
+@dataclass(frozen=True)
+class MorningBriefResult:
+    ok: bool
+    date: str
+    spoken_summary: str
+    markdown_path: str | None
+    sections: dict
+    warnings: list[str]
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 _QUOTES: tuple[str, ...] = (
@@ -27,6 +49,65 @@ _QUOTES: tuple[str, ...] = (
     "Сделай один полезный шаг и день уже удался.",
     "Лучший момент начать это сейчас.",
 )
+
+
+def build_morning_brief(
+    now: datetime | None = None,
+    *,
+    city: str | None = None,
+    save_markdown: bool = True,
+    use_llm: bool = True,
+    weather_timeout: float = 1.2,
+    allow_stale_weather: bool = True,
+) -> MorningBriefResult:
+    current = now or datetime.now()
+    day_iso = current.date().isoformat()
+    runtime = _load_runtime_config()
+    resolved_city = (
+        str(city).strip()
+        if city is not None
+        else str(runtime.get("city", MORNING_SHOW_CITY)).strip()
+    ) or MORNING_SHOW_CITY
+
+    sections: dict = {}
+    warnings: list[str] = []
+    sections["weather"] = _collect_weather_section(
+        city=resolved_city,
+        weather_timeout=weather_timeout,
+        allow_stale_weather=allow_stale_weather,
+        warnings=warnings,
+    )
+    sections["tasks"] = _collect_tasks_section(warnings=warnings)
+    sections["events"] = _collect_events_section(today=current.date(), warnings=warnings)
+    sections["memory"] = _collect_memory_section(warnings=warnings)
+    sections["priorities"] = _build_priority_section(sections)
+
+    spoken_summary = _build_template_spoken_summary(day_iso=day_iso, sections=sections)
+    if use_llm:
+        llm_summary = _build_llm_spoken_summary(day_iso=day_iso, sections=sections)
+        if llm_summary:
+            spoken_summary = llm_summary
+
+    markdown_path = None
+    if save_markdown:
+        try:
+            markdown_path = str(_write_morning_brief_markdown(
+                day_iso=day_iso,
+                spoken_summary=spoken_summary,
+                sections=sections,
+                warnings=warnings,
+            ))
+        except Exception as exc:
+            warnings.append(f"Markdown-брифинг не удалось сохранить: {exc}")
+
+    return MorningBriefResult(
+        ok=True,
+        date=day_iso,
+        spoken_summary=spoken_summary,
+        markdown_path=markdown_path,
+        sections=sections,
+        warnings=warnings,
+    )
 
 
 def get_morning_show_message(
@@ -72,12 +153,17 @@ def get_morning_show_message(
     if not force and state.get("last_show_date") == today:
         return None
     prepared = _get_prepared_message(state=state, day_iso=today, city=resolved_city)
-    message = prepared or _build_morning_show_message(
-        today=today,
-        city=resolved_city,
-        weather_timeout=1.2,
-        allow_stale_weather=True,
-    )
+    message = prepared
+    if not message:
+        brief = build_morning_brief(
+            current,
+            city=resolved_city,
+            save_markdown=True,
+            use_llm=True,
+            weather_timeout=1.2,
+            allow_stale_weather=True,
+        )
+        message = _append_markdown_path_to_summary(brief)
     if not prepared:
         _save_prepared_message(state=state, day_iso=today, city=resolved_city, message=message)
 
@@ -173,18 +259,363 @@ def _fetch_weather_line(city: str, *, timeout: float = 1.8) -> str | None:
     return None
 
 
-def _build_tasks_line() -> str | None:
+def _collect_weather_section(
+    *,
+    city: str,
+    weather_timeout: float,
+    allow_stale_weather: bool,
+    warnings: list[str],
+) -> dict:
+    state = _load_state()
+    weather_line = _get_cached_weather_line(
+        state=state,
+        city=city,
+        allow_stale=allow_stale_weather,
+    )
+    if weather_line is None:
+        weather_line = _fetch_weather_line(city, timeout=weather_timeout)
+        if weather_line:
+            _save_cached_weather_line(state=state, city=city, line=weather_line)
+            _save_state(state)
+    if not weather_line:
+        warnings.append(f"Погоду для {city} не удалось получить.")
+    return {"city": city, "summary": weather_line or ""}
+
+
+def _collect_tasks_section(*, warnings: list[str]) -> dict:
     try:
-        open_tasks = int(count_open_tasks())
+        tasks = list(get_tasks())
+    except Exception as exc:
+        warnings.append(f"Задачи недоступны: {exc}")
+        return {"open_count": 0, "upcoming": []}
+
+    dated = [task for task in tasks if str(task.get("datetime") or "").strip()]
+    dated.sort(key=lambda item: str(item.get("datetime") or ""))
+    upcoming = [
+        {
+            "id": task.get("id"),
+            "task": str(task.get("task") or "").strip(),
+            "datetime": str(task.get("datetime") or "").strip() or None,
+        }
+        for task in dated[:3]
+        if str(task.get("task") or "").strip()
+    ]
+    return {"open_count": len(tasks), "upcoming": upcoming}
+
+
+def _collect_events_section(*, today: date, warnings: list[str]) -> dict:
+    today_iso = today.isoformat()
+    tomorrow_iso = (today + timedelta(days=1)).isoformat()
+    try:
+        payload = get_events()
+    except Exception as exc:
+        warnings.append(f"Календарь недоступен: {exc}")
+        return {"today": [], "tomorrow": []}
+
+    sync_error = payload.get("google_sync_error") if isinstance(payload, dict) else None
+    if sync_error:
+        warnings.append(f"Google Calendar: {sync_error}")
+    raw_events = payload.get("events") if isinstance(payload, dict) else []
+    if not isinstance(raw_events, list):
+        raw_events = []
+    return {
+        "today": _events_for_date(raw_events, today_iso)[:5],
+        "tomorrow": _events_for_date(raw_events, tomorrow_iso)[:5],
+    }
+
+
+def _collect_memory_section(*, warnings: list[str]) -> dict:
+    status: dict = {}
+    recent: dict = {}
+    latest_digest: dict = {}
+    try:
+        status = get_memory_center_status()
+    except Exception as exc:
+        warnings.append(f"Memory Center status недоступен: {exc}")
+    try:
+        recent = list_recent_memory_center(limit=5)
+    except Exception as exc:
+        warnings.append(f"Memory Center recent недоступен: {exc}")
+    try:
+        latest_digest = list_memory_daily_digests(limit=1)
+    except Exception as exc:
+        warnings.append(f"Memory digest недоступен: {exc}")
+
+    if isinstance(status, dict):
+        sync_connections = status.get("sync_connections")
+        if isinstance(sync_connections, list):
+            for item in sync_connections:
+                if not isinstance(item, dict):
+                    continue
+                error = str(item.get("last_error") or "").strip()
+                if error:
+                    toolkit = str(item.get("toolkit") or "source")
+                    warnings.append(f"Memory sync {toolkit}: {error}")
+
+    recent_items = recent.get("items") if isinstance(recent, dict) else []
+    digest_items = latest_digest.get("items") if isinstance(latest_digest, dict) else []
+    return {
+        "status": str(status.get("status") or "unknown") if isinstance(status, dict) else "unknown",
+        "sources_count": int(status.get("sources_count") or 0) if isinstance(status, dict) else 0,
+        "chunks_count": int(status.get("chunks_count") or 0) if isinstance(status, dict) else 0,
+        "recent": _compact_memory_items(recent_items if isinstance(recent_items, list) else []),
+        "latest_digest": digest_items[0] if isinstance(digest_items, list) and digest_items else None,
+    }
+
+
+def _events_for_date(events: list, day_iso: str) -> list[dict]:
+    matched = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        dt = str(event.get("datetime") or "").strip()
+        if not dt.startswith(day_iso):
+            continue
+        title = str(event.get("title") or "").strip()
+        if title:
+            matched.append(
+                {
+                    "id": event.get("id"),
+                    "title": title,
+                    "datetime": dt,
+                    "source": str(event.get("source") or "local"),
+                }
+            )
+    matched.sort(key=lambda item: str(item.get("datetime") or ""))
+    return matched
+
+
+def _compact_memory_items(items: list) -> list[dict]:
+    compact = []
+    for item in items[:5]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        if not title:
+            continue
+        compact.append(
+            {
+                "title": title,
+                "source_key": str(item.get("source_key") or "source"),
+                "snippet": _summarize_for_brief(str(item.get("snippet") or ""), limit=120),
+                "markdown_path": str(item.get("markdown_path") or "").strip(),
+                "url": str(item.get("url") or "").strip(),
+            }
+        )
+    return compact
+
+
+def _build_priority_section(sections: dict) -> list[str]:
+    priorities: list[str] = []
+    for task in sections.get("tasks", {}).get("upcoming", []):
+        text = str(task.get("task") or "").strip()
+        if text:
+            priorities.append(f"Закрыть задачу: {text}")
+        if len(priorities) >= 3:
+            return priorities
+    for event in sections.get("events", {}).get("today", []):
+        title = str(event.get("title") or "").strip()
+        if title:
+            priorities.append(f"Подготовиться к событию: {title}")
+        if len(priorities) >= 3:
+            return priorities
+    for item in sections.get("memory", {}).get("recent", []):
+        title = str(item.get("title") or "").strip()
+        if title:
+            priorities.append(f"Просмотреть свежий контекст: {title}")
+        if len(priorities) >= 3:
+            return priorities
+
+    for item in (
+        "Выбрать один главный шаг дня",
+        "Разобрать ближайшую открытую задачу",
+        "Зафиксировать короткий итог дня в памяти",
+    ):
+        if len(priorities) >= 3:
+            break
+        priorities.append(item)
+    return priorities
+
+
+def _build_template_spoken_summary(*, day_iso: str, sections: dict) -> str:
+    weather = str(sections.get("weather", {}).get("summary") or "").strip()
+    tasks = sections.get("tasks", {})
+    events = sections.get("events", {})
+    memory = sections.get("memory", {})
+    priorities = sections.get("priorities", [])
+    first_priority = str(priorities[0] if priorities else "Выбрать один главный шаг дня")
+
+    parts = [f"Доброе утро. Брифинг на {day_iso}."]
+    if weather:
+        parts.append(weather)
+    parts.append(f"Открытых задач: {int(tasks.get('open_count') or 0)}.")
+    parts.append(f"Событий сегодня: {len(events.get('today') or [])}.")
+    parts.append(f"В Memory Center свежих подсказок: {len(memory.get('recent') or [])}.")
+    parts.append(f"Главный фокус: {first_priority}.")
+    parts.append(f"Мысль дня: {_quote_for_day(day_iso)}")
+    return " ".join(parts)
+
+
+def _build_llm_spoken_summary(*, day_iso: str, sections: dict) -> str | None:
+    prompt = (
+        "Собери короткий утренний брифинг на русском в 4-6 предложениях. "
+        "Без Markdown, без списков, спокойно и по делу. "
+        "Не выдумывай факты, используй только JSON ниже.\n\n"
+        f"Дата: {day_iso}\n"
+        f"Данные: {json.dumps(sections, ensure_ascii=False)[:6000]}"
+    )
+    try:
+        summary = generate(prompt, temperature=0.2, num_predict=180)
     except Exception:
         return None
-    if open_tasks <= 0:
-        return "По задачам: открытых задач сейчас нет."
-    if open_tasks == 1:
-        return "По задачам: открыта 1 задача."
-    if 2 <= open_tasks <= 4:
-        return f"По задачам: открыто {open_tasks} задачи."
-    return f"По задачам: открыто {open_tasks} задач."
+    summary = " ".join(summary.split())
+    return summary[:900] or None
+
+
+def _write_morning_brief_markdown(
+    *,
+    day_iso: str,
+    spoken_summary: str,
+    sections: dict,
+    warnings: list[str],
+) -> Path:
+    brief_dir = Path(MEMORY_WIKI_DIR).expanduser() / "briefings"
+    brief_dir.mkdir(parents=True, exist_ok=True)
+    path = brief_dir / f"{day_iso}.md"
+    path.write_text(
+        _compose_morning_brief_markdown(
+            day_iso=day_iso,
+            spoken_summary=spoken_summary,
+            sections=sections,
+            warnings=warnings,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _compose_morning_brief_markdown(
+    *,
+    day_iso: str,
+    spoken_summary: str,
+    sections: dict,
+    warnings: list[str],
+) -> str:
+    lines = [
+        "---",
+        "type: morning_brief",
+        f"date: {day_iso}",
+        "---",
+        "",
+        f"# Morning Brief {day_iso}",
+        "",
+        "## Summary",
+        "",
+        _markdown_line(spoken_summary),
+        "",
+        "## Weather",
+        "",
+        _markdown_line(str(sections.get("weather", {}).get("summary") or "_No weather data._")),
+        "",
+        "## Tasks",
+        "",
+        f"Open tasks: {int(sections.get('tasks', {}).get('open_count') or 0)}",
+        "",
+    ]
+    _append_task_lines(lines, sections.get("tasks", {}).get("upcoming") or [])
+    lines.extend(["", "## Calendar", ""])
+    _append_event_lines(lines, "Today", sections.get("events", {}).get("today") or [])
+    _append_event_lines(lines, "Tomorrow", sections.get("events", {}).get("tomorrow") or [])
+    lines.extend(["", "## Memory Context", ""])
+    memory = sections.get("memory", {})
+    lines.append(f"Status: {memory.get('status', 'unknown')}")
+    lines.append(f"Sources: {memory.get('sources_count', 0)}")
+    lines.append(f"Chunks: {memory.get('chunks_count', 0)}")
+    latest_digest = memory.get("latest_digest")
+    if isinstance(latest_digest, dict):
+        lines.append(
+            f"Latest digest: {latest_digest.get('date', 'unknown')} "
+            f"({latest_digest.get('chunks_count', 0)} chunks)"
+        )
+        if latest_digest.get("path"):
+            lines.append(f"Digest file: {_markdown_line(str(latest_digest.get('path') or ''))}")
+    recent = memory.get("recent") or []
+    if recent:
+        lines.extend(["", "Recent:"])
+        for item in recent:
+            title = _markdown_line(str(item.get("title") or "Untitled"))
+            source_key = _markdown_line(str(item.get("source_key") or "source"))
+            lines.append(f"- {title} [{source_key}]")
+            if item.get("snippet"):
+                lines.append(f"  {_markdown_line(str(item.get('snippet') or ''))}")
+    else:
+        lines.extend(["", "_No recent memory chunks._"])
+
+    lines.extend(["", "## Suggested Priorities", ""])
+    for priority in sections.get("priorities", []) or []:
+        lines.append(f"- [ ] {_markdown_line(str(priority))}")
+    if warnings:
+        lines.extend(["", "## Warnings", ""])
+        for warning in warnings:
+            lines.append(f"- {_markdown_line(str(warning))}")
+    return "\n".join(lines).strip() + "\n"
+
+
+def _append_task_lines(lines: list[str], tasks: list) -> None:
+    if not tasks:
+        lines.append("_No dated open tasks._")
+        return
+    for task in tasks:
+        when = _markdown_line(str(task.get("datetime") or "without date"))
+        task_text = _markdown_line(str(task.get("task") or "Untitled task"))
+        lines.append(f"- [ ] {task_text} ({when})")
+
+
+def _append_event_lines(lines: list[str], label: str, events: list) -> None:
+    lines.append(f"### {label}")
+    lines.append("")
+    if not events:
+        lines.append("_No events._")
+        lines.append("")
+        return
+    for event in events:
+        when = _markdown_line(str(event.get("datetime") or "without time"))
+        title = _markdown_line(str(event.get("title") or "Untitled event"))
+        lines.append(f"- {when}: {title}")
+    lines.append("")
+
+
+def _append_markdown_path_to_summary(brief: MorningBriefResult) -> str:
+    if brief.markdown_path:
+        return f"{brief.spoken_summary} Полный брифинг: {brief.markdown_path}"
+    return brief.spoken_summary
+
+
+def _summarize_for_brief(value: str, *, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
+
+
+def _markdown_line(value: str) -> str:
+    text = " ".join(str(value or "").split())
+    replacements = {
+        "\\": "\\\\",
+        "`": "\\`",
+        "*": "\\*",
+        "_": "\\_",
+        "[": "\\[",
+        "]": "\\]",
+        "(": "\\(",
+        ")": "\\)",
+        "#": "\\#",
+        "<": "\\<",
+        ">": "\\>",
+    }
+    for raw, escaped in replacements.items():
+        text = text.replace(raw, escaped)
+    return text
 
 
 def _load_state() -> dict:
@@ -265,39 +696,17 @@ def _prewarm_morning_show(
     state = _load_state()
     if _get_prepared_message(state=state, day_iso=day_iso, city=resolved_city):
         return
-    message = _build_morning_show_message(
-        today=day_iso,
+    brief = build_morning_brief(
+        current,
         city=resolved_city,
+        save_markdown=True,
+        use_llm=False,
         weather_timeout=0.9,
         allow_stale_weather=True,
     )
+    message = _append_markdown_path_to_summary(brief)
     _save_prepared_message(state=state, day_iso=day_iso, city=resolved_city, message=message)
     _save_state(state)
-
-
-def _build_morning_show_message(
-    *,
-    today: str,
-    city: str,
-    weather_timeout: float,
-    allow_stale_weather: bool,
-) -> str:
-    state = _load_state()
-    weather_line = _get_cached_weather_line(state=state, city=city, allow_stale=allow_stale_weather)
-    if weather_line is None:
-        weather_line = _fetch_weather_line(city, timeout=weather_timeout)
-        if weather_line:
-            _save_cached_weather_line(state=state, city=city, line=weather_line)
-            _save_state(state)
-    tasks_line = _build_tasks_line()
-    quote = _quote_for_day(today)
-    parts = ["Доброе утро. Короткое утреннее шоу."]
-    if weather_line:
-        parts.append(weather_line)
-    if tasks_line:
-        parts.append(tasks_line)
-    parts.append(f"Мысль дня: {quote}")
-    return " ".join(parts)
 
 
 def _get_prepared_message(*, state: dict, day_iso: str, city: str) -> str | None:

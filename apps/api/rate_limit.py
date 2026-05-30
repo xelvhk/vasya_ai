@@ -9,6 +9,7 @@ from typing import Any
 from config.settings import (
     API_RATE_LIMIT_CHAT_MAX,
     API_RATE_LIMIT_ENABLED,
+    API_RATE_LIMIT_MORNING_BRIEF_MAX,
     API_RATE_LIMIT_PIPELINE_MAX,
     API_RATE_LIMIT_WINDOW_SECONDS,
     API_RATE_LIMIT_WS_CONNECTIONS_MAX,
@@ -130,6 +131,8 @@ def _http_limit_for_path(path: str) -> int:
         return max(1, API_RATE_LIMIT_CHAT_MAX)
     if normalized.endswith("/pipeline"):
         return max(1, API_RATE_LIMIT_PIPELINE_MAX)
+    if normalized.endswith("/morning-brief"):
+        return max(1, API_RATE_LIMIT_MORNING_BRIEF_MAX)
     return 0
 
 

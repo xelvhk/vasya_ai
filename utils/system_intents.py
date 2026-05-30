@@ -80,6 +80,11 @@ AUTO_TUNE_VOICE_PHRASES = (
 )
 
 MORNING_SHOW_FORCE_PHRASES = (
+    "утренний брифинг",
+    "брифинг на сегодня",
+    "собери утренний брифинг",
+    "покажи утренний брифинг",
+    "расскажи утренний брифинг",
     "утреннее шоу",
     "запусти утреннее шоу",
     "включи утреннее шоу",
@@ -145,7 +150,7 @@ def detect_system_intent(user_text: str) -> IntentResult | None:
     if normalized in MORNING_SHOW_GREETING_PHRASES or normalized_compact.startswith("доброе утро"):
         return IntentResult(intent="morning_show", data={"force": True})
 
-    if "утреннее шоу" in normalized_compact:
+    if "утреннее шоу" in normalized_compact or "утренний брифинг" in normalized_compact:
         return IntentResult(intent="morning_show", data={"force": True})
 
     if normalized in START_DICTATION_MODE_PHRASES:

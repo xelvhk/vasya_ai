@@ -7,7 +7,7 @@
 Локальный voice-first AI-ассистент с текущим MVP-фокусом на macOS и дальнейшим развитием в сторону Windows и Linux.
 Vasya развивается из CLI MVP в более широкую систему персонального AI: задачи, календарь, будущие сценарии для заметок, десктопный интерфейс и специализированные агенты.
 
-Текущая версия: `0.5.10`
+Текущая версия: `0.5.50`
 
 ## Обзор
 
@@ -41,6 +41,7 @@ Vasya уже умеет:
 - поддерживать голосовую команду для открытия текстового окна
 - поддерживать утреннее шоу при первом обращении за день (погода + мысль дня)
 - поддерживать API-шлюз для будущих mobile/web клиентов (`apps/api`)
+- поддерживать Memory Center: локальные источники/чанки, поиск, recent view, daily digest, историю digest'ов и quick-open действия для найденных файлов/URL
 
 Roadmap:
 - см. [ROADMAP.md](ROADMAP.md)
@@ -80,6 +81,8 @@ Roadmap:
 - `Синхронизируй GitHub в Notion`
 - `Прочитай Notion`
 - `Отчет скорости`
+- `Найди в памяти архитектурное решение`
+- `Последний дайджест памяти`
 - `Cmd+Option+K` (открыть окно текстовой команды)
 - `Замолчи`
 - `Выход`
@@ -581,7 +584,36 @@ python scripts/obsidian_vault_bootstrap.py --vault "~/Documents/Obsidian Vault" 
 - `v0.5.18`: streaming pipeline layer, WebSocket realtime режим, модульный реестр STT/TTS/LLM и benchmark harness
 - `v0.5.19`: голосовая диктовка в активное поле (`os_type_text`) с fast RU-фразами (`добавь текст ...`, `продиктуй ...`, `вставь ...`)
 - `v0.5.20`: режим непрерывной диктовки (`старт/стоп`), команды пунктуации и guardrails для безопасного ввода по фокусу
+- `v0.5.21`: security hardening baseline: строгий API auth по умолчанию, keyring для токенов интеграций, log redaction и safer dictation API host allowlist
+- `v0.5.22`: API/WS throttling layer для anti-abuse защиты
+- `v0.5.23`: security test baseline для auth/throttling/log redaction
 - `v0.5.24`: managed Obsidian vault bootstrap (папки `00..99`, шаблоны, frontmatter/link index, рекомендуемый plugin manifest)
+- `v0.5.25`: Memory Center foundation: local memory sources/chunks, Markdown wiki artifacts, sync-state tracking и `/v1/memory/status`
+- `v0.5.26`: GitHub/Notion/Obsidian sync в Memory Center через `/v1/memory/sync`
+- `v0.5.27`: desktop Memory Center controls: status и manual sync из avatar/tray меню
+- `v0.5.28`: background Memory Center scheduler
+- `v0.5.29`: Memory Center search endpoint с локальным provenance-backed retrieval
+- `v0.5.30`: desktop Memory Center search action
+- `v0.5.31`: voice/text команды для Memory Center status, sync и search
+- `v0.5.32`: Memory Center recent view и команды "что нового в памяти"
+- `v0.5.33`: desktop Memory Center recent action
+- `v0.5.34`: deterministic Memory Center daily digest artifacts и `/v1/memory/digest`
+- `v0.5.35`: desktop Memory Center daily digest action
+- `v0.5.36`: digest history через `/v1/memory/digests`, desktop action и fast command
+- `v0.5.37`: desktop action to open latest Memory digest
+- `v0.5.38`: digest history date range filters
+- `v0.5.39`: digest history presets `range=7d|30d`
+- `v0.5.40`: desktop digest history presets 7d/30d
+- `v0.5.41`: desktop digest history day presets today/yesterday
+- `v0.5.42`: desktop open-digest day actions
+- `v0.5.43`: API day presets `range=today|yesterday`
+- `v0.5.44`: direct latest digest endpoint `/v1/memory/digests/latest`
+- `v0.5.45`: latest digest fast command
+- `v0.5.46`: simplified tray digest UX
+- `v0.5.47`: one-click latest digest tray action with auto-build fallback
+- `v0.5.48`: polished Memory search popup formatting
+- `v0.5.49`: doctor diagnostics baseline with structured OK/WARN/FAIL checks and actionable fix hints
+- `v0.5.50`: Memory search quick-open actions for direct file/URL opening from tray results
 - `v0.5.x`: более цельный desktop shell, richer avatar behavior и пользовательские visual themes
 - `v0.6.x`: упрощение установки, Windows setup path, затем Linux setup path
 - `v0.7.x`: Notion adapter + более глубокий Obsidian workflow

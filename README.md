@@ -52,7 +52,7 @@ API dictation mode:
 - SQLite
 - sounddevice + scipy
 
-## Quick Start
+## Setup
 ```bash
 git clone https://github.com/xelvhk/vasya_ai.git
 cd vasya_ai
@@ -151,5 +151,8 @@ Minimal CI is configured in `.github/workflows/ci.yml`:
 - install dependencies
 - run syntax check (`python -m compileall .`)
 
+## Status
+Active development
+
 ## License
-MIT License. See [LICENSE](LICENSE).
+GNU AGPLv3. See [LICENSE](LICENSE).

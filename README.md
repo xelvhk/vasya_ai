@@ -4,6 +4,8 @@ Local-first voice AI assistant for desktop productivity.
 
 `vasya_ai` is a product-oriented assistant that helps manage tasks, events, notes, and integrations through voice and text, with local-first storage and optional external sync.
 
+Current version: **0.5.50**
+
 Language: **English** | [Русский](README.ru.md)
 
 ## Product Value
@@ -16,6 +18,7 @@ Language: **English** | [Русский](README.ru.md)
 - Personal planner: add/list/complete tasks and schedule events by voice
 - Daily assistant: morning briefing (weather + quote), reminders, quick notes
 - Integration assistant: sync GitHub updates to Notion, export notes to Obsidian
+- Memory assistant: search local Memory Center context and open matched files/URLs from desktop actions
 - Automation sandbox: test local agent orchestration and routing policies
 
 ## Voice Typing

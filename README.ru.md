@@ -186,7 +186,7 @@ flowchart LR
 ## Demo / Screenshots
 Текущие превью:
 
-- Avatar widget concept  
+- Avatar widget concept
 ![Avatar widget preview](docs/screenshots/avatar-widget.png)
 
 ## Doctor CLI

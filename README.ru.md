@@ -186,8 +186,17 @@ flowchart LR
 ## Demo / Screenshots
 Текущие превью:
 
-- Avatar widget concept  
+- Avatar widget concept
 ![Avatar widget preview](docs/screenshots/avatar-widget.png)
+
+## Doctor CLI
+Флаги диагностики:
+
+```bash
+python scripts/doctor.py --json
+python scripts/doctor.py --strict
+python scripts/doctor.py --quiet
+```
 
 ## Roadmap
 Краткий roadmap:

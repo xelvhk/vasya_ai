@@ -1,13 +1,12 @@
-# Vasya AI
+# vasya_ai
 
-`VAS = Voice AI Assistant`
+Локальный voice-first AI-ассистент для персональной продуктивности.
 
 Язык: [English](README.md) | **Русский**
 
-Локальный voice-first AI-ассистент с текущим MVP-фокусом на macOS и дальнейшим развитием в сторону Windows и Linux.
-Vasya развивается из CLI MVP в более широкую систему персонального AI: задачи, календарь, будущие сценарии для заметок, десктопный интерфейс и специализированные агенты.
+`vasya_ai` — продуктовый AI-ассистент, который помогает управлять задачами, событиями, заметками и интеграциями через голос и текст, с локальным хранением и опциональной внешней синхронизацией.
 
-Текущая версия: `0.5.10`
+Текущая версия: `0.5.50`
 
 ## Обзор
 
@@ -41,11 +40,25 @@ Vasya уже умеет:
 - поддерживать голосовую команду для открытия текстового окна
 - поддерживать утреннее шоу при первом обращении за день (погода + мысль дня)
 - поддерживать API-шлюз для будущих mobile/web клиентов (`apps/api`)
+- поддерживать Memory Center: локальные источники/чанки, поиск, recent view, daily digest, историю digest'ов и quick-open действия для найденных файлов/URL
 
 Roadmap:
 - см. [ROADMAP.md](ROADMAP.md)
 - план мобильного monorepo: [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 - security tracker: [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
+
+## Ценность продукта
+- Local-first подход: базовые данные остаются на вашем устройстве (SQLite + локальные файлы)
+- Voice-first UX с быстрым циклом команд
+- Практичные интеграции: Google Calendar, Notion, GitHub
+- API-слой для будущих web/mobile клиентов (`FastAPI`)
+
+## Use Cases
+- Личный планировщик: добавление/просмотр/закрытие задач и создание событий голосом
+- Daily assistant: утренний брифинг (погода + мысль дня), напоминания, быстрые заметки
+- Интеграционный помощник: синк обновлений GitHub в Notion, выгрузка заметок в Obsidian
+- Memory assistant: поиск по локальному Memory Center и открытие найденных файлов/URL
+- Automation sandbox: тестирование локальной оркестрации и routing policies
 
 ## Текущее MVP
 
@@ -80,6 +93,8 @@ Roadmap:
 - `Синхронизируй GitHub в Notion`
 - `Прочитай Notion`
 - `Отчет скорости`
+- `Найди в памяти архитектурное решение`
+- `Последний дайджест памяти`
 - `Cmd+Option+K` (открыть окно текстовой команды)
 - `Замолчи`
 - `Выход`
@@ -103,161 +118,79 @@ Roadmap:
 - для безопасности host проверяется по `DICTATION_API_ALLOWED_HOSTS` (по умолчанию только localhost)
 
 ## Стек
-
-- Python
-- Ollama
-- Llama 3
-- faster-whisper
-- sounddevice
-- scipy
-- pydantic
-- SQLite
+- Python 3.11+
 - FastAPI
+- Ollama (локальная LLM)
+- faster-whisper (STT)
+- SQLite
+- sounddevice + scipy
 
-## API (база для mobile)
+## Setup
+```bash
+git clone https://github.com/xelvhk/vasya_ai.git
+cd vasya_ai
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python scripts/doctor.py
+python main.py
+```
 
-Запуск API:
-
+Опциональный API-режим:
 ```bash
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 ```
 
-Защита по умолчанию:
-- для `/v1/*` требуется API-ключ (`VASYA_API_REQUIRE_AUTH=true`)
-- включен HTTP throttling для `/v1/chat` и `/v1/pipeline`
-- включен WS throttling для `/v1/ws/voice` (лимиты на подключения и сообщения)
+## Environment
+Скопируйте `.env.example` в `.env` и настройте переменные под свое окружение.
 
-Основные endpoint'ы:
-- `GET /health`
-- `GET /health/live` (liveness probe: процесс API жив)
-- `GET /health/ready` (readiness probe: проверка готовности зависимостей)
-- `POST /v1/chat`
-- `POST /v1/pipeline` (stage-based text pipeline, optional TTS)
-- `GET /v1/backends` (зарегистрированные STT/TTS/LLM модули)
-- `GET /v1/bench/voice` (benchmark snapshot по логам)
-- `WS /v1/ws/voice` (realtime text->intent->response события)
-- `GET/POST /v1/tasks`
-- `GET/POST /v1/notes`
-- `GET/POST /v1/events`
-- `POST /v1/recovery/mic-test`
-- `POST /v1/recovery/auto-tune`
-
-Критерии `GET /health/ready`:
-- `api_auth.ok=true`, если либо auth отключен, либо задан `VASYA_API_AUTH_TOKEN`
-- `tasks_backend.name` показывает активный backend задач
-- для `TASKS_BACKEND=obsidian_daily` дополнительно проверяется доступность Obsidian vault
-
-Защита API (secure-by-default):
-- задай `VASYA_API_AUTH_TOKEN` в `.env` (иначе `/v1/*` будут недоступны)
-- передавай `X-API-Key: <token>` или `Authorization: Bearer <token>`
-- для WebSocket query-токен выключен по умолчанию (`VASYA_API_ALLOW_QUERY_TOKEN=false`)
-
-Security note:
-- Токены интеграций из настроек сохраняются в OS keyring (если доступен).
-- Старые `*_token` поля мигрируются из `storage/integrations.json` при первом чтении/сохранении.
-
-## Ограничения / Responsible Use
-- Vasya предназначен для продуктивности и автоматизации, а не для медицинских, юридических или экстренных решений.
-- В шумной среде распознавание речи может ошибаться; важные действия лучше перепроверять.
-- OS-действия выполняются в активном приложении; для рискованных действий рекомендуется оставлять подтверждение включенным.
-- Интеграции (Google/Notion/GitHub) зависят от токенов, лимитов API и доступности сети.
-- Ответственность за хранение и обработку персональных/чувствительных данных остается у пользователя.
+Ключевые группы:
+- LLM и voice: `OLLAMA_*`, `WHISPER_*`, `VOICE_*`
+- UI и hotkeys: `HOTKEY_*`, `AVATAR_*`, `TTS_*`
+- Интеграции: `GOOGLE_CALENDAR_*`, `NOTION_*`, `GITHUB_*`
+- API: `VASYA_API_AUTH_TOKEN`
 
 ## Архитектура
-
-Текущий pipeline:
-
-`Голос -> запись аудио -> Whisper STT -> текст -> Ollama -> intent parsing -> router -> agent -> локальное действие -> ответ`
-
-Модель хранения:
-- задачи и события лежат в `storage/vasya.db`
-- старые JSON-файлы используются только как источник миграции
-- внешние интеграции подключаются как адаптеры поверх локального ядра
-
-## Структура проекта
-
 ```text
-ai_pal/
-├── main.py
-├── test_text.py
-├── requirements.txt
-├── .env
-├── README.md
-├── README.ru.md
-├── ROADMAP.md
-│
-├── config/
-│   ├── __init__.py
-│   ├── settings.py
-│   └── prompts.py
-│
-├── core/
-│   ├── __init__.py
-│   ├── orchestrator.py
-│   ├── intent_parser.py
-│   ├── router.py
-│   └── models.py
-│
-├── agents/
-│   ├── __init__.py
-│   ├── calendar_agent.py
-│   └── task_agent.py
-│
-├── assistant/
-│   ├── __init__.py
-│   └── state.py
-│
-├── scripts/
-│   ├── avatar_widget.py
-│   ├── doctor.py
-│   ├── hotkey_daemon.py
-│   └── setup_mac.sh
-│
-├── services/
-│   ├── __init__.py
-│   ├── ollama_client.py
-│   ├── google_calendar_client.py
-│   ├── calendar_service.py
-│   └── task_service.py
-│
-├── repositories/
-│   ├── __init__.py
-│   ├── event_repository.py
-│   └── task_repository.py
-│
-├── storage/
-│   ├── db.py
-│   └── .gitkeep
-│
-├── voice/
-│   ├── __init__.py
-│   ├── recorder.py
-│   ├── stt.py
-│   └── tts.py
-│
-└── utils/
-    ├── __init__.py
-    ├── datetime_parser.py
-    ├── humanize.py
-    ├── json_utils.py
-    └── logger.py
+Input Layer
+  voice/recorder.py, voice/stt.py, voice/pipeline.py
+
+Orchestration Layer
+  core/orchestrator.py, core/router.py, core/intent_parser.py
+
+Domain Agents
+  agents/task_agent.py, agents/calendar_agent.py, agents/note_agent.py, agents/chat_agent.py, agents/game_agent.py
+
+Services + Repositories
+  services/* + repositories/*
+
+Storage + Integrations
+  storage/vasya.db + external adapters (Google Calendar / Notion / GitHub)
+
+API Layer
+  apps/api/* (FastAPI endpoints for chat/tasks/events/notes)
 ```
 
-## Запуск
-
-Быстрая настройка для macOS:
-
-```bash
-bash scripts/setup_mac.sh
+```mermaid
+flowchart LR
+    User["User (Voice/Text)"] --> Input["Input Layer\\nvoice/*"]
+    Input --> Orchestrator["Orchestration Layer\\ncore/orchestrator.py + router + intent_parser"]
+    Orchestrator --> Agents["Domain Agents\\ntask / calendar / note / chat / game"]
+    Agents --> Services["Services + Repositories\\nservices/* + repositories/*"]
+    Services --> Storage["Local Storage\\nSQLite + local state files"]
+    Services --> Integrations["Integrations\\nGoogle Calendar / Notion / GitHub"]
+    Orchestrator --> Api["FastAPI Layer\\napps/api/*"]
 ```
 
-Диагностика окружения:
+## Demo / Screenshots
+Текущие превью:
 
-```bash
-python scripts/doctor.py
-```
+- Avatar widget concept
+![Avatar widget preview](docs/screenshots/avatar-widget.png)
 
-Флаги doctor:
+## Doctor CLI
+Флаги диагностики:
 
 ```bash
 python scripts/doctor.py --json
@@ -265,19 +198,25 @@ python scripts/doctor.py --strict
 python scripts/doctor.py --quiet
 ```
 
-1. Клонировать репозиторий
+## Roadmap
+Краткий roadmap:
+- [ ] Стабилизировать voice quality profiles и recovery flow
+- [ ] Увеличить test coverage для критичных сервисов и router
+- [ ] Улучшить onboarding script для быстрого локального старта
+- [ ] Подготовить API для web/mobile thin clients
 
-```bash
-git clone <repo_url>
-cd ai_pal
-```
+Детальный roadmap и release timeline:
+- [ROADMAP.md](ROADMAP.md)
+- [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
+- [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
-2. Создать и активировать виртуальное окружение
+## CI
+Минимальный CI настроен в `.github/workflows/ci.yml`:
+- установка зависимостей
+- syntax check (`python -m compileall .`)
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+## Статус
+Active development
 
 3. Установить зависимости
 
@@ -589,7 +528,36 @@ python scripts/obsidian_vault_bootstrap.py --vault "/Users/oksana/Documents/Obsi
 - `v0.5.18`: streaming pipeline layer, WebSocket realtime режим, модульный реестр STT/TTS/LLM и benchmark harness
 - `v0.5.19`: голосовая диктовка в активное поле (`os_type_text`) с fast RU-фразами (`добавь текст ...`, `продиктуй ...`, `вставь ...`)
 - `v0.5.20`: режим непрерывной диктовки (`старт/стоп`), команды пунктуации и guardrails для безопасного ввода по фокусу
+- `v0.5.21`: security hardening baseline: строгий API auth по умолчанию, keyring для токенов интеграций, log redaction и safer dictation API host allowlist
+- `v0.5.22`: API/WS throttling layer для anti-abuse защиты
+- `v0.5.23`: security test baseline для auth/throttling/log redaction
 - `v0.5.24`: managed Obsidian vault bootstrap (папки `00..99`, шаблоны, frontmatter/link index, рекомендуемый plugin manifest)
+- `v0.5.25`: Memory Center foundation: local memory sources/chunks, Markdown wiki artifacts, sync-state tracking и `/v1/memory/status`
+- `v0.5.26`: GitHub/Notion/Obsidian sync в Memory Center через `/v1/memory/sync`
+- `v0.5.27`: desktop Memory Center controls: status и manual sync из avatar/tray меню
+- `v0.5.28`: background Memory Center scheduler
+- `v0.5.29`: Memory Center search endpoint с локальным provenance-backed retrieval
+- `v0.5.30`: desktop Memory Center search action
+- `v0.5.31`: voice/text команды для Memory Center status, sync и search
+- `v0.5.32`: Memory Center recent view и команды "что нового в памяти"
+- `v0.5.33`: desktop Memory Center recent action
+- `v0.5.34`: deterministic Memory Center daily digest artifacts и `/v1/memory/digest`
+- `v0.5.35`: desktop Memory Center daily digest action
+- `v0.5.36`: digest history через `/v1/memory/digests`, desktop action и fast command
+- `v0.5.37`: desktop action to open latest Memory digest
+- `v0.5.38`: digest history date range filters
+- `v0.5.39`: digest history presets `range=7d|30d`
+- `v0.5.40`: desktop digest history presets 7d/30d
+- `v0.5.41`: desktop digest history day presets today/yesterday
+- `v0.5.42`: desktop open-digest day actions
+- `v0.5.43`: API day presets `range=today|yesterday`
+- `v0.5.44`: direct latest digest endpoint `/v1/memory/digests/latest`
+- `v0.5.45`: latest digest fast command
+- `v0.5.46`: simplified tray digest UX
+- `v0.5.47`: one-click latest digest tray action with auto-build fallback
+- `v0.5.48`: polished Memory search popup formatting
+- `v0.5.49`: doctor diagnostics baseline with structured OK/WARN/FAIL checks and actionable fix hints
+- `v0.5.50`: Memory search quick-open actions for direct file/URL opening from tray results
 - `v0.5.x`: более цельный desktop shell, richer avatar behavior и пользовательские visual themes
 - `v0.6.x`: упрощение установки, Windows setup path, затем Linux setup path
 - `v0.7.x`: Notion adapter + более глубокий Obsidian workflow
@@ -646,6 +614,9 @@ python scripts/obsidian_vault_bootstrap.py --vault "/Users/oksana/Documents/Obsi
 - `System Settings`
 - `Privacy & Security`
 - `Accessibility`
+
+## License
+GNU AGPLv3. См. [LICENSE](LICENSE).
 
 ## Автор
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 import importlib
+import json
 import os
 import platform
 import shutil
@@ -37,24 +39,67 @@ class CheckResult:
 
 
 def main() -> None:
-    print("== Vasya AI doctor ==")
-    print(f"platform: {platform.system()} {platform.release()}")
-    print(f"python: {platform.python_version()}")
-    print()
+    args = _parse_args(sys.argv[1:])
+    exit_code = run_doctor(
+        json_output=args.json,
+        strict=args.strict,
+        quiet=args.quiet,
+    )
+    sys.exit(exit_code)
 
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Vasya AI environment diagnostics")
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON report")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat WARN as failure (exit code 1)",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print only summary (ignored when --json is enabled)",
+    )
+    return parser.parse_args(argv)
+
+
+def run_doctor(*, json_output: bool = False, strict: bool = False, quiet: bool = False) -> int:
     results = run_checks()
-    has_failures = any(result.status == "FAIL" for result in results)
-    has_warnings = any(result.status == "WARN" for result in results)
+    summary = _build_summary(results)
+    exit_code = _resolve_exit_code(results, strict=strict)
 
-    for result in results:
-        _print_result(result)
+    if json_output:
+        payload = {
+            "platform": f"{platform.system()} {platform.release()}",
+            "python": platform.python_version(),
+            "strict": bool(strict),
+            "quiet": bool(quiet),
+            "summary": summary,
+            "exit_code": exit_code,
+            "checks": [
+                {
+                    "name": result.name,
+                    "status": result.status,
+                    "message": result.message,
+                    "fix": result.fix,
+                }
+                for result in results
+            ],
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return exit_code
+
+    if not quiet:
+        print("== Vasya AI doctor ==")
+        print(f"platform: {platform.system()} {platform.release()}")
+        print(f"python: {platform.python_version()}")
         print()
-
-    print(_build_summary(results))
-    if has_failures:
-        sys.exit(1)
-    if has_warnings:
-        sys.exit(2)
+        for result in results:
+            _print_result(result)
+            print()
+    print(summary)
+    return exit_code
 
 
 def run_checks() -> list[CheckResult]:
@@ -263,6 +308,16 @@ def _build_summary(results: list[CheckResult]) -> str:
         f"doctor result: {state} "
         f"(ok={ok_count}, warn={warn_count}, fail={fail_count}, total={total})"
     )
+
+
+def _resolve_exit_code(results: list[CheckResult], *, strict: bool) -> int:
+    has_failures = any(result.status == "FAIL" for result in results)
+    has_warnings = any(result.status == "WARN" for result in results)
+    if has_failures:
+        return 1
+    if has_warnings:
+        return 1 if strict else 2
+    return 0
 
 
 def _healthcheck_url() -> str:

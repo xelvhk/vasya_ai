@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.5.50 (2026-06-04)
+- Promoted Vasya AI to the official `0.5.50` release line.
+- Added Memory Center quick-open actions for desktop search results, allowing matched local Markdown files and source URLs to open directly from tray/search flows.
+- Consolidated the Memory Center release arc through local sources/chunks, sync state, search, recent view, daily digest artifacts, digest history, latest digest lookup, and desktop tray actions.
+- Kept local-first defaults: SQLite/local files remain the source of truth, with optional GitHub, Notion, Obsidian, and Google Calendar adapters.
+- Confirmed secure-by-default API posture: `/v1/*` auth remains required by default, HTTP/WS throttling is enabled, and integration tokens use keyring-backed storage when available.
+- Release checks: scoped source `compileall` and the unit test suite should pass before tagging.
+
 ## v0.1.0 (Draft)
 - Stabilized local voice pipeline (STT -> intent -> tool dispatch -> TTS)
 - Added production-oriented desktop shell baseline (avatar/tray/hotkey)

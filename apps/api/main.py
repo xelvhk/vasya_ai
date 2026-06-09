@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.deps import require_api_key
 from apps.api.rate_limit import check_http_rate_limit, resolve_client_id_from_request
-from apps.api.routes import chat, events, memory, notes, realtime, recovery, system, tasks
+from apps.api.routes import chat, events, memory, morning_brief, notes, realtime, recovery, system, tasks
 from utils.logger import log_interaction_event, start_logging_scope
 
 
@@ -25,6 +25,7 @@ app.include_router(events.router, dependencies=_secure)
 app.include_router(recovery.router, dependencies=_secure)
 app.include_router(realtime.router, dependencies=_secure)
 app.include_router(memory.router, dependencies=_secure)
+app.include_router(morning_brief.router, dependencies=_secure)
 
 
 @app.middleware("http")
@@ -41,7 +42,7 @@ async def rate_limit_middleware(request: Request, call_next):
     )
     path = str(request.url.path)
     method = str(request.method).upper()
-    if method == "POST" and path in {"/v1/chat", "/v1/pipeline"}:
+    if method == "POST" and path in {"/v1/chat", "/v1/pipeline", "/v1/morning-brief"}:
         client_id = resolve_client_id_from_request(request)
         decision = check_http_rate_limit(path, client_id)
         if not decision.allowed:

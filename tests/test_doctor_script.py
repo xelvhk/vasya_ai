@@ -56,6 +56,51 @@ class DoctorScriptTests(unittest.TestCase):
             result = doctor.check_api_auth_config()
         self.assertEqual(result.status, "WARN")
 
+    def test_ci_env_does_not_require_local_env_file(self) -> None:
+        with patch.dict("os.environ", {"CI": "true"}), patch.object(
+            doctor.Path,
+            "exists",
+            return_value=False,
+        ):
+            result = doctor.check_env_file()
+        self.assertEqual(result.status, "OK")
+        self.assertIn("CI", result.message)
+
+    def test_virtualenv_check_returns_result(self) -> None:
+        result = doctor.check_virtualenv()
+        self.assertIn(result.status, {"OK", "WARN"})
+        self.assertEqual(result.name, "virtualenv")
+
+    def test_ci_env_does_not_require_local_ollama_binary(self) -> None:
+        with patch.dict("os.environ", {"CI": "true"}), patch.object(
+            doctor.shutil,
+            "which",
+            return_value=None,
+        ):
+            result = doctor.check_ollama_binary()
+        self.assertEqual(result.status, "OK")
+        self.assertIn("CI", result.message)
+
+    def test_ollama_binary_check_returns_result(self) -> None:
+        with patch.dict("os.environ", {}, clear=True), patch.object(
+            doctor.shutil,
+            "which",
+            return_value=None,
+        ):
+            result = doctor.check_ollama_binary()
+        self.assertEqual(result.status, "FAIL")
+        self.assertIn("ollama", result.message)
+
+    def test_ci_env_skips_ollama_server(self) -> None:
+        with patch.dict("os.environ", {"CI": "true"}), patch.object(
+            doctor.shutil,
+            "which",
+            return_value="/usr/local/bin/ollama",
+        ):
+            result = doctor.check_ollama_server()
+        self.assertEqual(result.status, "OK")
+        self.assertIn("skipped", result.message)
+
     def test_resolve_exit_code_non_strict_warn(self) -> None:
         results = [doctor.report("a", "WARN", "warn")]
         self.assertEqual(doctor._resolve_exit_code(results, strict=False), 2)

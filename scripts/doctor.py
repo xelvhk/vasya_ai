@@ -122,6 +122,8 @@ def check_env_file() -> CheckResult:
     env_path = ROOT_DIR / ".env"
     if env_path.exists():
         return report("env file", "OK", f"found .env at {env_path}")
+    if _is_ci_environment():
+        return report("env file", "OK", ".env is not required in CI smoke checks")
     return report(
         "env file",
         "WARN",
@@ -132,11 +134,13 @@ def check_env_file() -> CheckResult:
 
 def check_virtualenv() -> CheckResult:
     in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    if _is_ci_environment() and not in_venv:
+        return report("virtualenv", "OK", "CI uses GitHub Actions managed Python")
     return report(
         "virtualenv",
         "OK" if in_venv else "WARN",
         "virtual environment is active" if in_venv else "virtual environment is not active",
-        None if in_venv else "Activate environment: source .venv/bin/activate",
+        fix=None if in_venv else "Activate environment: source .venv/bin/activate",
     )
 
 
@@ -169,15 +173,19 @@ def check_python_modules() -> CheckResult:
 
 def check_ollama_binary() -> CheckResult:
     found = shutil.which("ollama") is not None
+    if _is_ci_environment() and not found:
+        return report("ollama binary", "OK", "Ollama binary is not required for CI smoke checks")
     return report(
         "ollama binary",
         "OK" if found else "FAIL",
         "ollama command found" if found else "ollama command not found",
-        None if found else "Install Ollama from https://ollama.com/download",
+        fix=None if found else "Install Ollama from https://ollama.com/download",
     )
 
 
 def check_ollama_server() -> CheckResult:
+    if _is_ci_environment():
+        return report("ollama server", "OK", "Ollama server check skipped in CI")
     try:
         response = requests.get(_healthcheck_url(), timeout=2)
         response.raise_for_status()
@@ -323,6 +331,10 @@ def _resolve_exit_code(results: list[CheckResult], *, strict: bool) -> int:
 def _healthcheck_url() -> str:
     base_url = OLLAMA_URL.rsplit("/", 1)[0]
     return f"{base_url}/tags"
+
+
+def _is_ci_environment() -> bool:
+    return str(os.getenv("CI", "")).strip().lower() in {"1", "true", "yes"}
 
 
 if __name__ == "__main__":

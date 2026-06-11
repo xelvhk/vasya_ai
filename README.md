@@ -53,6 +53,18 @@ API dictation mode:
 - sounddevice + scipy
 
 ## Setup
+Fast macOS path:
+```bash
+git clone https://github.com/xelvhk/vasya_ai.git
+cd vasya_ai
+bash scripts/setup_mac.sh
+source .venv/bin/activate
+ollama pull llama3
+python scripts/doctor.py
+python main.py
+```
+
+Manual path:
 ```bash
 git clone https://github.com/xelvhk/vasya_ai.git
 cd vasya_ai
@@ -63,6 +75,8 @@ cp .env.example .env
 python scripts/doctor.py
 python main.py
 ```
+
+First-run checklist: [docs/FIRST_RUN.md](docs/FIRST_RUN.md)
 
 Doctor flags:
 ```bash

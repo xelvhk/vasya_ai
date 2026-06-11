@@ -104,11 +104,13 @@ def run_doctor(*, json_output: bool = False, strict: bool = False, quiet: bool =
 
 def run_checks() -> list[CheckResult]:
     checks = [
+        check_python_version,
         check_env_file,
         check_virtualenv,
         check_python_modules,
         check_ollama_binary,
         check_ollama_server,
+        check_tts_backend,
         check_storage,
         check_memory_wiki_dir,
         check_api_auth_config,
@@ -116,6 +118,19 @@ def run_checks() -> list[CheckResult]:
         check_autostart,
     ]
     return [check() for check in checks]
+
+
+def check_python_version() -> CheckResult:
+    minimum = (3, 11)
+    current = sys.version_info[:2]
+    if current >= minimum:
+        return report("python version", "OK", f"Python {platform.python_version()} meets requirement 3.11+")
+    return report(
+        "python version",
+        "FAIL",
+        f"Python {platform.python_version()} is below required 3.11+",
+        fix="Install Python 3.11 or newer and recreate .venv.",
+    )
 
 
 def check_env_file() -> CheckResult:
@@ -210,6 +225,41 @@ def check_ollama_server() -> CheckResult:
     )
 
 
+def check_tts_backend() -> CheckResult:
+    if _is_ci_environment():
+        return report("tts backend", "OK", "TTS backend check skipped in CI")
+
+    try:
+        from voice.backends import get_tts_backend_name, get_tts_backend_status
+
+        backend_name = get_tts_backend_name()
+        backend_status = get_tts_backend_status()
+    except Exception as exc:
+        return report(
+            "tts backend",
+            "WARN",
+            f"cannot inspect TTS backend: {exc}",
+            fix="Check TTS_BACKEND/TTS_PROFILE settings or use the built-in macOS say backend.",
+        )
+
+    lower_status = backend_status.lower()
+    if backend_name == "print":
+        return report(
+            "tts backend",
+            "WARN",
+            backend_status,
+            fix="Install Piper/XTTS assets or use macOS say for audible replies.",
+        )
+    if "selected, but" in lower_status or "unavailable" in lower_status or "missing" in lower_status:
+        return report(
+            "tts backend",
+            "WARN",
+            backend_status,
+            fix="Install the configured TTS command/model assets or switch TTS_BACKEND=auto.",
+        )
+    return report("tts backend", "OK", backend_status)
+
+
 def check_storage() -> CheckResult:
     db_path = Path(STORAGE_DB_FILE)
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,6 +303,9 @@ def check_api_auth_config() -> CheckResult:
 
 
 def check_google_calendar() -> CheckResult:
+    if _is_ci_environment():
+        return report("google calendar", "OK", "Google Calendar check skipped in CI")
+
     if not GOOGLE_CALENDAR_ENABLED:
         return report("google calendar", "OK", "integration is disabled")
 

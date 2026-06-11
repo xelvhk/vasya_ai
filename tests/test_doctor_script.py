@@ -56,6 +56,30 @@ class DoctorScriptTests(unittest.TestCase):
             result = doctor.check_api_auth_config()
         self.assertEqual(result.status, "WARN")
 
+    def test_python_version_fails_below_minimum(self) -> None:
+        with patch.object(doctor.sys, "version_info", (3, 10, 12)):
+            result = doctor.check_python_version()
+        self.assertEqual(result.status, "FAIL")
+        self.assertIn("3.11", result.message)
+
+    def test_tts_backend_is_skipped_in_ci(self) -> None:
+        with patch.dict("os.environ", {"CI": "true"}):
+            result = doctor.check_tts_backend()
+        self.assertEqual(result.status, "OK")
+        self.assertIn("CI", result.message)
+
+    def test_tts_backend_warns_for_print_fallback(self) -> None:
+        with patch.dict("os.environ", {}, clear=True), patch(
+            "voice.backends.get_tts_backend_name",
+            return_value="print",
+        ), patch(
+            "voice.backends.get_tts_backend_status",
+            return_value="TTS backend: print",
+        ):
+            result = doctor.check_tts_backend()
+        self.assertEqual(result.status, "WARN")
+        self.assertIn("TTS backend", result.message)
+
     def test_ci_env_does_not_require_local_env_file(self) -> None:
         with patch.dict("os.environ", {"CI": "true"}), patch.object(
             doctor.Path,
@@ -100,6 +124,12 @@ class DoctorScriptTests(unittest.TestCase):
             result = doctor.check_ollama_server()
         self.assertEqual(result.status, "OK")
         self.assertIn("skipped", result.message)
+
+    def test_ci_env_skips_google_calendar(self) -> None:
+        with patch.dict("os.environ", {"CI": "true"}):
+            result = doctor.check_google_calendar()
+        self.assertEqual(result.status, "OK")
+        self.assertIn("CI", result.message)
 
     def test_resolve_exit_code_non_strict_warn(self) -> None:
         results = [doctor.report("a", "WARN", "warn")]

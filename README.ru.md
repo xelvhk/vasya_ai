@@ -126,6 +126,18 @@ Roadmap:
 - sounddevice + scipy
 
 ## Setup
+Быстрый путь на macOS:
+```bash
+git clone https://github.com/xelvhk/vasya_ai.git
+cd vasya_ai
+bash scripts/setup_mac.sh
+source .venv/bin/activate
+ollama pull llama3
+python scripts/doctor.py
+python main.py
+```
+
+Ручной путь:
 ```bash
 git clone https://github.com/xelvhk/vasya_ai.git
 cd vasya_ai
@@ -136,6 +148,8 @@ cp .env.example .env
 python scripts/doctor.py
 python main.py
 ```
+
+First-run checklist: [docs/FIRST_RUN.md](docs/FIRST_RUN.md)
 
 Опциональный API-режим:
 ```bash

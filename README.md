@@ -165,6 +165,7 @@ Detailed roadmap and release timeline:
 - [ROADMAP.md](ROADMAP.md)
 - [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 - [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+- [docs/WHATS_NEW.md](docs/WHATS_NEW.md)
 - [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
 
 ## CI

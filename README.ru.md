@@ -223,6 +223,7 @@ python scripts/doctor.py --quiet
 - [ROADMAP.md](ROADMAP.md)
 - [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 - [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+- [docs/WHATS_NEW.md](docs/WHATS_NEW.md)
 
 ## CI
 CI настроен в `.github/workflows/ci.yml`:

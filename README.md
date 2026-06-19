@@ -4,7 +4,7 @@ Local-first voice AI assistant for desktop productivity.
 
 `vasya_ai` is a product-oriented assistant that helps manage tasks, events, notes, and integrations through voice and text, with local-first storage and optional external sync.
 
-Current version: **0.5.50**
+Current version: **0.6.0**
 
 Language: **English** | [Русский](README.ru.md)
 
@@ -158,7 +158,7 @@ Current previews:
 Short roadmap:
 - [ ] Stabilize voice quality profiles and recovery flow
 - [ ] Add test coverage for critical services and routers
-- [ ] Improve onboarding script for zero-friction local setup
+- [x] Improve onboarding script for zero-friction local setup
 - [ ] Prepare API for web/mobile thin clients
 
 Detailed roadmap and release timeline:
@@ -168,9 +168,11 @@ Detailed roadmap and release timeline:
 - [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
 
 ## CI
-Minimal CI is configured in `.github/workflows/ci.yml`:
+CI is configured in `.github/workflows/ci.yml`:
 - install dependencies
-- run syntax check (`python -m compileall .`)
+- run source syntax checks (`python -m compileall ...`)
+- run the unit test suite
+- run `python scripts/doctor.py --strict --quiet` as a first-run smoke gate
 
 ## Status
 Active development

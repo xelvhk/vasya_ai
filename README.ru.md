@@ -6,7 +6,7 @@
 
 `vasya_ai` — продуктовый AI-ассистент, который помогает управлять задачами, событиями, заметками и интеграциями через голос и текст, с локальным хранением и опциональной внешней синхронизацией.
 
-Текущая версия: `0.5.50`
+Текущая версия: `0.6.0`
 
 ## Обзор
 
@@ -216,7 +216,7 @@ python scripts/doctor.py --quiet
 Краткий roadmap:
 - [ ] Стабилизировать voice quality profiles и recovery flow
 - [ ] Увеличить test coverage для критичных сервисов и router
-- [ ] Улучшить onboarding script для быстрого локального старта
+- [x] Улучшить onboarding script для быстрого локального старта
 - [ ] Подготовить API для web/mobile thin clients
 
 Детальный roadmap и release timeline:
@@ -225,9 +225,11 @@ python scripts/doctor.py --quiet
 - [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 ## CI
-Минимальный CI настроен в `.github/workflows/ci.yml`:
+CI настроен в `.github/workflows/ci.yml`:
 - установка зависимостей
-- syntax check (`python -m compileall .`)
+- syntax check исходников (`python -m compileall ...`)
+- запуск unit tests
+- smoke gate первого запуска: `python scripts/doctor.py --strict --quiet`
 
 ## Статус
 Active development

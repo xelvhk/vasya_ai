@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.6.0 (2026-06-19)
+- Promoted Vasya AI to the `0.6.0` Installation & First-Run milestone.
+- Added Morning Brief v1: weather, open tasks, today/tomorrow calendar events, Memory Center context, suggested priorities, short spoken summary, and deterministic local Markdown briefings.
+- Added an idempotent macOS setup path through `scripts/setup_macos.py`, with `scripts/setup_mac.sh` kept as the stable entrypoint.
+- Added `docs/FIRST_RUN.md` and README/README.ru quickstart instructions for a fast local install and first response.
+- Expanded doctor diagnostics to cover Python version, virtualenv, dependencies, Ollama, TTS backend readiness, writable storage, Memory wiki path, API auth, Google Calendar readiness, and macOS autostart.
+- Upgraded CI from syntax-only checks to a meaningful quality gate: scoped `compileall`, unit tests, and `scripts/doctor.py --strict --quiet`.
+- Kept local-first security posture: generated API tokens stay in local `.env`, existing local configuration is preserved, and API auth/rate limits remain enabled by default.
+- Release checks: unit test suite, scoped source `compileall`, doctor strict smoke, and GitHub Actions CI should pass before tagging.
+
 ## v0.5.50 (2026-06-04)
 - Promoted Vasya AI to the official `0.5.50` release line.
 - Added Memory Center quick-open actions for desktop search results, allowing matched local Markdown files and source URLs to open directly from tray/search flows.

@@ -434,6 +434,17 @@ python -m voice.tts --list-voices
 python -m voice.tts --profile ruslan_direct --text "Привет, это тест озвучки"
 ```
 
+Benchmark TTS:
+
+```bash
+python scripts/benchmark_tts.py
+python scripts/benchmark_tts.py --json
+python scripts/benchmark_tts.py --include-heavy --save-artifacts
+python scripts/benchmark_tts.py --include-experimental
+```
+
+Benchmark показывает статус backend, time-to-first-audio, total synthesis time и причины `SKIP`/`FAIL` для `say`, Piper, hybrid и opt-in XTTS. Тяжелые и experimental движки остаются opt-in; MisoTTS учитывается как experimental slot, но не становится дефолтным голосом Васи.
+
 Профили голоса:
 - `ruslan_direct` — мужской, быстрый и прямой
 - `alexa_natural_xtts` — женский, более натуральный XTTS-клон (нужен `XTTS_SPEAKER_WAV`)

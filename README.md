@@ -91,9 +91,10 @@ python scripts/benchmark_tts.py
 python scripts/benchmark_tts.py --json
 python scripts/benchmark_tts.py --include-heavy --save-artifacts
 python scripts/benchmark_tts.py --include-experimental
+python scripts/benchmark_tts.py --backend chatterbox --include-experimental --save-artifacts
 ```
 
-The benchmark reports backend status, time-to-first-audio, total synthesis time, and failure/skip reasons for `say`, Piper, hybrid, and opt-in XTTS. Heavy or experimental engines stay opt-in; MisoTTS is tracked as an experimental slot, not a default assistant voice backend.
+The benchmark reports backend status, time-to-first-audio, total synthesis time, and failure/skip reasons for `say`, Piper, hybrid, and opt-in XTTS. Heavy or experimental engines stay opt-in; Chatterbox is available as an experimental multilingual quality candidate after `pip install chatterbox-tts`, and MisoTTS is tracked as a placeholder slot. Neither becomes the default assistant voice backend.
 
 Optional API mode:
 ```bash

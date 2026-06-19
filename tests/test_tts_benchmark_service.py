@@ -36,6 +36,63 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
         self.assertTrue(result.experimental)
         self.assertIn("experimental", result.failure_reason or "")
 
+    def test_chatterbox_is_skipped_when_package_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "services.tts_benchmark_service.importlib.util.find_spec",
+            return_value=None,
+        ):
+            result = bench.build_tts_benchmark_plan(
+                backend="chatterbox",
+                text="hello",
+                output_dir=Path(tmp),
+            )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertTrue(result.heavy)
+        self.assertTrue(result.experimental)
+        self.assertIn("pip install chatterbox-tts", result.failure_reason or "")
+
+    def test_chatterbox_plan_uses_isolated_runner_script(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "services.tts_benchmark_service.importlib.util.find_spec",
+            return_value=object(),
+        ):
+            plan = bench.build_tts_benchmark_plan(
+                backend="chatterbox",
+                text="hello",
+                output_dir=Path(tmp),
+            )
+
+        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
+        assert isinstance(plan, bench.TTSBenchmarkPlan)
+        self.assertTrue(plan.heavy)
+        self.assertTrue(plan.experimental)
+        self.assertIn("run_chatterbox_tts.py", " ".join(plan.command))
+        self.assertIn("--language", plan.command)
+        self.assertIn("ru", plan.command)
+        self.assertEqual(plan.output_path.name, "chatterbox.wav")
+
+    def test_include_experimental_adds_chatterbox_and_misotts(self) -> None:
+        with patch(
+            "services.tts_benchmark_service.build_tts_benchmark_plan",
+            side_effect=lambda backend, text, output_dir, include_heavy=False: bench._skip(
+                backend=backend,
+                selected_backend=backend,
+                reason="test",
+            ),
+        ):
+            snapshot = bench.run_tts_benchmark(
+                text="hello",
+                backends=["say"],
+                include_experimental=True,
+            )
+
+        results = snapshot["results"]
+        self.assertIsInstance(results, list)
+        self.assertEqual([item["backend"] for item in results], ["say", "chatterbox", "misotts"])
+
     def test_say_plan_uses_file_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch(
             "services.tts_benchmark_service.get_platform_name",

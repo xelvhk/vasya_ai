@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import importlib.util
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -26,6 +28,10 @@ from voice.profiles import get_profile_model_path, get_profile_speaker_wav, get_
 
 DEFAULT_TTS_BENCHMARK_TEXT = "Привет, это короткий тест скорости голоса Васи."
 BASELINE_BACKENDS = ("say", "piper", "hybrid", "xtts")
+EXPERIMENTAL_BACKENDS = ("chatterbox", "misotts")
+CHATTERBOX_LANGUAGE = "ru"
+CHATTERBOX_T3_MODEL = "v3"
+CHATTERBOX_TIMEOUT_SECONDS = 300
 
 
 @dataclass(frozen=True)
@@ -78,8 +84,10 @@ def run_tts_benchmark(
     process_runner: ProcessRunner | None = None,
 ) -> dict[str, object]:
     selected_backends = backends or list(BASELINE_BACKENDS)
-    if include_experimental and "misotts" not in selected_backends:
-        selected_backends.append("misotts")
+    if include_experimental:
+        for experimental_backend in EXPERIMENTAL_BACKENDS:
+            if experimental_backend not in selected_backends:
+                selected_backends.append(experimental_backend)
 
     runner = process_runner or _execute_plan
     with tempfile.TemporaryDirectory(prefix="vasya-tts-benchmark-") as tmp:
@@ -219,6 +227,8 @@ def build_tts_benchmark_plan(
             heavy=True,
             experimental=True,
         )
+    if normalized in {"chatterbox", "chatterbox-tts", "chatterbox_multilingual"}:
+        return _build_chatterbox_plan(text=text, output_dir=output_dir)
     return _skip(backend=backend, selected_backend=backend, reason=f"unknown backend: {backend}")
 
 
@@ -318,6 +328,43 @@ def _build_xtts_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBe
         timeout_seconds=max(120, XTTS_TIMEOUT_SECONDS),
         backend_status=f"xtts model={XTTS_MODEL_NAME}, speaker={speaker_wav.name}",
         heavy=True,
+    )
+
+
+def _build_chatterbox_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
+    if importlib.util.find_spec("chatterbox") is None:
+        return _skip(
+            "chatterbox",
+            "chatterbox",
+            "Chatterbox package is not installed; install optional dependency with 'pip install chatterbox-tts'",
+            heavy=True,
+            experimental=True,
+        )
+
+    script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_chatterbox_tts.py"
+    output_path = output_dir / "chatterbox.wav"
+    return TTSBenchmarkPlan(
+        backend="chatterbox",
+        selected_backend="chatterbox",
+        command=[
+            sys.executable,
+            str(script_path),
+            "--text",
+            text,
+            "--output",
+            str(output_path),
+            "--language",
+            CHATTERBOX_LANGUAGE,
+            "--t3-model",
+            CHATTERBOX_T3_MODEL,
+        ],
+        output_path=output_path,
+        timeout_seconds=CHATTERBOX_TIMEOUT_SECONDS,
+        backend_status=(
+            f"chatterbox t3_model={CHATTERBOX_T3_MODEL}, language={CHATTERBOX_LANGUAGE}, device=auto"
+        ),
+        heavy=True,
+        experimental=True,
     )
 
 

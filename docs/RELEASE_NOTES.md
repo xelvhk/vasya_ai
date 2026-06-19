@@ -1,5 +1,7 @@
 # Release Notes
 
+For shorter user-facing notes with a lighter tone, see [WHATS_NEW.md](WHATS_NEW.md).
+
 ## v0.6.0 (2026-06-19)
 - Promoted Vasya AI to the `0.6.0` Installation & First-Run milestone.
 - Added Morning Brief v1: weather, open tasks, today/tomorrow calendar events, Memory Center context, suggested priorities, short spoken summary, and deterministic local Markdown briefings.

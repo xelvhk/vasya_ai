@@ -74,7 +74,71 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
         self.assertIn("ru", plan.command)
         self.assertEqual(plan.output_path.name, "chatterbox.wav")
 
-    def test_include_experimental_adds_chatterbox_and_misotts(self) -> None:
+    def test_cosyvoice_is_skipped_when_repo_is_not_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "services.tts_benchmark_service.COSYVOICE_REPO_DIR",
+            "",
+        ), patch("services.tts_benchmark_service.COSYVOICE_MODEL_DIR", ""):
+            result = bench.build_tts_benchmark_plan(
+                backend="cosyvoice",
+                text="hello",
+                output_dir=Path(tmp),
+            )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertTrue(result.heavy)
+        self.assertTrue(result.experimental)
+        self.assertIn("COSYVOICE_REPO_DIR", result.failure_reason or "")
+
+    def test_cosyvoice_is_skipped_when_model_is_not_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            repo_dir.mkdir()
+            result = None
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                "",
+            ):
+                result = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertIn("COSYVOICE_MODEL_DIR", result.failure_reason or "")
+
+    def test_cosyvoice_plan_uses_isolated_runner_script(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            model_dir = Path(tmp) / "CosyVoice3-0.5B"
+            repo_dir.mkdir()
+            model_dir.mkdir()
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                str(model_dir),
+            ), patch("services.tts_benchmark_service.COSYVOICE_SPEAKER", "default"):
+                plan = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
+        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
+        assert isinstance(plan, bench.TTSBenchmarkPlan)
+        self.assertTrue(plan.heavy)
+        self.assertTrue(plan.experimental)
+        self.assertIn("run_cosyvoice_tts.py", " ".join(plan.command))
+        self.assertIn("--repo-dir", plan.command)
+        self.assertIn("--model-dir", plan.command)
+        self.assertIn("--speaker", plan.command)
+        self.assertEqual(plan.output_path.name, "cosyvoice.wav")
+
+    def test_include_experimental_adds_quality_candidates_and_misotts(self) -> None:
         with patch(
             "services.tts_benchmark_service.build_tts_benchmark_plan",
             side_effect=lambda backend, text, output_dir, include_heavy=False: bench._skip(
@@ -91,7 +155,7 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
 
         results = snapshot["results"]
         self.assertIsInstance(results, list)
-        self.assertEqual([item["backend"] for item in results], ["say", "chatterbox", "misotts"])
+        self.assertEqual([item["backend"] for item in results], ["say", "chatterbox", "cosyvoice", "misotts"])
 
     def test_say_plan_uses_file_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch(

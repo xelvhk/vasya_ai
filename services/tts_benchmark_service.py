@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Callable
 
 from config.settings import (
+    COSYVOICE_MODEL_DIR,
+    COSYVOICE_REPO_DIR,
+    COSYVOICE_SPEAKER,
     PIPER_COMMAND,
     PIPER_LENGTH_SCALE,
     PIPER_SPEAKER,
@@ -28,10 +31,11 @@ from voice.profiles import get_profile_model_path, get_profile_speaker_wav, get_
 
 DEFAULT_TTS_BENCHMARK_TEXT = "Привет, это короткий тест скорости голоса Васи."
 BASELINE_BACKENDS = ("say", "piper", "hybrid", "xtts")
-EXPERIMENTAL_BACKENDS = ("chatterbox", "misotts")
+EXPERIMENTAL_BACKENDS = ("chatterbox", "cosyvoice", "misotts")
 CHATTERBOX_LANGUAGE = "ru"
 CHATTERBOX_T3_MODEL = "v3"
 CHATTERBOX_TIMEOUT_SECONDS = 300
+COSYVOICE_TIMEOUT_SECONDS = 300
 
 
 @dataclass(frozen=True)
@@ -229,6 +233,8 @@ def build_tts_benchmark_plan(
         )
     if normalized in {"chatterbox", "chatterbox-tts", "chatterbox_multilingual"}:
         return _build_chatterbox_plan(text=text, output_dir=output_dir)
+    if normalized in {"cosyvoice", "cosyvoice2", "cosyvoice3", "cosy"}:
+        return _build_cosyvoice_plan(text=text, output_dir=output_dir)
     return _skip(backend=backend, selected_backend=backend, reason=f"unknown backend: {backend}")
 
 
@@ -362,6 +368,73 @@ def _build_chatterbox_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan |
         timeout_seconds=CHATTERBOX_TIMEOUT_SECONDS,
         backend_status=(
             f"chatterbox t3_model={CHATTERBOX_T3_MODEL}, language={CHATTERBOX_LANGUAGE}, device=auto"
+        ),
+        heavy=True,
+        experimental=True,
+    )
+
+
+def _build_cosyvoice_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
+    repo_dir = Path(COSYVOICE_REPO_DIR).expanduser() if COSYVOICE_REPO_DIR else None
+    model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+    if repo_dir is None:
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            "CosyVoice repo is not configured; clone FunAudioLLM/CosyVoice and set COSYVOICE_REPO_DIR",
+            heavy=True,
+            experimental=True,
+        )
+    if not repo_dir.exists():
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            f"CosyVoice repo was not found at {repo_dir}",
+            heavy=True,
+            experimental=True,
+        )
+    if model_dir is None:
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            "CosyVoice model is not configured; set COSYVOICE_MODEL_DIR to a downloaded CosyVoice model",
+            heavy=True,
+            experimental=True,
+        )
+    if not model_dir.exists():
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            f"CosyVoice model was not found at {model_dir}",
+            heavy=True,
+            experimental=True,
+        )
+
+    script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_cosyvoice_tts.py"
+    output_path = output_dir / "cosyvoice.wav"
+    command = [
+        sys.executable,
+        str(script_path),
+        "--repo-dir",
+        str(repo_dir),
+        "--model-dir",
+        str(model_dir),
+        "--text",
+        text,
+        "--output",
+        str(output_path),
+    ]
+    if COSYVOICE_SPEAKER:
+        command.extend(["--speaker", COSYVOICE_SPEAKER])
+    return TTSBenchmarkPlan(
+        backend="cosyvoice",
+        selected_backend="cosyvoice",
+        command=command,
+        output_path=output_path,
+        timeout_seconds=COSYVOICE_TIMEOUT_SECONDS,
+        backend_status=(
+            f"cosyvoice repo={repo_dir.name}, model={model_dir.name}, "
+            f"speaker={COSYVOICE_SPEAKER or 'auto'}"
         ),
         heavy=True,
         experimental=True,

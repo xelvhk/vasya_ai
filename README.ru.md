@@ -442,9 +442,10 @@ python scripts/benchmark_tts.py --json
 python scripts/benchmark_tts.py --include-heavy --save-artifacts
 python scripts/benchmark_tts.py --include-experimental
 python scripts/benchmark_tts.py --backend chatterbox --include-experimental --save-artifacts
+python scripts/benchmark_tts.py --backend say --backend piper --backend chatterbox --backend cosyvoice --save-artifacts
 ```
 
-Benchmark показывает статус backend, time-to-first-audio, total synthesis time и причины `SKIP`/`FAIL` для `say`, Piper, hybrid и opt-in XTTS. Тяжелые и experimental движки остаются opt-in; Chatterbox доступен как экспериментальный multilingual quality-candidate после `pip install chatterbox-tts`, а MisoTTS учитывается как placeholder slot. Ни один из них не становится дефолтным голосом Васи.
+Benchmark показывает статус backend, time-to-first-audio, total synthesis time и причины `SKIP`/`FAIL` для `say`, Piper, hybrid и opt-in XTTS. Тяжелые и experimental движки остаются opt-in; Chatterbox доступен как экспериментальный multilingual quality-candidate после `pip install chatterbox-tts`, CosyVoice можно измерять из локального clone `FunAudioLLM/CosyVoice` через `COSYVOICE_REPO_DIR` + `COSYVOICE_MODEL_DIR`, а MisoTTS учитывается как placeholder slot. Ни один из них не становится дефолтным голосом Васи.
 
 Профили голоса:
 - `ruslan_direct` — мужской, быстрый и прямой

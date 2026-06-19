@@ -85,6 +85,16 @@ python scripts/doctor.py --strict
 python scripts/doctor.py --quiet
 ```
 
+TTS benchmark:
+```bash
+python scripts/benchmark_tts.py
+python scripts/benchmark_tts.py --json
+python scripts/benchmark_tts.py --include-heavy --save-artifacts
+python scripts/benchmark_tts.py --include-experimental
+```
+
+The benchmark reports backend status, time-to-first-audio, total synthesis time, and failure/skip reasons for `say`, Piper, hybrid, and opt-in XTTS. Heavy or experimental engines stay opt-in; MisoTTS is tracked as an experimental slot, not a default assistant voice backend.
+
 Optional API mode:
 ```bash
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload

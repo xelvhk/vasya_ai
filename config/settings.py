@@ -219,6 +219,14 @@ TTS_STATE_FILE = os.getenv("TTS_STATE_FILE", "storage/tts_settings.json")
 COSYVOICE_REPO_DIR = os.getenv("COSYVOICE_REPO_DIR", "").strip()
 COSYVOICE_MODEL_DIR = os.getenv("COSYVOICE_MODEL_DIR", "").strip()
 COSYVOICE_SPEAKER = os.getenv("COSYVOICE_SPEAKER", "").strip()
+COSYVOICE_PROMPT_WAV = os.getenv("COSYVOICE_PROMPT_WAV", "").strip()
+COSYVOICE_PROMPT_TEXT = os.getenv(
+    "COSYVOICE_PROMPT_TEXT",
+    "Привет, это голосовой ассистент Вася.<|endofprompt|>",
+).strip()
+TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", "storage/cache").strip()
+CHATTERBOX_PYTHON = os.getenv("CHATTERBOX_PYTHON", "").strip()
+COSYVOICE_PYTHON = os.getenv("COSYVOICE_PYTHON", "").strip()
 CHILD_MODE_STATE_FILE = os.getenv("CHILD_MODE_STATE_FILE", "storage/child_mode.json")
 DICTATION_MODE_STATE_FILE = os.getenv("DICTATION_MODE_STATE_FILE", "storage/dictation_mode.json")
 USER_PROFILE_STATE_FILE = os.getenv(
@@ -336,6 +344,9 @@ XTTS_LANGUAGE = os.getenv("XTTS_LANGUAGE", "ru").strip()
 XTTS_SPEAKER_WAV = os.getenv("XTTS_SPEAKER_WAV", "").strip()
 XTTS_SPEED = float(os.getenv("XTTS_SPEED", "1.0"))
 XTTS_TIMEOUT_SECONDS = int(os.getenv("XTTS_TIMEOUT_SECONDS", "600"))
+XTTS_CACHE_DIR = os.getenv("XTTS_CACHE_DIR", "storage/xtts_cache").strip()
+XTTS_MPLCONFIGDIR = os.getenv("XTTS_MPLCONFIGDIR", "storage/mpl_cache").strip()
+XTTS_TRUST_LOCAL_CHECKPOINT = os.getenv("XTTS_TRUST_LOCAL_CHECKPOINT", "true").lower() == "true"
 TTS_HYBRID_SHORT_TEXT_MAX_WORDS = int(os.getenv("TTS_HYBRID_SHORT_TEXT_MAX_WORDS", "6"))
 
 STORAGE_DB_FILE = os.getenv("STORAGE_DB_FILE", "storage/vasya.db")

@@ -1,5 +1,7 @@
 .venv/
 .venv_xtts/
+.venv_chatterbox/
+.venv_cosyvoice/
 __pycache__/
 *.pyc
 .env
@@ -10,6 +12,11 @@ input.wav
 storage/*.json
 storage/*.db
 storage/*.log
+storage/cache/
+storage/matplotlib_cache/
+storage/tts_engines/
+storage/tts_benchmarks/
+storage/tts_models/
 storage/voices/
 storage/google_token.json
 storage/xtts_cache/

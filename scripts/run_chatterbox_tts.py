@@ -26,10 +26,7 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     device = _resolve_device(args.device, torch)
-    model = ChatterboxMultilingualTTS.from_pretrained(
-        device=device,
-        t3_model=args.t3_model,
-    )
+    model = ChatterboxMultilingualTTS.from_pretrained(device=device)
     wav = model.generate(args.text, language_id=args.language)
     ta.save(str(output_path), wav, model.sr)
     return 0

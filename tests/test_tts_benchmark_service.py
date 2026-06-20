@@ -36,61 +36,20 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
         self.assertTrue(result.experimental)
         self.assertIn("experimental", result.failure_reason or "")
 
-    def test_chatterbox_is_skipped_when_package_is_missing(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp, patch(
-            "services.tts_benchmark_service.importlib.util.find_spec",
-            return_value=None,
-        ), patch("services.tts_benchmark_service.CHATTERBOX_PYTHON", ""):
-            result = bench.build_tts_benchmark_plan(
-                backend="chatterbox",
-                text="hello",
-                output_dir=Path(tmp),
-            )
-
-        self.assertIsInstance(result, bench.TTSBenchmarkResult)
-        assert isinstance(result, bench.TTSBenchmarkResult)
-        self.assertEqual(result.status, "SKIP")
-        self.assertTrue(result.heavy)
-        self.assertTrue(result.experimental)
-        self.assertIn("pip install chatterbox-tts", result.failure_reason or "")
-
-    def test_chatterbox_plan_uses_isolated_runner_script(self) -> None:
+    def test_retired_backends_are_unknown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            python_path = Path(tmp) / "venv_chatterbox" / "bin" / "python"
-            python_path.parent.mkdir(parents=True)
-            python_path.touch()
-            with patch("services.tts_benchmark_service.CHATTERBOX_PYTHON", str(python_path)):
-                plan = bench.build_tts_benchmark_plan(
-                    backend="chatterbox",
-                    text="hello",
-                    output_dir=Path(tmp),
-                )
+            for backend in ("say", "chatterbox"):
+                with self.subTest(backend=backend):
+                    result = bench.build_tts_benchmark_plan(
+                        backend=backend,
+                        text="hello",
+                        output_dir=Path(tmp),
+                    )
 
-        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
-        assert isinstance(plan, bench.TTSBenchmarkPlan)
-        self.assertTrue(plan.heavy)
-        self.assertTrue(plan.experimental)
-        self.assertEqual(plan.command[0], str(python_path))
-        self.assertIn("run_chatterbox_tts.py", " ".join(plan.command))
-        self.assertIn("--language", plan.command)
-        self.assertIn("ru", plan.command)
-        self.assertEqual(plan.output_path.name, "chatterbox.wav")
-
-    def test_chatterbox_is_skipped_when_configured_python_is_missing(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp, patch(
-            "services.tts_benchmark_service.CHATTERBOX_PYTHON",
-            "/missing/chatterbox/python",
-        ):
-            result = bench.build_tts_benchmark_plan(
-                backend="chatterbox",
-                text="hello",
-                output_dir=Path(tmp),
-            )
-
-        self.assertIsInstance(result, bench.TTSBenchmarkResult)
-        assert isinstance(result, bench.TTSBenchmarkResult)
-        self.assertEqual(result.status, "SKIP")
-        self.assertIn("CHATTERBOX_PYTHON", result.failure_reason or "")
+                    self.assertIsInstance(result, bench.TTSBenchmarkResult)
+                    assert isinstance(result, bench.TTSBenchmarkResult)
+                    self.assertEqual(result.status, "SKIP")
+                    self.assertIn("unknown backend", result.failure_reason or "")
 
     def test_cosyvoice_is_skipped_when_repo_is_not_configured(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch(
@@ -250,32 +209,17 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
         ):
             snapshot = bench.run_tts_benchmark(
                 text="hello",
-                backends=["say"],
+                backends=["piper"],
                 include_experimental=True,
             )
 
         results = snapshot["results"]
         self.assertIsInstance(results, list)
-        self.assertEqual([item["backend"] for item in results], ["say", "chatterbox", "cosyvoice", "misotts"])
-
-    def test_say_plan_uses_file_output(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp, patch(
-            "services.tts_benchmark_service.get_platform_name",
-            return_value="macos",
-        ), patch("services.tts_benchmark_service.shutil.which", return_value="/usr/bin/say"):
-            plan = bench.build_tts_benchmark_plan(
-                backend="say",
-                text="hello",
-                output_dir=Path(tmp),
-            )
-        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
-        assert isinstance(plan, bench.TTSBenchmarkPlan)
-        self.assertIn("-o", plan.command)
-        self.assertEqual(plan.output_path.suffix, ".aiff")
+        self.assertEqual([item["backend"] for item in results], ["piper", "cosyvoice", "misotts"])
 
     def test_header_only_audio_file_is_not_counted_as_started(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            header_only = Path(tmp) / "say.aiff"
+            header_only = Path(tmp) / "audio.wav"
             header_only.write_bytes(b"\0" * 4096)
 
             self.assertFalse(bench._audio_file_started(header_only))
@@ -339,12 +283,17 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
             return bench.ProcessTiming(time_to_first_audio_ms=12.34, total_synthesis_ms=56.78)
 
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "services.tts_benchmark_service.get_platform_name",
-            return_value="macos",
-        ), patch("services.tts_benchmark_service.shutil.which", return_value="/usr/bin/say"):
+            "services.tts_benchmark_service.build_tts_benchmark_plan",
+            return_value=bench.TTSBenchmarkPlan(
+                backend="piper",
+                selected_backend="piper",
+                command=["piper"],
+                output_path=Path(tmp) / "piper.wav",
+            ),
+        ):
             snapshot = bench.run_tts_benchmark(
                 text="hello",
-                backends=["say"],
+                backends=["piper"],
                 artifact_dir=Path(tmp),
                 process_runner=fake_runner,
             )

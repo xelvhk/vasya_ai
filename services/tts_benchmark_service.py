@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-import importlib.util
 import os
 import shutil
 import subprocess
@@ -12,7 +11,6 @@ from pathlib import Path
 from typing import Callable
 
 from config.settings import (
-    CHATTERBOX_PYTHON,
     COSYVOICE_MODEL_DIR,
     COSYVOICE_PYTHON,
     COSYVOICE_PROMPT_TEXT,
@@ -23,8 +21,6 @@ from config.settings import (
     PIPER_LENGTH_SCALE,
     PIPER_SPEAKER,
     TTS_HYBRID_SHORT_TEXT_MAX_WORDS,
-    TTS_RATE,
-    TTS_VOICE,
     TTS_CACHE_DIR,
     XTTS_CACHE_DIR,
     XTTS_COMMAND,
@@ -35,16 +31,12 @@ from config.settings import (
     XTTS_TIMEOUT_SECONDS,
     XTTS_TRUST_LOCAL_CHECKPOINT,
 )
-from utils.platform_runtime import get_platform_name
 from voice.profiles import get_profile_model_path, get_profile_speaker_wav, get_voice_profile
 
 
 DEFAULT_TTS_BENCHMARK_TEXT = "Привет, это короткий тест скорости голоса Васи."
-BASELINE_BACKENDS = ("say", "piper", "hybrid", "xtts")
-EXPERIMENTAL_BACKENDS = ("chatterbox", "cosyvoice", "misotts")
-CHATTERBOX_LANGUAGE = "ru"
-CHATTERBOX_T3_MODEL = "v3"
-CHATTERBOX_TIMEOUT_SECONDS = 300
+BASELINE_BACKENDS = ("piper", "hybrid", "xtts")
+EXPERIMENTAL_BACKENDS = ("cosyvoice", "misotts")
 COSYVOICE_TIMEOUT_SECONDS = 300
 
 
@@ -216,8 +208,6 @@ def build_tts_benchmark_plan(
     include_heavy: bool = False,
 ) -> TTSBenchmarkPlan | TTSBenchmarkResult:
     normalized = backend.strip().lower()
-    if normalized == "say":
-        return _build_say_plan(text=text, output_dir=output_dir)
     if normalized == "piper":
         return _build_piper_plan(text=text, output_dir=output_dir)
     if normalized == "hybrid":
@@ -242,25 +232,9 @@ def build_tts_benchmark_plan(
             heavy=True,
             experimental=True,
         )
-    if normalized in {"chatterbox", "chatterbox-tts", "chatterbox_multilingual"}:
-        return _build_chatterbox_plan(text=text, output_dir=output_dir)
     if normalized in {"cosyvoice", "cosyvoice2", "cosyvoice3", "cosy"}:
         return _build_cosyvoice_plan(text=text, output_dir=output_dir)
     return _skip(backend=backend, selected_backend=backend, reason=f"unknown backend: {backend}")
-
-
-def _build_say_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
-    if get_platform_name() != "macos" or shutil.which("say") is None:
-        return _skip("say", "say", "macOS say command is not available")
-    output_path = output_dir / "say.aiff"
-    return TTSBenchmarkPlan(
-        backend="say",
-        selected_backend="say",
-        command=["say", "-v", TTS_VOICE, "-r", str(TTS_RATE), "-o", str(output_path), text],
-        output_path=output_path,
-        timeout_seconds=60,
-        backend_status=f"say voice={TTS_VOICE}, rate={TTS_RATE}",
-    )
 
 
 def _build_piper_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
@@ -361,52 +335,6 @@ def _build_xtts_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBe
             f"trust_local_checkpoint={XTTS_TRUST_LOCAL_CHECKPOINT}"
         ),
         heavy=True,
-    )
-
-
-def _build_chatterbox_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
-    python_path = _optional_python(CHATTERBOX_PYTHON)
-    if python_path is None:
-        return _skip(
-            "chatterbox",
-            "chatterbox",
-            f"Configured CHATTERBOX_PYTHON was not found: {CHATTERBOX_PYTHON}",
-            heavy=True,
-            experimental=True,
-        )
-    if not CHATTERBOX_PYTHON and importlib.util.find_spec("chatterbox") is None:
-        return _skip(
-            "chatterbox",
-            "chatterbox",
-            "Chatterbox package is not installed; set CHATTERBOX_PYTHON or install optional dependency with 'pip install chatterbox-tts'",
-            heavy=True,
-            experimental=True,
-        )
-
-    script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_chatterbox_tts.py"
-    output_path = output_dir / "chatterbox.wav"
-    return TTSBenchmarkPlan(
-        backend="chatterbox",
-        selected_backend="chatterbox",
-        command=[
-            python_path,
-            str(script_path),
-            "--text",
-            text,
-            "--output",
-            str(output_path),
-            "--language",
-            CHATTERBOX_LANGUAGE,
-        ],
-        output_path=output_path,
-        env=_build_engine_cache_env("chatterbox"),
-        timeout_seconds=CHATTERBOX_TIMEOUT_SECONDS,
-        backend_status=(
-            f"chatterbox language={CHATTERBOX_LANGUAGE}, "
-            f"python={Path(python_path).name}, device=auto"
-        ),
-        heavy=True,
-        experimental=True,
     )
 
 

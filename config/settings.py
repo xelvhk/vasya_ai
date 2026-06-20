@@ -225,7 +225,6 @@ COSYVOICE_PROMPT_TEXT = os.getenv(
     "Привет, это голосовой ассистент Вася.<|endofprompt|>",
 ).strip()
 TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", "storage/cache").strip()
-CHATTERBOX_PYTHON = os.getenv("CHATTERBOX_PYTHON", "").strip()
 COSYVOICE_PYTHON = os.getenv("COSYVOICE_PYTHON", "").strip()
 CHILD_MODE_STATE_FILE = os.getenv("CHILD_MODE_STATE_FILE", "storage/child_mode.json")
 DICTATION_MODE_STATE_FILE = os.getenv("DICTATION_MODE_STATE_FILE", "storage/dictation_mode.json")

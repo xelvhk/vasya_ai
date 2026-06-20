@@ -88,14 +88,17 @@ python scripts/doctor.py --quiet
 TTS benchmark:
 ```bash
 python scripts/benchmark_tts.py
+python scripts/benchmark_tts.py --profile quality --include-heavy --save-artifacts
+python scripts/benchmark_tts.py --profile full --save-artifacts
 python scripts/benchmark_tts.py --json
 python scripts/benchmark_tts.py --include-heavy --save-artifacts
 python scripts/benchmark_tts.py --include-experimental
-python scripts/benchmark_tts.py --backend chatterbox --include-experimental --save-artifacts
-python scripts/benchmark_tts.py --backend say --backend piper --backend chatterbox --backend cosyvoice --save-artifacts
+python scripts/benchmark_tts.py --backend piper --backend cosyvoice --save-artifacts
 ```
 
-The benchmark reports backend status, time-to-first-audio, total synthesis time, and failure/skip reasons for `say`, Piper, hybrid, and opt-in XTTS. Heavy or experimental engines stay opt-in; Chatterbox is available as an experimental multilingual quality candidate after `pip install chatterbox-tts`, CosyVoice can be benchmarked from a local `FunAudioLLM/CosyVoice` checkout via `COSYVOICE_REPO_DIR` + `COSYVOICE_MODEL_DIR`, and MisoTTS is tracked as a placeholder slot. None of them becomes the default assistant voice backend.
+The benchmark reports backend status, time-to-first-audio, total synthesis time, and failure/skip reasons. The default benchmark profile is `fast` and measures Piper, because Piper is the current production/default assistant voice: local, reliable, and fast enough for command confirmations and short replies.
+
+CosyVoice3 is the current best-sounding local quality candidate, but it stays opt-in through `--profile quality` because short replies can take tens of seconds on local CPU/runtime. Use it for quality-mode experiments, long-form narration, demos, or future prewarmed/background synthesis. Chatterbox and macOS `say` are intentionally not benchmark candidates: Chatterbox adds heavy cache/setup friction, and `say` produced header-only artifacts in local benchmark validation. MisoTTS is tracked as a placeholder slot only.
 
 Optional API mode:
 ```bash

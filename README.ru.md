@@ -18,7 +18,7 @@ Vasya уже умеет:
 - работать с календарем
 - синхронизировать события с Google Calendar
 - хранить данные в локальном SQLite
-- озвучивать ответы через macOS `say`
+- озвучивать ответы через локальный TTS backend
 - запускаться в фоне с hotkey
 - показывать первый MVP плавающего аватара на рабочем столе
 - управляться через tray или menu bar style control
@@ -438,14 +438,17 @@ Benchmark TTS:
 
 ```bash
 python scripts/benchmark_tts.py
+python scripts/benchmark_tts.py --profile quality --include-heavy --save-artifacts
+python scripts/benchmark_tts.py --profile full --save-artifacts
 python scripts/benchmark_tts.py --json
 python scripts/benchmark_tts.py --include-heavy --save-artifacts
 python scripts/benchmark_tts.py --include-experimental
-python scripts/benchmark_tts.py --backend chatterbox --include-experimental --save-artifacts
-python scripts/benchmark_tts.py --backend say --backend piper --backend chatterbox --backend cosyvoice --save-artifacts
+python scripts/benchmark_tts.py --backend piper --backend cosyvoice --save-artifacts
 ```
 
-Benchmark показывает статус backend, time-to-first-audio, total synthesis time и причины `SKIP`/`FAIL` для `say`, Piper, hybrid и opt-in XTTS. Тяжелые и experimental движки остаются opt-in; Chatterbox доступен как экспериментальный multilingual quality-candidate после `pip install chatterbox-tts`, CosyVoice можно измерять из локального clone `FunAudioLLM/CosyVoice` через `COSYVOICE_REPO_DIR` + `COSYVOICE_MODEL_DIR`, а MisoTTS учитывается как placeholder slot. Ни один из них не становится дефолтным голосом Васи.
+Benchmark показывает статус backend, time-to-first-audio, total synthesis time и причины `SKIP`/`FAIL`. Профиль по умолчанию — `fast`, он измеряет Piper, потому что Piper сейчас основной production/default голос Васи: локальный, надежный и достаточно быстрый для команд, подтверждений и коротких ответов.
+
+CosyVoice3 сейчас звучит лучше всего среди локальных quality-кандидатов, но остается opt-in через `--profile quality`: короткие реплики на локальном CPU/runtime могут занимать десятки секунд. Его стоит использовать для quality mode, длинной озвучки, демо и будущего prewarm/background synthesis. Chatterbox и macOS `say` намеренно не входят в benchmark-кандидаты: Chatterbox добавляет тяжелую подготовку cache/model, а `say` в локальной проверке создавал header-only artifact без аудио. MisoTTS остается только placeholder slot.
 
 Профили голоса:
 - `ruslan_direct` — мужской, быстрый и прямой
@@ -489,7 +492,7 @@ python scripts/obsidian_vault_bootstrap.py --vault "/Users/oksana/Documents/Obsi
 - рекомендуемые плагины: `Dataview`, `Iconize`, `Templater`, `Tasks`, `Omnisearch`, `Juggl`, `Excalibrain`
 
 Альтернативный путь для TTS:
-- `say` пока остается самым простым встроенным вариантом для macOS
+- `piper` остается основным быстрым вариантом для коротких ответов
 - `auto` использует `piper` для piper-профилей и может переключаться в `hybrid (XTTS + Piper)` для XTTS-профилей
 - `piper` можно принудительно включить через `TTS_BACKEND=piper`
 - `xtts` можно принудительно включить через `TTS_BACKEND=xtts`

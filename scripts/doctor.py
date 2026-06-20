@@ -239,7 +239,7 @@ def check_tts_backend() -> CheckResult:
             "tts backend",
             "WARN",
             f"cannot inspect TTS backend: {exc}",
-            fix="Check TTS_BACKEND/TTS_PROFILE settings or use the built-in macOS say backend.",
+            fix="Check TTS_BACKEND/TTS_PROFILE settings or switch to Piper with TTS_BACKEND=auto.",
         )
 
     lower_status = backend_status.lower()
@@ -248,7 +248,7 @@ def check_tts_backend() -> CheckResult:
             "tts backend",
             "WARN",
             backend_status,
-            fix="Install Piper/XTTS assets or use macOS say for audible replies.",
+            fix="Install Piper assets or switch TTS_BACKEND=auto for audible replies.",
         )
     if "selected, but" in lower_status or "unavailable" in lower_status or "missing" in lower_status:
         return report(

@@ -1,6 +1,5 @@
 .venv/
 .venv_xtts/
-.venv_chatterbox/
 .venv_cosyvoice/
 __pycache__/
 *.pyc

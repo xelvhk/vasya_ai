@@ -36,20 +36,246 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
         self.assertTrue(result.experimental)
         self.assertIn("experimental", result.failure_reason or "")
 
-    def test_say_plan_uses_file_output(self) -> None:
+    def test_retired_backends_are_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            for backend in ("say", "chatterbox"):
+                with self.subTest(backend=backend):
+                    result = bench.build_tts_benchmark_plan(
+                        backend=backend,
+                        text="hello",
+                        output_dir=Path(tmp),
+                    )
+
+                    self.assertIsInstance(result, bench.TTSBenchmarkResult)
+                    assert isinstance(result, bench.TTSBenchmarkResult)
+                    self.assertEqual(result.status, "SKIP")
+                    self.assertIn("unknown backend", result.failure_reason or "")
+
+    def test_cosyvoice_is_skipped_when_repo_is_not_configured(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "services.tts_benchmark_service.get_platform_name",
-            return_value="macos",
-        ), patch("services.tts_benchmark_service.shutil.which", return_value="/usr/bin/say"):
-            plan = bench.build_tts_benchmark_plan(
-                backend="say",
+            "services.tts_benchmark_service.COSYVOICE_REPO_DIR",
+            "",
+        ), patch("services.tts_benchmark_service.COSYVOICE_MODEL_DIR", ""):
+            result = bench.build_tts_benchmark_plan(
+                backend="cosyvoice",
                 text="hello",
                 output_dir=Path(tmp),
             )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertTrue(result.heavy)
+        self.assertTrue(result.experimental)
+        self.assertIn("COSYVOICE_REPO_DIR", result.failure_reason or "")
+
+    def test_cosyvoice_is_skipped_when_model_is_not_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            repo_dir.mkdir()
+            result = None
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                "",
+            ):
+                result = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertIn("COSYVOICE_MODEL_DIR", result.failure_reason or "")
+
+    def test_cosyvoice_plan_uses_isolated_runner_script(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            model_dir = Path(tmp) / "CosyVoice3-0.5B"
+            repo_dir.mkdir()
+            model_dir.mkdir()
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                str(model_dir),
+            ), patch("services.tts_benchmark_service.COSYVOICE_SPEAKER", "default"), patch(
+                "services.tts_benchmark_service.COSYVOICE_PYTHON",
+                "",
+            ):
+                plan = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
         self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
         assert isinstance(plan, bench.TTSBenchmarkPlan)
-        self.assertIn("-o", plan.command)
-        self.assertEqual(plan.output_path.suffix, ".aiff")
+        self.assertTrue(plan.heavy)
+        self.assertTrue(plan.experimental)
+        self.assertEqual(plan.command[0], bench.sys.executable)
+        self.assertIn("run_cosyvoice_tts.py", " ".join(plan.command))
+        self.assertIn("--repo-dir", plan.command)
+        self.assertIn("--model-dir", plan.command)
+        self.assertIn("--speaker", plan.command)
+        self.assertEqual(plan.output_path.name, "cosyvoice.wav")
+        self.assertIsNotNone(plan.env)
+        assert plan.env is not None
+        self.assertIn("XDG_CACHE_HOME", plan.env)
+        self.assertIn("HF_HOME", plan.env)
+
+    def test_cosyvoice3_requires_prompt_wav(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            model_dir = Path(tmp) / "CosyVoice3-0.5B"
+            repo_dir.mkdir()
+            model_dir.mkdir()
+            (model_dir / "cosyvoice3.yaml").touch()
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                str(model_dir),
+            ), patch("services.tts_benchmark_service.COSYVOICE_PROMPT_WAV", ""), patch(
+                "services.tts_benchmark_service.XTTS_SPEAKER_WAV",
+                "",
+            ):
+                result = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertIn("COSYVOICE_PROMPT_WAV", result.failure_reason or "")
+
+    def test_cosyvoice3_plan_passes_prompt_wav_and_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            model_dir = Path(tmp) / "CosyVoice3-0.5B"
+            prompt_wav = Path(tmp) / "prompt.wav"
+            repo_dir.mkdir()
+            model_dir.mkdir()
+            (model_dir / "cosyvoice3.yaml").touch()
+            prompt_wav.write_bytes(b"wav")
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                str(model_dir),
+            ), patch("services.tts_benchmark_service.COSYVOICE_PROMPT_WAV", str(prompt_wav)), patch(
+                "services.tts_benchmark_service.COSYVOICE_PROMPT_TEXT",
+                "sample prompt",
+            ), patch("services.tts_benchmark_service.COSYVOICE_PYTHON", ""):
+                plan = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
+        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
+        assert isinstance(plan, bench.TTSBenchmarkPlan)
+        self.assertIn("--prompt-wav", plan.command)
+        self.assertIn(str(prompt_wav), plan.command)
+        self.assertIn("--prompt-text", plan.command)
+        self.assertIn("sample prompt", plan.command)
+
+    def test_cosyvoice_is_skipped_when_configured_python_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_dir = Path(tmp) / "CosyVoice"
+            model_dir = Path(tmp) / "CosyVoice3-0.5B"
+            repo_dir.mkdir()
+            model_dir.mkdir()
+            with patch("services.tts_benchmark_service.COSYVOICE_REPO_DIR", str(repo_dir)), patch(
+                "services.tts_benchmark_service.COSYVOICE_MODEL_DIR",
+                str(model_dir),
+            ), patch("services.tts_benchmark_service.COSYVOICE_PYTHON", "/missing/cosyvoice/python"):
+                result = bench.build_tts_benchmark_plan(
+                    backend="cosyvoice",
+                    text="hello",
+                    output_dir=Path(tmp),
+                )
+
+        self.assertIsInstance(result, bench.TTSBenchmarkResult)
+        assert isinstance(result, bench.TTSBenchmarkResult)
+        self.assertEqual(result.status, "SKIP")
+        self.assertIn("COSYVOICE_PYTHON", result.failure_reason or "")
+
+    def test_include_experimental_adds_quality_candidates_and_misotts(self) -> None:
+        with patch(
+            "services.tts_benchmark_service.build_tts_benchmark_plan",
+            side_effect=lambda backend, text, output_dir, include_heavy=False: bench._skip(
+                backend=backend,
+                selected_backend=backend,
+                reason="test",
+            ),
+        ):
+            snapshot = bench.run_tts_benchmark(
+                text="hello",
+                backends=["piper"],
+                include_experimental=True,
+            )
+
+        results = snapshot["results"]
+        self.assertIsInstance(results, list)
+        self.assertEqual([item["backend"] for item in results], ["piper", "cosyvoice", "misotts"])
+
+    def test_header_only_audio_file_is_not_counted_as_started(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            header_only = Path(tmp) / "audio.wav"
+            header_only.write_bytes(b"\0" * 4096)
+
+            self.assertFalse(bench._audio_file_started(header_only))
+
+    def test_xtts_plan_uses_project_local_runner_and_caches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            xtts_bin = Path(tmp) / "venv_xtts" / "bin"
+            xtts_bin.mkdir(parents=True)
+            tts_command = xtts_bin / "tts"
+            python_command = xtts_bin / "python"
+            tts_command.touch()
+            python_command.touch()
+            with patch(
+                "services.tts_benchmark_service._resolve_command",
+                return_value=str(tts_command),
+            ), patch(
+                "services.tts_benchmark_service.get_profile_speaker_wav",
+                return_value=Path("/tmp/speaker.wav"),
+            ), patch("services.tts_benchmark_service.XTTS_TRUST_LOCAL_CHECKPOINT", True):
+                plan = bench.build_tts_benchmark_plan(
+                    backend="xtts",
+                    text="hello",
+                    output_dir=Path(tmp),
+                    include_heavy=True,
+                )
+
+        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
+        assert isinstance(plan, bench.TTSBenchmarkPlan)
+        self.assertIn("run_xtts_tts.py", " ".join(plan.command))
+        self.assertEqual(plan.command[0], str(python_command))
+        self.assertIn("--trust-local-checkpoint", plan.command)
+        self.assertIsNotNone(plan.env)
+        assert plan.env is not None
+        self.assertIn("TTS_HOME", plan.env)
+        self.assertIn("MPLCONFIGDIR", plan.env)
+        self.assertIn("XDG_CACHE_HOME", plan.env)
+        self.assertIn("HF_HOME", plan.env)
+
+    def test_xtts_plan_can_disable_trusted_checkpoint_opt_out(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "services.tts_benchmark_service._resolve_command",
+            return_value="/tmp/venv_xtts/bin/tts",
+        ), patch(
+            "services.tts_benchmark_service.get_profile_speaker_wav",
+            return_value=Path("/tmp/speaker.wav"),
+        ), patch("services.tts_benchmark_service.XTTS_TRUST_LOCAL_CHECKPOINT", False):
+            plan = bench.build_tts_benchmark_plan(
+                backend="xtts",
+                text="hello",
+                output_dir=Path(tmp),
+                include_heavy=True,
+            )
+
+        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
+        assert isinstance(plan, bench.TTSBenchmarkPlan)
+        self.assertNotIn("--trust-local-checkpoint", plan.command)
 
     def test_run_benchmark_uses_injected_runner(self) -> None:
         def fake_runner(plan: bench.TTSBenchmarkPlan) -> bench.ProcessTiming:
@@ -57,12 +283,17 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
             return bench.ProcessTiming(time_to_first_audio_ms=12.34, total_synthesis_ms=56.78)
 
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "services.tts_benchmark_service.get_platform_name",
-            return_value="macos",
-        ), patch("services.tts_benchmark_service.shutil.which", return_value="/usr/bin/say"):
+            "services.tts_benchmark_service.build_tts_benchmark_plan",
+            return_value=bench.TTSBenchmarkPlan(
+                backend="piper",
+                selected_backend="piper",
+                command=["piper"],
+                output_path=Path(tmp) / "piper.wav",
+            ),
+        ):
             snapshot = bench.run_tts_benchmark(
                 text="hello",
-                backends=["say"],
+                backends=["piper"],
                 artifact_dir=Path(tmp),
                 process_runner=fake_runner,
             )
@@ -79,6 +310,7 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
             selected_backend="piper",
             command=["piper", "--output_file", "/tmp/piper.wav"],
             output_path=Path("/tmp/piper.wav"),
+            env={"TTS_HOME": "/tmp/tts-cache"},
         )
 
         copied = bench._copy_plan_for_backend(original, backend="hybrid", status_suffix="test")
@@ -86,6 +318,7 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
         self.assertEqual(copied.output_path, Path("/tmp/hybrid-piper.wav"))
         self.assertIn("/tmp/hybrid-piper.wav", copied.command)
         self.assertNotIn("/tmp/piper.wav", copied.command)
+        self.assertEqual(copied.env, {"TTS_HOME": "/tmp/tts-cache"})
 
     def test_text_report_includes_skip_reason(self) -> None:
         snapshot = {

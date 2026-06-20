@@ -1,31 +1,43 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Callable
 
 from config.settings import (
+    COSYVOICE_MODEL_DIR,
+    COSYVOICE_PYTHON,
+    COSYVOICE_PROMPT_TEXT,
+    COSYVOICE_PROMPT_WAV,
+    COSYVOICE_REPO_DIR,
+    COSYVOICE_SPEAKER,
     PIPER_COMMAND,
     PIPER_LENGTH_SCALE,
     PIPER_SPEAKER,
     TTS_HYBRID_SHORT_TEXT_MAX_WORDS,
-    TTS_RATE,
-    TTS_VOICE,
+    TTS_CACHE_DIR,
+    XTTS_CACHE_DIR,
     XTTS_COMMAND,
     XTTS_LANGUAGE,
+    XTTS_MPLCONFIGDIR,
     XTTS_MODEL_NAME,
+    XTTS_SPEAKER_WAV,
     XTTS_TIMEOUT_SECONDS,
+    XTTS_TRUST_LOCAL_CHECKPOINT,
 )
-from utils.platform_runtime import get_platform_name
 from voice.profiles import get_profile_model_path, get_profile_speaker_wav, get_voice_profile
 
 
 DEFAULT_TTS_BENCHMARK_TEXT = "Привет, это короткий тест скорости голоса Васи."
-BASELINE_BACKENDS = ("say", "piper", "hybrid", "xtts")
+BASELINE_BACKENDS = ("piper", "hybrid", "xtts")
+EXPERIMENTAL_BACKENDS = ("cosyvoice", "misotts")
+COSYVOICE_TIMEOUT_SECONDS = 300
 
 
 @dataclass(frozen=True)
@@ -35,6 +47,7 @@ class TTSBenchmarkPlan:
     command: list[str]
     output_path: Path
     stdin_text: str | None = None
+    env: dict[str, str] | None = None
     timeout_seconds: int = 120
     backend_status: str = ""
     heavy: bool = False
@@ -78,8 +91,10 @@ def run_tts_benchmark(
     process_runner: ProcessRunner | None = None,
 ) -> dict[str, object]:
     selected_backends = backends or list(BASELINE_BACKENDS)
-    if include_experimental and "misotts" not in selected_backends:
-        selected_backends.append("misotts")
+    if include_experimental:
+        for experimental_backend in EXPERIMENTAL_BACKENDS:
+            if experimental_backend not in selected_backends:
+                selected_backends.append(experimental_backend)
 
     runner = process_runner or _execute_plan
     with tempfile.TemporaryDirectory(prefix="vasya-tts-benchmark-") as tmp:
@@ -193,8 +208,6 @@ def build_tts_benchmark_plan(
     include_heavy: bool = False,
 ) -> TTSBenchmarkPlan | TTSBenchmarkResult:
     normalized = backend.strip().lower()
-    if normalized == "say":
-        return _build_say_plan(text=text, output_dir=output_dir)
     if normalized == "piper":
         return _build_piper_plan(text=text, output_dir=output_dir)
     if normalized == "hybrid":
@@ -219,21 +232,9 @@ def build_tts_benchmark_plan(
             heavy=True,
             experimental=True,
         )
+    if normalized in {"cosyvoice", "cosyvoice2", "cosyvoice3", "cosy"}:
+        return _build_cosyvoice_plan(text=text, output_dir=output_dir)
     return _skip(backend=backend, selected_backend=backend, reason=f"unknown backend: {backend}")
-
-
-def _build_say_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
-    if get_platform_name() != "macos" or shutil.which("say") is None:
-        return _skip("say", "say", "macOS say command is not available")
-    output_path = output_dir / "say.aiff"
-    return TTSBenchmarkPlan(
-        backend="say",
-        selected_backend="say",
-        command=["say", "-v", TTS_VOICE, "-r", str(TTS_RATE), "-o", str(output_path), text],
-        output_path=output_path,
-        timeout_seconds=60,
-        backend_status=f"say voice={TTS_VOICE}, rate={TTS_RATE}",
-    )
 
 
 def _build_piper_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
@@ -298,26 +299,132 @@ def _build_xtts_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBe
 
     output_path = output_dir / "xtts.wav"
     language = profile.xtts_language or XTTS_LANGUAGE or "ru"
+    script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_xtts_tts.py"
+    python_path = _python_for_command(command_path)
+    command = [
+        python_path,
+        str(script_path),
+        "--model-name",
+        XTTS_MODEL_NAME,
+        "--text",
+        text,
+        "--speaker-wav",
+        str(speaker_wav),
+        "--language",
+        language,
+        "--output",
+        str(output_path),
+        "--cache-dir",
+        str(_project_path(XTTS_CACHE_DIR)),
+        "--mplconfig-dir",
+        str(_project_path(XTTS_MPLCONFIGDIR)),
+        "--xdg-cache-dir",
+        str(_project_path(TTS_CACHE_DIR)),
+    ]
+    if XTTS_TRUST_LOCAL_CHECKPOINT:
+        command.append("--trust-local-checkpoint")
     return TTSBenchmarkPlan(
         backend="xtts",
         selected_backend="xtts",
-        command=[
-            command_path,
-            "--model_name",
-            XTTS_MODEL_NAME,
-            "--text",
-            text,
-            "--speaker_wav",
-            str(speaker_wav),
-            "--language_idx",
-            language,
-            "--out_path",
-            str(output_path),
-        ],
+        command=command,
         output_path=output_path,
+        env=_build_xtts_env(),
         timeout_seconds=max(120, XTTS_TIMEOUT_SECONDS),
-        backend_status=f"xtts model={XTTS_MODEL_NAME}, speaker={speaker_wav.name}",
+        backend_status=(
+            f"xtts model={XTTS_MODEL_NAME}, speaker={speaker_wav.name}, "
+            f"trust_local_checkpoint={XTTS_TRUST_LOCAL_CHECKPOINT}"
+        ),
         heavy=True,
+    )
+
+
+def _build_cosyvoice_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
+    repo_dir = Path(COSYVOICE_REPO_DIR).expanduser() if COSYVOICE_REPO_DIR else None
+    model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+    if repo_dir is None:
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            "CosyVoice repo is not configured; clone FunAudioLLM/CosyVoice and set COSYVOICE_REPO_DIR",
+            heavy=True,
+            experimental=True,
+        )
+    if not repo_dir.exists():
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            f"CosyVoice repo was not found at {repo_dir}",
+            heavy=True,
+            experimental=True,
+        )
+    if model_dir is None:
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            "CosyVoice model is not configured; set COSYVOICE_MODEL_DIR to a downloaded CosyVoice model",
+            heavy=True,
+            experimental=True,
+        )
+    if not model_dir.exists():
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            f"CosyVoice model was not found at {model_dir}",
+            heavy=True,
+            experimental=True,
+        )
+    python_path = _optional_python(COSYVOICE_PYTHON)
+    if python_path is None:
+        return _skip(
+            "cosyvoice",
+            "cosyvoice",
+            f"Configured COSYVOICE_PYTHON was not found: {COSYVOICE_PYTHON}",
+            heavy=True,
+            experimental=True,
+        )
+
+    script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_cosyvoice_tts.py"
+    output_path = output_dir / "cosyvoice.wav"
+    command = [
+        python_path,
+        str(script_path),
+        "--repo-dir",
+        str(repo_dir),
+        "--model-dir",
+        str(model_dir),
+        "--text",
+        text,
+        "--output",
+        str(output_path),
+    ]
+    prompt_wav = _cosyvoice_prompt_wav(model_dir)
+    if _is_cosyvoice3_model(model_dir):
+        if prompt_wav is None:
+            return _skip(
+                "cosyvoice",
+                "cosyvoice",
+                "CosyVoice3 requires COSYVOICE_PROMPT_WAV or XTTS_SPEAKER_WAV for zero-shot synthesis",
+                heavy=True,
+                experimental=True,
+            )
+        command.extend(["--prompt-wav", str(prompt_wav), "--prompt-text", COSYVOICE_PROMPT_TEXT])
+    if COSYVOICE_SPEAKER:
+        command.extend(["--speaker", COSYVOICE_SPEAKER])
+    return TTSBenchmarkPlan(
+        backend="cosyvoice",
+        selected_backend="cosyvoice",
+        command=command,
+        output_path=output_path,
+        env=_build_engine_cache_env("cosyvoice"),
+        timeout_seconds=COSYVOICE_TIMEOUT_SECONDS,
+        backend_status=(
+            f"cosyvoice repo={repo_dir.name}, model={model_dir.name}, "
+            f"speaker={COSYVOICE_SPEAKER or 'auto'}, "
+            f"prompt_wav={prompt_wav.name if prompt_wav else 'none'}, "
+            f"python={Path(python_path).name}"
+        ),
+        heavy=True,
+        experimental=True,
     )
 
 
@@ -329,6 +436,7 @@ def _copy_plan_for_backend(plan: TTSBenchmarkPlan, *, backend: str, status_suffi
         command=_replace_command_value(plan.command, old=str(plan.output_path), new=str(output_path)),
         output_path=output_path,
         stdin_text=plan.stdin_text,
+        env=plan.env,
         timeout_seconds=plan.timeout_seconds,
         backend_status=f"{plan.backend_status}; {status_suffix}",
         heavy=plan.heavy,
@@ -345,6 +453,7 @@ def _execute_plan(plan: TTSBenchmarkPlan) -> ProcessTiming:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         text=True,
+        env={**os.environ, **(plan.env or {})},
     )
     first_audio_at: float | None = None
     if plan.stdin_text is not None and process.stdin is not None:
@@ -366,7 +475,7 @@ def _execute_plan(plan: TTSBenchmarkPlan) -> ProcessTiming:
         raise RuntimeError(f"process exited with {process.returncode}")
     if first_audio_at is None and _audio_file_started(plan.output_path):
         first_audio_at = finished
-    if not plan.output_path.exists():
+    if not _audio_file_started(plan.output_path):
         raise RuntimeError("backend completed without creating an audio artifact")
     return ProcessTiming(
         time_to_first_audio_ms=(first_audio_at - started) * 1000 if first_audio_at is not None else None,
@@ -376,7 +485,7 @@ def _execute_plan(plan: TTSBenchmarkPlan) -> ProcessTiming:
 
 def _audio_file_started(path: Path) -> bool:
     try:
-        return path.exists() and path.stat().st_size > 0
+        return path.exists() and path.stat().st_size > 4096
     except OSError:
         return False
 
@@ -386,6 +495,73 @@ def _resolve_command(command_name: str) -> str | None:
     if candidate.exists():
         return str(candidate)
     return shutil.which(command_name)
+
+
+def _python_for_command(command_path: str) -> str:
+    candidate = Path(command_path)
+    sibling_python = candidate.with_name("python")
+    if sibling_python.exists():
+        return str(sibling_python)
+    return sys.executable
+
+
+def _optional_python(configured_python: str) -> str | None:
+    if not configured_python:
+        return sys.executable
+    python_path = Path(configured_python).expanduser()
+    if python_path.exists():
+        return str(python_path)
+    resolved = shutil.which(configured_python)
+    if resolved:
+        return resolved
+    return None
+
+
+def _build_xtts_env() -> dict[str, str]:
+    xtts_cache_dir = _project_path(XTTS_CACHE_DIR)
+    mpl_cache_dir = _project_path(XTTS_MPLCONFIGDIR)
+    xdg_cache_dir = _project_path(TTS_CACHE_DIR)
+    hf_cache_dir = xtts_cache_dir / "hf_cache"
+    return {
+        "TTS_HOME": str(xtts_cache_dir),
+        "XDG_DATA_HOME": str(xtts_cache_dir),
+        "MPLCONFIGDIR": str(mpl_cache_dir),
+        "XDG_CACHE_HOME": str(xdg_cache_dir),
+        "HF_HOME": str(hf_cache_dir),
+        "COQUI_TOS_AGREED": "1",
+    }
+
+
+def _build_engine_cache_env(engine_name: str) -> dict[str, str]:
+    cache_dir = _project_path(TTS_CACHE_DIR) / engine_name
+    hf_cache_dir = cache_dir / "hf_home"
+    return {
+        "XDG_CACHE_HOME": str(cache_dir),
+        "HF_HOME": str(hf_cache_dir),
+    }
+
+
+def _cosyvoice_prompt_wav(model_dir: Path) -> Path | None:
+    if not _is_cosyvoice3_model(model_dir):
+        return None
+    for configured_path in (COSYVOICE_PROMPT_WAV, XTTS_SPEAKER_WAV):
+        if not configured_path:
+            continue
+        candidate = Path(configured_path).expanduser()
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _is_cosyvoice3_model(model_dir: Path) -> bool:
+    return (model_dir / "cosyvoice3.yaml").exists()
+
+
+def _project_path(path_value: str) -> Path:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(__file__).resolve().parent.parent / path
 
 
 def _replace_command_value(command: list[str], *, old: str, new: str) -> list[str]:

@@ -450,9 +450,24 @@ Benchmark показывает статус backend, time-to-first-audio, total 
 
 CosyVoice3 сейчас звучит лучше всего среди локальных quality-кандидатов, но остается opt-in через `--profile quality`: короткие реплики на локальном CPU/runtime могут занимать десятки секунд. Его стоит использовать для quality mode, длинной озвучки, демо и будущего prewarm/background synthesis. Chatterbox и macOS `say` намеренно не входят в benchmark-кандидаты: Chatterbox добавляет тяжелую подготовку cache/model, а `say` в локальной проверке создавал header-only artifact без аудио. MisoTTS остается только placeholder slot.
 
+Runtime-режимы голоса:
+
+```bash
+TTS_RUNTIME_MODE=fast
+TTS_BACKEND=auto
+
+# Opt-in quality mode. Нужны COSYVOICE_* пути и prompt WAV.
+TTS_RUNTIME_MODE=quality
+TTS_BACKEND=auto
+python -m voice.tts --profile vasya_quality_cosyvoice --text "Привет, это красивый голос Васи."
+```
+
+`fast` оставляет Piper основным голосом ассистента. `quality` выбирает локальный CosyVoice backend, если он полностью настроен, и откатывается к Piper, если CosyVoice недоступен.
+
 Профили голоса:
 - `ruslan_direct` — мужской, быстрый и прямой
 - `alexa_natural_xtts` — женский, более натуральный XTTS-клон (нужен `XTTS_SPEAKER_WAV`)
+- `vasya_quality_cosyvoice` — красивый CosyVoice3 quality mode (медленный, opt-in)
 
 Системные голосовые команды:
 - `Замолчи`

@@ -195,6 +195,7 @@ LOG_REDACT_SENSITIVE = os.getenv("LOG_REDACT_SENSITIVE", "true").lower() == "tru
 LOG_INCLUDE_TEXT_CONTENT = os.getenv("LOG_INCLUDE_TEXT_CONTENT", "false").lower() == "true"
 LOG_MAX_FIELD_LENGTH = int(os.getenv("LOG_MAX_FIELD_LENGTH", "240"))
 TTS_BACKEND = os.getenv("TTS_BACKEND", "auto")
+TTS_RUNTIME_MODE = os.getenv("TTS_RUNTIME_MODE", "fast").strip().lower()
 VOICE_INPUT_BACKEND = os.getenv("VOICE_INPUT_BACKEND", "auto")
 HOTKEY_COMBINATION = os.getenv("HOTKEY_COMBINATION", "<cmd>+<option>+<space>")
 HOTKEY_TEXT_COMBINATION = os.getenv("HOTKEY_TEXT_COMBINATION", "<cmd>+<option>+k")
@@ -224,6 +225,7 @@ COSYVOICE_PROMPT_TEXT = os.getenv(
     "COSYVOICE_PROMPT_TEXT",
     "Привет, это голосовой ассистент Вася.<|endofprompt|>",
 ).strip()
+COSYVOICE_TIMEOUT_SECONDS = int(os.getenv("COSYVOICE_TIMEOUT_SECONDS", "300"))
 TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", "storage/cache").strip()
 COSYVOICE_PYTHON = os.getenv("COSYVOICE_PYTHON", "").strip()
 CHILD_MODE_STATE_FILE = os.getenv("CHILD_MODE_STATE_FILE", "storage/child_mode.json")

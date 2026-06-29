@@ -7,6 +7,7 @@ try:
     from fastapi.testclient import TestClient
 
     from apps.api import main as api_main
+    from config.settings import APP_VERSION
 
     _FASTAPI_AVAILABLE = True
 except ModuleNotFoundError:
@@ -15,6 +16,12 @@ except ModuleNotFoundError:
 
 @unittest.skipUnless(_FASTAPI_AVAILABLE, "fastapi is not installed in the current virtual environment")
 class ApiHealthRoutesTests(unittest.TestCase):
+    def test_openapi_version_matches_app_version(self) -> None:
+        with TestClient(api_main.app) as client:
+            response = client.get("/openapi.json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["info"]["version"], APP_VERSION)
+
     def test_health_live_returns_ok(self) -> None:
         with TestClient(api_main.app) as client:
             response = client.get("/health/live")

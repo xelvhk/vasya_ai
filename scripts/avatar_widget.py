@@ -134,6 +134,10 @@ def main() -> None:
             QWidget,
         )
         from PySide6.QtSvg import QSvgRenderer
+        try:
+            from scripts.ui.tray_menu import build_tray_menu
+        except ImportError:
+            from ui.tray_menu import build_tray_menu
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
@@ -3167,67 +3171,29 @@ def main() -> None:
             self._tray = QSystemTrayIcon(QIcon(self._tray_icon_pixmap), self)
             self._tray.setToolTip("Вася AI")
 
-            menu = QMenu()
-            self._toggle_avatar_action = QAction("Скрыть Васю", self)
-            self._toggle_avatar_action.triggered.connect(self.toggle_avatar_visibility)
-            menu.addAction(self._toggle_avatar_action)
-
-            listen_action = QAction("Начать слушать", self)
-            listen_action.triggered.connect(self._activate_interaction)
-            menu.addAction(listen_action)
-
-            text_action = QAction("Текстовая команда...", self)
-            text_action.triggered.connect(self._open_text_command_dialog)
-            menu.addAction(text_action)
-
-            quick_action = QAction("Быстрые команды", self)
-            quick_action.triggered.connect(self._open_quick_commands)
-            menu.addAction(quick_action)
-
-            mic_test_action = QAction("Тест микрофона", self)
-            mic_test_action.triggered.connect(self._run_quick_mic_test)
-            menu.addAction(mic_test_action)
-
-            diagnostics_action = QAction("Диагностика скорости...", self)
-            diagnostics_action.triggered.connect(self._show_speed_diagnostics)
-            menu.addAction(diagnostics_action)
-
-            memory_status_action = QAction("Memory Center...", self)
-            memory_status_action.triggered.connect(self._show_memory_center_status)
-            menu.addAction(memory_status_action)
-
-            memory_recent_action = QAction("Последнее в памяти...", self)
-            memory_recent_action.triggered.connect(self._show_memory_center_recent)
-            menu.addAction(memory_recent_action)
-
-            memory_search_action = QAction("Поиск в памяти...", self)
-            memory_search_action.triggered.connect(self._search_memory_center)
-            menu.addAction(memory_search_action)
-
-            memory_digest_action = QAction("Последний дайджест памяти...", self)
-            memory_digest_action.triggered.connect(self._open_or_build_latest_memory_digest)
-            menu.addAction(memory_digest_action)
-
-            memory_digests_action = QAction("История дайджестов...", self)
-            memory_digests_action.triggered.connect(self._show_memory_center_digests)
-            menu.addAction(memory_digests_action)
-
-            memory_sync_action = QAction("Синхронизировать память", self)
-            memory_sync_action.triggered.connect(self._sync_memory_center_now)
-            menu.addAction(memory_sync_action)
-
-            settings_action = QAction("Настройки...", self)
-            settings_action.triggered.connect(self._open_settings_dialog)
-            menu.addAction(settings_action)
-
-            clear_memory_action = QAction("Очистить личную память...", self)
-            clear_memory_action.triggered.connect(self._clear_personal_memory)
-            menu.addAction(clear_memory_action)
-            menu.addSeparator()
-
-            quit_action = QAction("Закрыть Васю", self)
-            quit_action.triggered.connect(self.quit_application)
-            menu.addAction(quit_action)
+            menu, tray_actions = build_tray_menu(
+                action_cls=QAction,
+                menu_cls=QMenu,
+                owner=self,
+                callbacks={
+                    "toggle_avatar": self.toggle_avatar_visibility,
+                    "listen": self._activate_interaction,
+                    "text_command": self._open_text_command_dialog,
+                    "quick_commands": self._open_quick_commands,
+                    "mic_test": self._run_quick_mic_test,
+                    "speed_diagnostics": self._show_speed_diagnostics,
+                    "memory_status": self._show_memory_center_status,
+                    "memory_recent": self._show_memory_center_recent,
+                    "memory_search": self._search_memory_center,
+                    "memory_digest": self._open_or_build_latest_memory_digest,
+                    "memory_digests": self._show_memory_center_digests,
+                    "memory_sync": self._sync_memory_center_now,
+                    "settings": self._open_settings_dialog,
+                    "clear_memory": self._clear_personal_memory,
+                    "quit": self.quit_application,
+                },
+            )
+            self._toggle_avatar_action = tray_actions["toggle_avatar"]
 
             self._tray.setContextMenu(menu)
             self._tray.activated.connect(self._on_tray_activated)

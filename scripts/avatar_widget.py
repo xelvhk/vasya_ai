@@ -135,8 +135,20 @@ def main() -> None:
         )
         from PySide6.QtSvg import QSvgRenderer
         try:
+            from scripts.ui.avatar_state import (
+                load_saved_position as load_avatar_saved_position,
+                load_widget_state as load_avatar_widget_state,
+                save_widget_state as save_avatar_widget_state,
+                widget_visible_on_start as avatar_visible_on_start,
+            )
             from scripts.ui.tray_menu import build_tray_menu
         except ImportError:
+            from ui.avatar_state import (
+                load_saved_position as load_avatar_saved_position,
+                load_widget_state as load_avatar_widget_state,
+                save_widget_state as save_avatar_widget_state,
+                widget_visible_on_start as avatar_visible_on_start,
+            )
             from ui.tray_menu import build_tray_menu
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
@@ -3865,27 +3877,17 @@ def main() -> None:
         return 1.0
 
     def _load_widget_state() -> dict:
-        state_path = Path(AVATAR_STATE_FILE)
-        if not state_path.exists():
-            return {}
-        try:
-            payload = json.loads(state_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return {}
-        return payload if isinstance(payload, dict) else {}
+        return load_avatar_widget_state(AVATAR_STATE_FILE)
 
     def _load_saved_position() -> QPoint | None:
-        payload = _load_widget_state()
-
-        x = payload.get("x")
-        y = payload.get("y")
-        if not isinstance(x, int) or not isinstance(y, int):
+        saved_position = load_avatar_saved_position(AVATAR_STATE_FILE)
+        if saved_position is None:
             return None
+        x, y = saved_position
         return QPoint(x, y)
 
     def _widget_visible_on_start() -> bool:
-        payload = _load_widget_state()
-        return not bool(payload.get("start_hidden", False))
+        return avatar_visible_on_start(AVATAR_STATE_FILE)
 
     def _default_position(width: int, height: int) -> QPoint:
         screen = QGuiApplication.primaryScreen()
@@ -3930,12 +3932,11 @@ def main() -> None:
         return QPoint(target_x, clamped.y())
 
     def _save_widget_state(payload: dict) -> None:
-        state_path = Path(AVATAR_STATE_FILE)
-        state_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            state_path.write_text(json.dumps(payload), encoding="utf-8")
-        except OSError as exc:
-            log(f"Failed to save avatar widget state: {exc}")
+        save_avatar_widget_state(
+            AVATAR_STATE_FILE,
+            payload,
+            on_error=lambda exc: log(f"Failed to save avatar widget state: {exc}"),
+        )
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)

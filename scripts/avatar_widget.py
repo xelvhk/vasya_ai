@@ -142,6 +142,7 @@ def main() -> None:
                 widget_visible_on_start as avatar_visible_on_start,
             )
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
+            from scripts.ui.settings_tabs import SETTINGS_TABS
             from scripts.ui.tray_menu import build_tray_menu
         except ImportError:
             from ui.avatar_state import (
@@ -151,6 +152,7 @@ def main() -> None:
                 widget_visible_on_start as avatar_visible_on_start,
             )
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
+            from ui.settings_tabs import SETTINGS_TABS
             from ui.tray_menu import build_tray_menu
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
@@ -720,15 +722,15 @@ def main() -> None:
             tabs.setDocumentMode(True)
             tabs.tabBar().setDrawBase(False)
 
-            appearance_tab = QWidget(self)
-            appearance_tab.setObjectName("settingsTabPage")
-            behavior_tab = QWidget(self)
-            behavior_tab.setObjectName("settingsTabPage")
-            integrations_tab = QWidget(self)
-            integrations_tab.setObjectName("settingsTabPage")
-            tabs.addTab(appearance_tab, "Внешний вид")
-            tabs.addTab(behavior_tab, "Поведение")
-            tabs.addTab(integrations_tab, "Интеграции")
+            tab_pages = {}
+            for tab_spec in SETTINGS_TABS:
+                tab_page = QWidget(self)
+                tab_page.setObjectName("settingsTabPage")
+                tabs.addTab(tab_page, tab_spec.label)
+                tab_pages[tab_spec.tab_id] = tab_page
+            appearance_tab = tab_pages["appearance"]
+            behavior_tab = tab_pages["behavior"]
+            integrations_tab = tab_pages["integrations"]
 
             appearance_form = QFormLayout(appearance_tab)
             appearance_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)

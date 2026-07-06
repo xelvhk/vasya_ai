@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.ui.settings_options import AVATAR_SIZE_OPTIONS
+from scripts.ui.settings_options import AVATAR_SIZE_OPTIONS, TRAY_CLICK_OPTIONS
 
 
 class SettingsOptionsTests(unittest.TestCase):
@@ -19,6 +19,15 @@ class SettingsOptionsTests(unittest.TestCase):
     def test_avatar_size_values_are_unique(self) -> None:
         values = [option.value for option in AVATAR_SIZE_OPTIONS]
         self.assertEqual(len(values), len(set(values)))
+
+    def test_tray_click_options_keep_expected_order_and_values(self) -> None:
+        self.assertEqual(
+            [(option.label, option.value) for option in TRAY_CLICK_OPTIONS],
+            [
+                ("Показать или скрыть Васю", "toggle"),
+                ("Начать слушать", "listen"),
+            ],
+        )
 
 
 if __name__ == "__main__":

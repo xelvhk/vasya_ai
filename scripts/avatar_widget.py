@@ -141,7 +141,7 @@ def main() -> None:
                 save_widget_state as save_avatar_widget_state,
                 widget_visible_on_start as avatar_visible_on_start,
             )
-            from scripts.ui.settings_options import AVATAR_SIZE_OPTIONS
+            from scripts.ui.settings_options import AVATAR_SIZE_OPTIONS, TRAY_CLICK_OPTIONS
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from scripts.ui.settings_tabs import SETTINGS_TABS
             from scripts.ui.tray_menu import build_tray_menu
@@ -152,7 +152,7 @@ def main() -> None:
                 save_widget_state as save_avatar_widget_state,
                 widget_visible_on_start as avatar_visible_on_start,
             )
-            from ui.settings_options import AVATAR_SIZE_OPTIONS
+            from ui.settings_options import AVATAR_SIZE_OPTIONS, TRAY_CLICK_OPTIONS
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from ui.settings_tabs import SETTINGS_TABS
             from ui.tray_menu import build_tray_menu
@@ -802,8 +802,8 @@ def main() -> None:
             behavior_form.addRow("Голос Васи", self._voice_profile_combo)
 
             self._tray_click_combo = QComboBox(self)
-            self._tray_click_combo.addItem("Показать или скрыть Васю", "toggle")
-            self._tray_click_combo.addItem("Начать слушать", "listen")
+            for option in TRAY_CLICK_OPTIONS:
+                self._tray_click_combo.addItem(option.label, option.value)
             self._select_combo_value(self._tray_click_combo, widget._tray_click_action)
             behavior_form.addRow("Клик по иконке в трее", self._tray_click_combo)
 

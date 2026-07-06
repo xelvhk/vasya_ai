@@ -141,6 +141,7 @@ def main() -> None:
                 save_widget_state as save_avatar_widget_state,
                 widget_visible_on_start as avatar_visible_on_start,
             )
+            from scripts.ui.settings_options import AVATAR_SIZE_OPTIONS
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from scripts.ui.settings_tabs import SETTINGS_TABS
             from scripts.ui.tray_menu import build_tray_menu
@@ -151,6 +152,7 @@ def main() -> None:
                 save_widget_state as save_avatar_widget_state,
                 widget_visible_on_start as avatar_visible_on_start,
             )
+            from ui.settings_options import AVATAR_SIZE_OPTIONS
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from ui.settings_tabs import SETTINGS_TABS
             from ui.tray_menu import build_tray_menu
@@ -751,8 +753,8 @@ def main() -> None:
             integrations_form.setVerticalSpacing(12)
 
             self._size_combo = QComboBox(self)
-            for label, size in (("Маленький", 180), ("Средний", 210), ("Большой", 270)):
-                self._size_combo.addItem(label, size)
+            for option in AVATAR_SIZE_OPTIONS:
+                self._size_combo.addItem(option.label, option.value)
             self._select_combo_value(self._size_combo, widget._avatar_size)
             self._size_combo.currentIndexChanged.connect(self._sync_preview)
             appearance_form.addRow("Размер Васи", self._size_combo)

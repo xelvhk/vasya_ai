@@ -141,7 +141,11 @@ def main() -> None:
                 save_widget_state as save_avatar_widget_state,
                 widget_visible_on_start as avatar_visible_on_start,
             )
-            from scripts.ui.settings_options import AVATAR_SIZE_OPTIONS, TRAY_CLICK_OPTIONS
+            from scripts.ui.settings_options import (
+                AVATAR_SIZE_OPTIONS,
+                TRAY_CLICK_OPTIONS,
+                populate_combo_options,
+            )
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from scripts.ui.settings_tabs import SETTINGS_TABS
             from scripts.ui.tray_menu import build_tray_menu
@@ -152,7 +156,11 @@ def main() -> None:
                 save_widget_state as save_avatar_widget_state,
                 widget_visible_on_start as avatar_visible_on_start,
             )
-            from ui.settings_options import AVATAR_SIZE_OPTIONS, TRAY_CLICK_OPTIONS
+            from ui.settings_options import (
+                AVATAR_SIZE_OPTIONS,
+                TRAY_CLICK_OPTIONS,
+                populate_combo_options,
+            )
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from ui.settings_tabs import SETTINGS_TABS
             from ui.tray_menu import build_tray_menu
@@ -753,8 +761,7 @@ def main() -> None:
             integrations_form.setVerticalSpacing(12)
 
             self._size_combo = QComboBox(self)
-            for option in AVATAR_SIZE_OPTIONS:
-                self._size_combo.addItem(option.label, option.value)
+            populate_combo_options(self._size_combo, AVATAR_SIZE_OPTIONS)
             self._select_combo_value(self._size_combo, widget._avatar_size)
             self._size_combo.currentIndexChanged.connect(self._sync_preview)
             appearance_form.addRow("Размер Васи", self._size_combo)
@@ -802,8 +809,7 @@ def main() -> None:
             behavior_form.addRow("Голос Васи", self._voice_profile_combo)
 
             self._tray_click_combo = QComboBox(self)
-            for option in TRAY_CLICK_OPTIONS:
-                self._tray_click_combo.addItem(option.label, option.value)
+            populate_combo_options(self._tray_click_combo, TRAY_CLICK_OPTIONS)
             self._select_combo_value(self._tray_click_combo, widget._tray_click_action)
             behavior_form.addRow("Клик по иконке в трее", self._tray_click_combo)
 

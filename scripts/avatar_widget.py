@@ -146,6 +146,7 @@ def main() -> None:
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
             )
+            from scripts.ui.settings_layout import configure_settings_form_layout
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from scripts.ui.settings_tabs import SETTINGS_TABS
             from scripts.ui.tray_menu import build_tray_menu
@@ -161,6 +162,7 @@ def main() -> None:
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
             )
+            from ui.settings_layout import configure_settings_form_layout
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from ui.settings_tabs import SETTINGS_TABS
             from ui.tray_menu import build_tray_menu
@@ -743,22 +745,14 @@ def main() -> None:
             integrations_tab = tab_pages["integrations"]
 
             appearance_form = QFormLayout(appearance_tab)
-            appearance_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-            appearance_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-            appearance_form.setHorizontalSpacing(16)
-            appearance_form.setVerticalSpacing(12)
-
             behavior_form = QFormLayout(behavior_tab)
-            behavior_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-            behavior_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-            behavior_form.setHorizontalSpacing(16)
-            behavior_form.setVerticalSpacing(12)
-
             integrations_form = QFormLayout(integrations_tab)
-            integrations_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-            integrations_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-            integrations_form.setHorizontalSpacing(16)
-            integrations_form.setVerticalSpacing(12)
+            for form_layout in (appearance_form, behavior_form, integrations_form):
+                configure_settings_form_layout(
+                    form_layout,
+                    label_alignment=Qt.AlignmentFlag.AlignLeft,
+                    form_alignment=Qt.AlignmentFlag.AlignTop,
+                )
 
             self._size_combo = QComboBox(self)
             populate_combo_options(self._size_combo, AVATAR_SIZE_OPTIONS)

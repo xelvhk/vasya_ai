@@ -146,6 +146,10 @@ def main() -> None:
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
             )
+            from scripts.ui.settings_inputs import (
+                INTEGRATION_TEXT_INPUTS,
+                configure_text_input,
+            )
             from scripts.ui.settings_layout import configure_settings_form_layout
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from scripts.ui.settings_tabs import SETTINGS_TABS
@@ -161,6 +165,10 @@ def main() -> None:
                 AVATAR_SIZE_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
+            )
+            from ui.settings_inputs import (
+                INTEGRATION_TEXT_INPUTS,
+                configure_text_input,
             )
             from ui.settings_layout import configure_settings_form_layout
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
@@ -946,42 +954,70 @@ def main() -> None:
             morning_actions.addStretch(1)
             behavior_form.addRow("Проверка", morning_actions)
 
+            (
+                github_repo_spec,
+                obsidian_vault_spec,
+                notion_page_spec,
+                github_token_spec,
+                notion_token_spec,
+                dictation_api_url_spec,
+                dictation_api_token_spec,
+            ) = INTEGRATION_TEXT_INPUTS
+
             self._github_repo_input = QLineEdit(
-                get_integration_setting("github_default_repo"),
+                get_integration_setting(github_repo_spec.setting_key),
                 self,
             )
-            self._github_repo_input.setPlaceholderText("owner/repo")
-            integrations_form.addRow("GitHub repo", self._github_repo_input)
+            configure_text_input(
+                self._github_repo_input,
+                github_repo_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(github_repo_spec.row_label, self._github_repo_input)
 
             self._obsidian_vault_input = QLineEdit(
-                get_integration_setting("obsidian_vault_path"),
+                get_integration_setting(obsidian_vault_spec.setting_key),
                 self,
             )
-            self._obsidian_vault_input.setPlaceholderText("~/Documents/Obsidian Vault")
-            integrations_form.addRow("Obsidian vault path", self._obsidian_vault_input)
+            configure_text_input(
+                self._obsidian_vault_input,
+                obsidian_vault_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(obsidian_vault_spec.row_label, self._obsidian_vault_input)
 
             self._notion_page_input = QLineEdit(
-                get_integration_setting("notion_updates_page_id"),
+                get_integration_setting(notion_page_spec.setting_key),
                 self,
             )
-            self._notion_page_input.setPlaceholderText("Notion page id")
-            integrations_form.addRow("Notion page id", self._notion_page_input)
+            configure_text_input(
+                self._notion_page_input,
+                notion_page_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(notion_page_spec.row_label, self._notion_page_input)
 
             self._github_token_input = QLineEdit(
-                get_integration_setting("github_api_token"),
+                get_integration_setting(github_token_spec.setting_key),
                 self,
             )
-            self._github_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self._github_token_input.setPlaceholderText("GitHub token (optional)")
-            integrations_form.addRow("GitHub token", self._github_token_input)
+            configure_text_input(
+                self._github_token_input,
+                github_token_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(github_token_spec.row_label, self._github_token_input)
 
             self._notion_token_input = QLineEdit(
-                get_integration_setting("notion_api_token"),
+                get_integration_setting(notion_token_spec.setting_key),
                 self,
             )
-            self._notion_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self._notion_token_input.setPlaceholderText("Notion integration token")
-            integrations_form.addRow("Notion token", self._notion_token_input)
+            configure_text_input(
+                self._notion_token_input,
+                notion_token_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(notion_token_spec.row_label, self._notion_token_input)
 
             self._dictation_target_combo = QComboBox(self)
             self._dictation_target_combo.addItem("В активное поле", "active_field")
@@ -990,19 +1026,26 @@ def main() -> None:
             integrations_form.addRow("Режим диктовки", self._dictation_target_combo)
 
             self._dictation_api_url_input = QLineEdit(
-                get_integration_setting("dictation_api_url"),
+                get_integration_setting(dictation_api_url_spec.setting_key),
                 self,
             )
-            self._dictation_api_url_input.setPlaceholderText("http://127.0.0.1:8787/v1/dictation")
-            integrations_form.addRow("Dictation API URL", self._dictation_api_url_input)
+            configure_text_input(
+                self._dictation_api_url_input,
+                dictation_api_url_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(dictation_api_url_spec.row_label, self._dictation_api_url_input)
 
             self._dictation_api_token_input = QLineEdit(
-                get_integration_setting("dictation_api_token"),
+                get_integration_setting(dictation_api_token_spec.setting_key),
                 self,
             )
-            self._dictation_api_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self._dictation_api_token_input.setPlaceholderText("X-API-Key / Bearer token (optional)")
-            integrations_form.addRow("Dictation API token", self._dictation_api_token_input)
+            configure_text_input(
+                self._dictation_api_token_input,
+                dictation_api_token_spec,
+                password_echo_mode=QLineEdit.EchoMode.Password,
+            )
+            integrations_form.addRow(dictation_api_token_spec.row_label, self._dictation_api_token_input)
 
             integration_actions = QHBoxLayout()
             test_integrations_button = QPushButton("Проверить интеграции", self)

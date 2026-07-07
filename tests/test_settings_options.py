@@ -4,6 +4,7 @@ import unittest
 
 from scripts.ui.settings_options import (
     AVATAR_SIZE_OPTIONS,
+    DICTATION_TARGET_OPTIONS,
     TRAY_CLICK_OPTIONS,
     populate_combo_options,
 )
@@ -38,6 +39,15 @@ class SettingsOptionsTests(unittest.TestCase):
             [
                 ("Показать или скрыть Васю", "toggle"),
                 ("Начать слушать", "listen"),
+            ],
+        )
+
+    def test_dictation_target_options_keep_expected_order_and_values(self) -> None:
+        self.assertEqual(
+            [(option.label, option.value) for option in DICTATION_TARGET_OPTIONS],
+            [
+                ("В активное поле", "active_field"),
+                ("Через API", "api"),
             ],
         )
 

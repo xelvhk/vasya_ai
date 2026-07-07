@@ -26,6 +26,11 @@ TRAY_CLICK_OPTIONS: tuple[SettingsOption, ...] = (
     SettingsOption("Начать слушать", "listen"),
 )
 
+DICTATION_TARGET_OPTIONS: tuple[SettingsOption, ...] = (
+    SettingsOption("В активное поле", "active_field"),
+    SettingsOption("Через API", "api"),
+)
+
 
 def populate_combo_options(combo: ComboLike, options: tuple[SettingsOption, ...]) -> None:
     for option in options:

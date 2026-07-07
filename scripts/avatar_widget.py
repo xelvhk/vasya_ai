@@ -143,6 +143,7 @@ def main() -> None:
             )
             from scripts.ui.settings_options import (
                 AVATAR_SIZE_OPTIONS,
+                DICTATION_TARGET_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
             )
@@ -163,6 +164,7 @@ def main() -> None:
             )
             from ui.settings_options import (
                 AVATAR_SIZE_OPTIONS,
+                DICTATION_TARGET_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
             )
@@ -1020,8 +1022,7 @@ def main() -> None:
             integrations_form.addRow(notion_token_spec.row_label, self._notion_token_input)
 
             self._dictation_target_combo = QComboBox(self)
-            self._dictation_target_combo.addItem("В активное поле", "active_field")
-            self._dictation_target_combo.addItem("Через API", "api")
+            populate_combo_options(self._dictation_target_combo, DICTATION_TARGET_OPTIONS)
             self._select_combo_value(self._dictation_target_combo, widget._dictation_target)
             integrations_form.addRow("Режим диктовки", self._dictation_target_combo)
 

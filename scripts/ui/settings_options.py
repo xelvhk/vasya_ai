@@ -31,6 +31,16 @@ DICTATION_TARGET_OPTIONS: tuple[SettingsOption, ...] = (
     SettingsOption("Через API", "api"),
 )
 
+AGENT_ROUTING_PROFILE_OPTIONS: tuple[SettingsOption, ...] = (
+    SettingsOption("RolePack v1 (рекомендуется)", "rolepack_v1"),
+    SettingsOption("Classic", "classic_v1"),
+)
+
+CHAT_PROMPT_PACK_OPTIONS: tuple[SettingsOption, ...] = (
+    SettingsOption("Dynamic v1 (рекомендуется)", "dynamic_v1"),
+    SettingsOption("Classic", "classic_v1"),
+)
+
 
 def populate_combo_options(combo: ComboLike, options: tuple[SettingsOption, ...]) -> None:
     for option in options:

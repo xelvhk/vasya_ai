@@ -142,7 +142,9 @@ def main() -> None:
                 widget_visible_on_start as avatar_visible_on_start,
             )
             from scripts.ui.settings_options import (
+                AGENT_ROUTING_PROFILE_OPTIONS,
                 AVATAR_SIZE_OPTIONS,
+                CHAT_PROMPT_PACK_OPTIONS,
                 DICTATION_TARGET_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
@@ -163,7 +165,9 @@ def main() -> None:
                 widget_visible_on_start as avatar_visible_on_start,
             )
             from ui.settings_options import (
+                AGENT_ROUTING_PROFILE_OPTIONS,
                 AVATAR_SIZE_OPTIONS,
+                CHAT_PROMPT_PACK_OPTIONS,
                 DICTATION_TARGET_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
@@ -928,14 +932,12 @@ def main() -> None:
             self._sync_auto_interrupt_controls()
 
             self._routing_profile_combo = QComboBox(self)
-            self._routing_profile_combo.addItem("RolePack v1 (рекомендуется)", "rolepack_v1")
-            self._routing_profile_combo.addItem("Classic", "classic_v1")
+            populate_combo_options(self._routing_profile_combo, AGENT_ROUTING_PROFILE_OPTIONS)
             self._select_combo_value(self._routing_profile_combo, widget._agent_routing_profile)
             behavior_form.addRow("A/B: Routing профиль", self._routing_profile_combo)
 
             self._prompt_pack_profile_combo = QComboBox(self)
-            self._prompt_pack_profile_combo.addItem("Dynamic v1 (рекомендуется)", "dynamic_v1")
-            self._prompt_pack_profile_combo.addItem("Classic", "classic_v1")
+            populate_combo_options(self._prompt_pack_profile_combo, CHAT_PROMPT_PACK_OPTIONS)
             self._select_combo_value(self._prompt_pack_profile_combo, widget._chat_prompt_pack_profile)
             behavior_form.addRow("A/B: Prompt pack профиль", self._prompt_pack_profile_combo)
 

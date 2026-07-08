@@ -3,7 +3,9 @@ from __future__ import annotations
 import unittest
 
 from scripts.ui.settings_options import (
+    AGENT_ROUTING_PROFILE_OPTIONS,
     AVATAR_SIZE_OPTIONS,
+    CHAT_PROMPT_PACK_OPTIONS,
     DICTATION_TARGET_OPTIONS,
     TRAY_CLICK_OPTIONS,
     populate_combo_options,
@@ -48,6 +50,24 @@ class SettingsOptionsTests(unittest.TestCase):
             [
                 ("В активное поле", "active_field"),
                 ("Через API", "api"),
+            ],
+        )
+
+    def test_agent_routing_profile_options_keep_expected_order_and_values(self) -> None:
+        self.assertEqual(
+            [(option.label, option.value) for option in AGENT_ROUTING_PROFILE_OPTIONS],
+            [
+                ("RolePack v1 (рекомендуется)", "rolepack_v1"),
+                ("Classic", "classic_v1"),
+            ],
+        )
+
+    def test_chat_prompt_pack_options_keep_expected_order_and_values(self) -> None:
+        self.assertEqual(
+            [(option.label, option.value) for option in CHAT_PROMPT_PACK_OPTIONS],
+            [
+                ("Dynamic v1 (рекомендуется)", "dynamic_v1"),
+                ("Classic", "classic_v1"),
             ],
         )
 

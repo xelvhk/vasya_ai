@@ -25,6 +25,14 @@ class FormLayoutLike(Protocol):
         ...
 
 
+class RangedValueInputLike(Protocol):
+    def setRange(self, minimum: int, maximum: int) -> None:
+        ...
+
+    def setValue(self, value: int) -> None:
+        ...
+
+
 def configure_settings_form_layout(
     layout: FormLayoutLike,
     *,
@@ -44,3 +52,14 @@ def add_action_row_widgets(
     for widget in widgets:
         layout.addWidget(widget)
     layout.addStretch(1)
+
+
+def configure_ranged_value_input(
+    control: RangedValueInputLike,
+    *,
+    minimum: int,
+    maximum: int,
+    value: int,
+) -> None:
+    control.setRange(minimum, maximum)
+    control.setValue(value)

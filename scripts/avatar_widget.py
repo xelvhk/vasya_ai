@@ -155,6 +155,7 @@ def main() -> None:
             )
             from scripts.ui.settings_layout import (
                 add_action_row_widgets,
+                configure_ranged_value_input,
                 configure_settings_form_layout,
             )
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
@@ -181,6 +182,7 @@ def main() -> None:
             )
             from ui.settings_layout import (
                 add_action_row_widgets,
+                configure_ranged_value_input,
                 configure_settings_form_layout,
             )
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
@@ -857,8 +859,12 @@ def main() -> None:
             behavior_form.addRow("Город утреннего шоу", self._morning_show_city_input)
 
             self._morning_show_hour_limit = QSpinBox(self)
-            self._morning_show_hour_limit.setRange(0, 23)
-            self._morning_show_hour_limit.setValue(widget._morning_show_hour_limit)
+            configure_ranged_value_input(
+                self._morning_show_hour_limit,
+                minimum=0,
+                maximum=23,
+                value=widget._morning_show_hour_limit,
+            )
             behavior_form.addRow("До какого часа", self._morning_show_hour_limit)
 
             self._smart_followup_checkbox = QCheckBox("Умный follow-up после ответа", self)
@@ -873,8 +879,12 @@ def main() -> None:
             behavior_form.addRow("Окно дослушивания", self._smart_followup_seconds)
 
             self._smart_followup_retries = QSpinBox(self)
-            self._smart_followup_retries.setRange(1, 3)
-            self._smart_followup_retries.setValue(widget._smart_followup_retries)
+            configure_ranged_value_input(
+                self._smart_followup_retries,
+                minimum=1,
+                maximum=3,
+                value=widget._smart_followup_retries,
+            )
             behavior_form.addRow("Повторы в follow-up", self._smart_followup_retries)
 
             self._auto_interrupt_checkbox = QCheckBox("Прерывать озвучивание новой голосовой командой", self)
@@ -915,20 +925,32 @@ def main() -> None:
             behavior_form.addRow("Порог шумной среды", self._auto_interrupt_noisy_rms)
 
             self._auto_interrupt_hits_quiet = QSpinBox(self)
-            self._auto_interrupt_hits_quiet.setRange(1, 6)
-            self._auto_interrupt_hits_quiet.setValue(widget._auto_interrupt_hits_quiet)
+            configure_ranged_value_input(
+                self._auto_interrupt_hits_quiet,
+                minimum=1,
+                maximum=6,
+                value=widget._auto_interrupt_hits_quiet,
+            )
             self._auto_interrupt_hits_quiet.setToolTip("Рекомендуется: 1 подтверждение")
             behavior_form.addRow("Подтверждений (тихо)", self._auto_interrupt_hits_quiet)
 
             self._auto_interrupt_hits_normal = QSpinBox(self)
-            self._auto_interrupt_hits_normal.setRange(1, 6)
-            self._auto_interrupt_hits_normal.setValue(widget._auto_interrupt_hits_normal)
+            configure_ranged_value_input(
+                self._auto_interrupt_hits_normal,
+                minimum=1,
+                maximum=6,
+                value=widget._auto_interrupt_hits_normal,
+            )
             self._auto_interrupt_hits_normal.setToolTip("Рекомендуется: 2 подтверждения")
             behavior_form.addRow("Подтверждений (обычно)", self._auto_interrupt_hits_normal)
 
             self._auto_interrupt_hits_noisy = QSpinBox(self)
-            self._auto_interrupt_hits_noisy.setRange(1, 6)
-            self._auto_interrupt_hits_noisy.setValue(widget._auto_interrupt_hits_noisy)
+            configure_ranged_value_input(
+                self._auto_interrupt_hits_noisy,
+                minimum=1,
+                maximum=6,
+                value=widget._auto_interrupt_hits_noisy,
+            )
             self._auto_interrupt_hits_noisy.setToolTip("Рекомендуется: 3 подтверждения")
             behavior_form.addRow("Подтверждений (шумно)", self._auto_interrupt_hits_noisy)
             self._auto_interrupt_adaptive_checkbox.toggled.connect(self._sync_auto_interrupt_controls)

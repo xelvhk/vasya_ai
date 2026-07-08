@@ -153,7 +153,10 @@ def main() -> None:
                 INTEGRATION_TEXT_INPUTS,
                 configure_text_input,
             )
-            from scripts.ui.settings_layout import configure_settings_form_layout
+            from scripts.ui.settings_layout import (
+                add_action_row_widgets,
+                configure_settings_form_layout,
+            )
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from scripts.ui.settings_tabs import SETTINGS_TABS
             from scripts.ui.tray_menu import build_tray_menu
@@ -176,7 +179,10 @@ def main() -> None:
                 INTEGRATION_TEXT_INPUTS,
                 configure_text_input,
             )
-            from ui.settings_layout import configure_settings_form_layout
+            from ui.settings_layout import (
+                add_action_row_widgets,
+                configure_settings_form_layout,
+            )
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
             from ui.settings_tabs import SETTINGS_TABS
             from ui.tray_menu import build_tray_menu
@@ -781,14 +787,14 @@ def main() -> None:
             skin_actions = QHBoxLayout()
             import_skin_button = QPushButton("Импорт палитры...", self)
             import_skin_button.clicked.connect(self._import_custom_skin)
-            skin_actions.addWidget(import_skin_button)
             export_skin_button = QPushButton("Экспорт палитры...", self)
             export_skin_button.clicked.connect(self._export_current_skin)
-            skin_actions.addWidget(export_skin_button)
             reset_skin_button = QPushButton("Сбросить свою", self)
             reset_skin_button.clicked.connect(self._reset_custom_skin)
-            skin_actions.addWidget(reset_skin_button)
-            skin_actions.addStretch(1)
+            add_action_row_widgets(
+                skin_actions,
+                (import_skin_button, export_skin_button, reset_skin_button),
+            )
 
             skin_row = QVBoxLayout()
             skin_row.setSpacing(8)
@@ -799,11 +805,9 @@ def main() -> None:
             image_actions = QHBoxLayout()
             choose_image_button = QPushButton("Выбрать изображение...", self)
             choose_image_button.clicked.connect(self._choose_avatar_image)
-            image_actions.addWidget(choose_image_button)
             reset_image_button = QPushButton("Вернуть встроенный", self)
             reset_image_button.clicked.connect(self._reset_avatar_image)
-            image_actions.addWidget(reset_image_button)
-            image_actions.addStretch(1)
+            add_action_row_widgets(image_actions, (choose_image_button, reset_image_button))
             appearance_form.addRow("Картинка Васи", image_actions)
 
             self._voice_profile_combo = QComboBox(self)
@@ -944,18 +948,18 @@ def main() -> None:
             tuning_actions = QHBoxLayout()
             auto_tune_button = QPushButton("Подобрать автоматически", self)
             auto_tune_button.clicked.connect(self._run_voice_auto_tune)
-            tuning_actions.addWidget(auto_tune_button)
-            tuning_actions.addStretch(1)
+            add_action_row_widgets(tuning_actions, (auto_tune_button,))
             behavior_form.addRow("Auto-tune", tuning_actions)
 
             morning_actions = QHBoxLayout()
             test_morning_show_button = QPushButton("Тест утреннего шоу", self)
             test_morning_show_button.clicked.connect(self._test_morning_show)
-            morning_actions.addWidget(test_morning_show_button)
             reset_morning_show_button = QPushButton("Сбросить на сегодня", self)
             reset_morning_show_button.clicked.connect(self._reset_morning_show_today)
-            morning_actions.addWidget(reset_morning_show_button)
-            morning_actions.addStretch(1)
+            add_action_row_widgets(
+                morning_actions,
+                (test_morning_show_button, reset_morning_show_button),
+            )
             behavior_form.addRow("Проверка", morning_actions)
 
             (
@@ -1053,15 +1057,13 @@ def main() -> None:
             integration_actions = QHBoxLayout()
             test_integrations_button = QPushButton("Проверить интеграции", self)
             test_integrations_button.clicked.connect(self._test_integrations)
-            integration_actions.addWidget(test_integrations_button)
-            integration_actions.addStretch(1)
+            add_action_row_widgets(integration_actions, (test_integrations_button,))
             integrations_form.addRow("Notion/GitHub", integration_actions)
 
             memory_actions = QHBoxLayout()
             clear_memory_button = QPushButton("Очистить личную память...", self)
             clear_memory_button.clicked.connect(self._clear_personal_memory)
-            memory_actions.addWidget(clear_memory_button)
-            memory_actions.addStretch(1)
+            add_action_row_widgets(memory_actions, (clear_memory_button,))
             integrations_form.addRow("Память о пользователе", memory_actions)
 
             self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)

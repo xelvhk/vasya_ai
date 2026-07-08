@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.ui.settings_layout import configure_settings_form_layout
+from scripts.ui.settings_layout import add_action_row_widgets, configure_settings_form_layout
 
 
 class _FakeFormLayout:
@@ -25,6 +25,17 @@ class _FakeFormLayout:
         self.vertical_spacing = spacing
 
 
+class _FakeActionLayout:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def addWidget(self, widget) -> None:
+        self.calls.append(("widget", widget))
+
+    def addStretch(self, stretch: int) -> None:
+        self.calls.append(("stretch", stretch))
+
+
 class SettingsLayoutTests(unittest.TestCase):
     def test_configure_settings_form_layout_applies_common_spacing_and_alignment(self) -> None:
         layout = _FakeFormLayout()
@@ -39,6 +50,21 @@ class SettingsLayoutTests(unittest.TestCase):
         self.assertEqual(layout.form_alignment, "top")
         self.assertEqual(layout.horizontal_spacing, 16)
         self.assertEqual(layout.vertical_spacing, 12)
+
+    def test_add_action_row_widgets_adds_widgets_before_trailing_stretch(self) -> None:
+        layout = _FakeActionLayout()
+
+        add_action_row_widgets(layout, ("import", "export", "reset"))
+
+        self.assertEqual(
+            layout.calls,
+            [
+                ("widget", "import"),
+                ("widget", "export"),
+                ("widget", "reset"),
+                ("stretch", 1),
+            ],
+        )
 
 
 if __name__ == "__main__":

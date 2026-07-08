@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.ui.settings_layout import add_action_row_widgets, configure_settings_form_layout
+from scripts.ui.settings_layout import (
+    add_action_row_widgets,
+    configure_ranged_value_input,
+    configure_settings_form_layout,
+)
 
 
 class _FakeFormLayout:
@@ -36,6 +40,17 @@ class _FakeActionLayout:
         self.calls.append(("stretch", stretch))
 
 
+class _FakeRangedInput:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def setRange(self, minimum: int, maximum: int) -> None:
+        self.calls.append(("range", minimum, maximum))
+
+    def setValue(self, value: int) -> None:
+        self.calls.append(("value", value))
+
+
 class SettingsLayoutTests(unittest.TestCase):
     def test_configure_settings_form_layout_applies_common_spacing_and_alignment(self) -> None:
         layout = _FakeFormLayout()
@@ -63,6 +78,19 @@ class SettingsLayoutTests(unittest.TestCase):
                 ("widget", "export"),
                 ("widget", "reset"),
                 ("stretch", 1),
+            ],
+        )
+
+    def test_configure_ranged_value_input_sets_range_before_value(self) -> None:
+        control = _FakeRangedInput()
+
+        configure_ranged_value_input(control, minimum=1, maximum=6, value=2)
+
+        self.assertEqual(
+            control.calls,
+            [
+                ("range", 1, 6),
+                ("value", 2),
             ],
         )
 

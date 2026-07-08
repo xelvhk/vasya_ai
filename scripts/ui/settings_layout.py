@@ -3,6 +3,14 @@ from __future__ import annotations
 from typing import Protocol
 
 
+class ActionRowLayoutLike(Protocol):
+    def addWidget(self, widget) -> None:
+        ...
+
+    def addStretch(self, stretch: int) -> None:
+        ...
+
+
 class FormLayoutLike(Protocol):
     def setLabelAlignment(self, alignment) -> None:
         ...
@@ -27,3 +35,12 @@ def configure_settings_form_layout(
     layout.setFormAlignment(form_alignment)
     layout.setHorizontalSpacing(16)
     layout.setVerticalSpacing(12)
+
+
+def add_action_row_widgets(
+    layout: ActionRowLayoutLike,
+    widgets,
+) -> None:
+    for widget in widgets:
+        layout.addWidget(widget)
+    layout.addStretch(1)

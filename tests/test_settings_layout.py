@@ -4,6 +4,7 @@ import unittest
 
 from scripts.ui.settings_layout import (
     add_action_row_widgets,
+    configure_decimal_value_input,
     configure_ranged_value_input,
     configure_settings_form_layout,
 )
@@ -51,6 +52,23 @@ class _FakeRangedInput:
         self.calls.append(("value", value))
 
 
+class _FakeDecimalInput:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def setRange(self, minimum: float, maximum: float) -> None:
+        self.calls.append(("range", minimum, maximum))
+
+    def setSingleStep(self, step: float) -> None:
+        self.calls.append(("step", step))
+
+    def setValue(self, value: float) -> None:
+        self.calls.append(("value", value))
+
+    def setSuffix(self, suffix: str) -> None:
+        self.calls.append(("suffix", suffix))
+
+
 class SettingsLayoutTests(unittest.TestCase):
     def test_configure_settings_form_layout_applies_common_spacing_and_alignment(self) -> None:
         layout = _FakeFormLayout()
@@ -91,6 +109,28 @@ class SettingsLayoutTests(unittest.TestCase):
             [
                 ("range", 1, 6),
                 ("value", 2),
+            ],
+        )
+
+    def test_configure_decimal_value_input_applies_range_step_value_and_suffix(self) -> None:
+        control = _FakeDecimalInput()
+
+        configure_decimal_value_input(
+            control,
+            minimum=0.5,
+            maximum=3.0,
+            step=0.1,
+            value=1.5,
+            suffix=" s",
+        )
+
+        self.assertEqual(
+            control.calls,
+            [
+                ("range", 0.5, 3.0),
+                ("step", 0.1),
+                ("value", 1.5),
+                ("suffix", " s"),
             ],
         )
 

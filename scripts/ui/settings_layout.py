@@ -61,6 +61,14 @@ class SliderValueInputLike(Protocol):
         ...
 
 
+class CheckboxInputLike(Protocol):
+    def setChecked(self, checked: bool) -> None:
+        ...
+
+    def setToolTip(self, tooltip: str) -> None:
+        ...
+
+
 def configure_settings_form_layout(
     layout: FormLayoutLike,
     *,
@@ -120,3 +128,14 @@ def configure_slider_value_input(
     control.setMaximum(maximum)
     control.setSingleStep(step)
     control.setValue(value)
+
+
+def configure_checkbox_input(
+    control: CheckboxInputLike,
+    *,
+    checked: bool,
+    tooltip: str | None = None,
+) -> None:
+    control.setChecked(checked)
+    if tooltip is not None:
+        control.setToolTip(tooltip)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import dataclass
 
 from scripts.ui.settings_options import (
     AGENT_ROUTING_PROFILE_OPTIONS,
@@ -9,6 +10,7 @@ from scripts.ui.settings_options import (
     DICTATION_TARGET_OPTIONS,
     TRAY_CLICK_OPTIONS,
     populate_combo_options,
+    populate_voice_profile_options,
 )
 
 
@@ -18,6 +20,13 @@ class _FakeCombo:
 
     def addItem(self, label: str, value: int | str) -> None:
         self.items.append((label, value))
+
+
+@dataclass(frozen=True)
+class _FakeVoiceProfile:
+    label: str
+    gender: str
+    profile_id: str
 
 
 class SettingsOptionsTests(unittest.TestCase):
@@ -81,6 +90,25 @@ class SettingsOptionsTests(unittest.TestCase):
             [
                 ("Показать или скрыть Васю", "toggle"),
                 ("Начать слушать", "listen"),
+            ],
+        )
+
+    def test_populate_voice_profile_options_adds_labels_and_profile_ids(self) -> None:
+        combo = _FakeCombo()
+
+        populate_voice_profile_options(
+            combo,
+            (
+                _FakeVoiceProfile("Алиса", "female", "alice"),
+                _FakeVoiceProfile("Борис", "male", "boris"),
+            ),
+        )
+
+        self.assertEqual(
+            combo.items,
+            [
+                ("Алиса (female)", "alice"),
+                ("Борис (male)", "boris"),
             ],
         )
 

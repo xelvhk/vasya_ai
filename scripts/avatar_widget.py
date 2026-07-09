@@ -148,6 +148,7 @@ def main() -> None:
                 DICTATION_TARGET_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
+                populate_voice_profile_options,
             )
             from scripts.ui.settings_inputs import (
                 INTEGRATION_TEXT_INPUTS,
@@ -176,6 +177,7 @@ def main() -> None:
                 DICTATION_TARGET_OPTIONS,
                 TRAY_CLICK_OPTIONS,
                 populate_combo_options,
+                populate_voice_profile_options,
             )
             from ui.settings_inputs import (
                 INTEGRATION_TEXT_INPUTS,
@@ -816,11 +818,7 @@ def main() -> None:
 
             self._voice_profile_combo = QComboBox(self)
             active_profile = get_active_voice_profile()
-            for profile in list_voice_profiles():
-                self._voice_profile_combo.addItem(
-                    f"{profile.label} ({profile.gender})",
-                    profile.profile_id,
-                )
+            populate_voice_profile_options(self._voice_profile_combo, list_voice_profiles())
             self._select_combo_value(self._voice_profile_combo, active_profile.profile_id)
             behavior_form.addRow("Голос Васи", self._voice_profile_combo)
 

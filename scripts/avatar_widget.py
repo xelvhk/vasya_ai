@@ -155,6 +155,7 @@ def main() -> None:
             )
             from scripts.ui.settings_layout import (
                 add_action_row_widgets,
+                configure_decimal_value_input,
                 configure_ranged_value_input,
                 configure_settings_form_layout,
             )
@@ -182,6 +183,7 @@ def main() -> None:
             )
             from ui.settings_layout import (
                 add_action_row_widgets,
+                configure_decimal_value_input,
                 configure_ranged_value_input,
                 configure_settings_form_layout,
             )
@@ -872,10 +874,14 @@ def main() -> None:
             behavior_form.addRow(self._smart_followup_checkbox)
 
             self._smart_followup_seconds = QDoubleSpinBox(self)
-            self._smart_followup_seconds.setRange(1.0, 8.0)
-            self._smart_followup_seconds.setSingleStep(0.5)
-            self._smart_followup_seconds.setValue(widget._smart_followup_listen_seconds)
-            self._smart_followup_seconds.setSuffix(" с")
+            configure_decimal_value_input(
+                self._smart_followup_seconds,
+                minimum=1.0,
+                maximum=8.0,
+                step=0.5,
+                value=widget._smart_followup_listen_seconds,
+                suffix=" с",
+            )
             behavior_form.addRow("Окно дослушивания", self._smart_followup_seconds)
 
             self._smart_followup_retries = QSpinBox(self)
@@ -892,10 +898,14 @@ def main() -> None:
             behavior_form.addRow(self._auto_interrupt_checkbox)
 
             self._auto_interrupt_sample_seconds = QDoubleSpinBox(self)
-            self._auto_interrupt_sample_seconds.setRange(0.5, 3.0)
-            self._auto_interrupt_sample_seconds.setSingleStep(0.1)
-            self._auto_interrupt_sample_seconds.setValue(widget._auto_interrupt_sample_seconds)
-            self._auto_interrupt_sample_seconds.setSuffix(" с")
+            configure_decimal_value_input(
+                self._auto_interrupt_sample_seconds,
+                minimum=0.5,
+                maximum=3.0,
+                step=0.1,
+                value=widget._auto_interrupt_sample_seconds,
+                suffix=" с",
+            )
             behavior_form.addRow("Окно barge-in", self._auto_interrupt_sample_seconds)
 
             self._auto_interrupt_adaptive_checkbox = QCheckBox(
@@ -909,18 +919,26 @@ def main() -> None:
             behavior_form.addRow(self._auto_interrupt_adaptive_checkbox)
 
             self._auto_interrupt_quiet_rms = QDoubleSpinBox(self)
-            self._auto_interrupt_quiet_rms.setRange(50.0, 600.0)
-            self._auto_interrupt_quiet_rms.setSingleStep(5.0)
-            self._auto_interrupt_quiet_rms.setValue(widget._auto_interrupt_quiet_rms_threshold)
-            self._auto_interrupt_quiet_rms.setSuffix(" RMS")
+            configure_decimal_value_input(
+                self._auto_interrupt_quiet_rms,
+                minimum=50.0,
+                maximum=600.0,
+                step=5.0,
+                value=widget._auto_interrupt_quiet_rms_threshold,
+                suffix=" RMS",
+            )
             self._auto_interrupt_quiet_rms.setToolTip("Рекомендуется: 140 RMS")
             behavior_form.addRow("Порог тихой среды", self._auto_interrupt_quiet_rms)
 
             self._auto_interrupt_noisy_rms = QDoubleSpinBox(self)
-            self._auto_interrupt_noisy_rms.setRange(80.0, 900.0)
-            self._auto_interrupt_noisy_rms.setSingleStep(5.0)
-            self._auto_interrupt_noisy_rms.setValue(widget._auto_interrupt_noisy_rms_threshold)
-            self._auto_interrupt_noisy_rms.setSuffix(" RMS")
+            configure_decimal_value_input(
+                self._auto_interrupt_noisy_rms,
+                minimum=80.0,
+                maximum=900.0,
+                step=5.0,
+                value=widget._auto_interrupt_noisy_rms_threshold,
+                suffix=" RMS",
+            )
             self._auto_interrupt_noisy_rms.setToolTip("Рекомендуется: 260 RMS")
             behavior_form.addRow("Порог шумной среды", self._auto_interrupt_noisy_rms)
 

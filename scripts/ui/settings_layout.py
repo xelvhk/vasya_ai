@@ -33,6 +33,20 @@ class RangedValueInputLike(Protocol):
         ...
 
 
+class DecimalValueInputLike(Protocol):
+    def setRange(self, minimum: float, maximum: float) -> None:
+        ...
+
+    def setSingleStep(self, step: float) -> None:
+        ...
+
+    def setValue(self, value: float) -> None:
+        ...
+
+    def setSuffix(self, suffix: str) -> None:
+        ...
+
+
 def configure_settings_form_layout(
     layout: FormLayoutLike,
     *,
@@ -63,3 +77,18 @@ def configure_ranged_value_input(
 ) -> None:
     control.setRange(minimum, maximum)
     control.setValue(value)
+
+
+def configure_decimal_value_input(
+    control: DecimalValueInputLike,
+    *,
+    minimum: float,
+    maximum: float,
+    step: float,
+    value: float,
+    suffix: str,
+) -> None:
+    control.setRange(minimum, maximum)
+    control.setSingleStep(step)
+    control.setValue(value)
+    control.setSuffix(suffix)

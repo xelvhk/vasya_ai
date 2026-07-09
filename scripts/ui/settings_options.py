@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Iterable, Protocol
 
 
 class ComboLike(Protocol):
     def addItem(self, label: str, value: int | str) -> None:
         ...
+
+
+class VoiceProfileLike(Protocol):
+    label: str
+    gender: str
+    profile_id: str
 
 
 @dataclass(frozen=True)
@@ -45,3 +51,11 @@ CHAT_PROMPT_PACK_OPTIONS: tuple[SettingsOption, ...] = (
 def populate_combo_options(combo: ComboLike, options: tuple[SettingsOption, ...]) -> None:
     for option in options:
         combo.addItem(option.label, option.value)
+
+
+def populate_voice_profile_options(
+    combo: ComboLike,
+    profiles: Iterable[VoiceProfileLike],
+) -> None:
+    for profile in profiles:
+        combo.addItem(f"{profile.label} ({profile.gender})", profile.profile_id)

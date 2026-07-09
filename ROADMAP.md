@@ -294,6 +294,11 @@ If choosing one practical path from here, the best next order is:
 5. Simplify setup and first-run experience, starting with Windows setup
 6. Deepen adapters such as Obsidian and later Notion
 
+The current desktop UI cleanup is tracked in
+[docs/UI_REFACTOR_PLAN.md](docs/UI_REFACTOR_PLAN.md). Keep that work in small,
+behavior-preserving PRs until the settings dialog is isolated from
+`scripts/avatar_widget.py`.
+
 ## Security hardening tracker (v0.5.21)
 
 - [x] API: secure-by-default auth mode (`VASYA_API_REQUIRE_AUTH=true`)

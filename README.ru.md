@@ -45,6 +45,7 @@ Vasya уже умеет:
 Roadmap:
 - см. [ROADMAP.md](ROADMAP.md)
 - план мобильного monorepo: [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
+- план UI-рефакторинга: [docs/UI_REFACTOR_PLAN.md](docs/UI_REFACTOR_PLAN.md)
 - security tracker: [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
 
 ## Ценность продукта

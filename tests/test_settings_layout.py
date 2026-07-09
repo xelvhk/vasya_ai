@@ -4,6 +4,7 @@ import unittest
 
 from scripts.ui.settings_layout import (
     add_action_row_widgets,
+    configure_checkbox_input,
     configure_decimal_value_input,
     configure_ranged_value_input,
     configure_settings_form_layout,
@@ -85,6 +86,17 @@ class _FakeSliderInput:
 
     def setValue(self, value: int) -> None:
         self.calls.append(("value", value))
+
+
+class _FakeCheckboxInput:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def setChecked(self, checked: bool) -> None:
+        self.calls.append(("checked", checked))
+
+    def setToolTip(self, tooltip: str) -> None:
+        self.calls.append(("tooltip", tooltip))
 
 
 class SettingsLayoutTests(unittest.TestCase):
@@ -170,6 +182,26 @@ class SettingsLayoutTests(unittest.TestCase):
                 ("maximum", 100),
                 ("step", 5),
                 ("value", 85),
+            ],
+        )
+
+    def test_configure_checkbox_input_applies_checked_state(self) -> None:
+        control = _FakeCheckboxInput()
+
+        configure_checkbox_input(control, checked=True)
+
+        self.assertEqual(control.calls, [("checked", True)])
+
+    def test_configure_checkbox_input_applies_optional_tooltip(self) -> None:
+        control = _FakeCheckboxInput()
+
+        configure_checkbox_input(control, checked=False, tooltip="Helpful detail")
+
+        self.assertEqual(
+            control.calls,
+            [
+                ("checked", False),
+                ("tooltip", "Helpful detail"),
             ],
         )
 

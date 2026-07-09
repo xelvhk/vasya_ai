@@ -156,6 +156,7 @@ def main() -> None:
             )
             from scripts.ui.settings_layout import (
                 add_action_row_widgets,
+                configure_checkbox_input,
                 configure_decimal_value_input,
                 configure_ranged_value_input,
                 configure_slider_value_input,
@@ -186,6 +187,7 @@ def main() -> None:
             )
             from ui.settings_layout import (
                 add_action_row_widgets,
+                configure_checkbox_input,
                 configure_decimal_value_input,
                 configure_ranged_value_input,
                 configure_slider_value_input,
@@ -848,15 +850,24 @@ def main() -> None:
             appearance_form.addRow("Прозрачность Васи", opacity_row)
 
             self._show_bubble_checkbox = QCheckBox("Показывать пузырь ответа", self)
-            self._show_bubble_checkbox.setChecked(widget._show_response_bubble)
+            configure_checkbox_input(
+                self._show_bubble_checkbox,
+                checked=widget._show_response_bubble,
+            )
             behavior_form.addRow(self._show_bubble_checkbox)
 
             self._child_mode_checkbox = QCheckBox("Детский режим", self)
-            self._child_mode_checkbox.setChecked(child_mode_store.is_enabled())
+            configure_checkbox_input(
+                self._child_mode_checkbox,
+                checked=child_mode_store.is_enabled(),
+            )
             behavior_form.addRow(self._child_mode_checkbox)
 
             self._morning_show_checkbox = QCheckBox("Утреннее шоу (первое обращение за день)", self)
-            self._morning_show_checkbox.setChecked(widget._morning_show_enabled)
+            configure_checkbox_input(
+                self._morning_show_checkbox,
+                checked=widget._morning_show_enabled,
+            )
             behavior_form.addRow(self._morning_show_checkbox)
 
             self._morning_show_city_input = QLineEdit(widget._morning_show_city, self)
@@ -873,7 +884,10 @@ def main() -> None:
             behavior_form.addRow("До какого часа", self._morning_show_hour_limit)
 
             self._smart_followup_checkbox = QCheckBox("Умный follow-up после ответа", self)
-            self._smart_followup_checkbox.setChecked(widget._smart_followup_enabled)
+            configure_checkbox_input(
+                self._smart_followup_checkbox,
+                checked=widget._smart_followup_enabled,
+            )
             behavior_form.addRow(self._smart_followup_checkbox)
 
             self._smart_followup_seconds = QDoubleSpinBox(self)
@@ -897,7 +911,10 @@ def main() -> None:
             behavior_form.addRow("Повторы в follow-up", self._smart_followup_retries)
 
             self._auto_interrupt_checkbox = QCheckBox("Прерывать озвучивание новой голосовой командой", self)
-            self._auto_interrupt_checkbox.setChecked(widget._auto_interrupt_tts_enabled)
+            configure_checkbox_input(
+                self._auto_interrupt_checkbox,
+                checked=widget._auto_interrupt_tts_enabled,
+            )
             behavior_form.addRow(self._auto_interrupt_checkbox)
 
             self._auto_interrupt_sample_seconds = QDoubleSpinBox(self)
@@ -915,9 +932,10 @@ def main() -> None:
                 "Адаптивный auto-interrupt (тихо/шумно)",
                 self,
             )
-            self._auto_interrupt_adaptive_checkbox.setChecked(widget._auto_interrupt_adaptive_enabled)
-            self._auto_interrupt_adaptive_checkbox.setToolTip(
-                "Рекомендуется: включено. В тихой среде прерывает быстрее, в шумной осторожнее."
+            configure_checkbox_input(
+                self._auto_interrupt_adaptive_checkbox,
+                checked=widget._auto_interrupt_adaptive_enabled,
+                tooltip="Рекомендуется: включено. В тихой среде прерывает быстрее, в шумной осторожнее.",
             )
             behavior_form.addRow(self._auto_interrupt_adaptive_checkbox)
 
@@ -1110,21 +1128,33 @@ def main() -> None:
             integrations_form.addRow("Память о пользователе", memory_actions)
 
             self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)
-            self._idle_motion_checkbox.setChecked(widget._idle_motion_enabled)
+            configure_checkbox_input(
+                self._idle_motion_checkbox,
+                checked=widget._idle_motion_enabled,
+            )
             self._idle_motion_checkbox.toggled.connect(self._sync_preview)
             appearance_form.addRow(self._idle_motion_checkbox)
 
             self._snap_checkbox = QCheckBox("Прилипать к краю экрана", self)
-            self._snap_checkbox.setChecked(widget._snap_to_edge_enabled)
+            configure_checkbox_input(
+                self._snap_checkbox,
+                checked=widget._snap_to_edge_enabled,
+            )
             behavior_form.addRow(self._snap_checkbox)
 
             self._start_hidden_checkbox = QCheckBox("Запускать скрытым", self)
-            self._start_hidden_checkbox.setChecked(widget._start_hidden)
+            configure_checkbox_input(
+                self._start_hidden_checkbox,
+                checked=widget._start_hidden,
+            )
             behavior_form.addRow(self._start_hidden_checkbox)
 
             if get_platform_name() == "macos":
                 self._autostart_checkbox = QCheckBox("Запускать при входе", self)
-                self._autostart_checkbox.setChecked(widget._launch_at_login_enabled)
+                configure_checkbox_input(
+                    self._autostart_checkbox,
+                    checked=widget._launch_at_login_enabled,
+                )
                 behavior_form.addRow(self._autostart_checkbox)
             else:
                 self._autostart_checkbox = None

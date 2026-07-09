@@ -47,6 +47,20 @@ class DecimalValueInputLike(Protocol):
         ...
 
 
+class SliderValueInputLike(Protocol):
+    def setMinimum(self, minimum: int) -> None:
+        ...
+
+    def setMaximum(self, maximum: int) -> None:
+        ...
+
+    def setSingleStep(self, step: int) -> None:
+        ...
+
+    def setValue(self, value: int) -> None:
+        ...
+
+
 def configure_settings_form_layout(
     layout: FormLayoutLike,
     *,
@@ -92,3 +106,17 @@ def configure_decimal_value_input(
     control.setSingleStep(step)
     control.setValue(value)
     control.setSuffix(suffix)
+
+
+def configure_slider_value_input(
+    control: SliderValueInputLike,
+    *,
+    minimum: int,
+    maximum: int,
+    step: int,
+    value: int,
+) -> None:
+    control.setMinimum(minimum)
+    control.setMaximum(maximum)
+    control.setSingleStep(step)
+    control.setValue(value)

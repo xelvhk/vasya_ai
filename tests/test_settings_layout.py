@@ -7,6 +7,7 @@ from scripts.ui.settings_layout import (
     configure_decimal_value_input,
     configure_ranged_value_input,
     configure_settings_form_layout,
+    configure_slider_value_input,
 )
 
 
@@ -67,6 +68,23 @@ class _FakeDecimalInput:
 
     def setSuffix(self, suffix: str) -> None:
         self.calls.append(("suffix", suffix))
+
+
+class _FakeSliderInput:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def setMinimum(self, minimum: int) -> None:
+        self.calls.append(("minimum", minimum))
+
+    def setMaximum(self, maximum: int) -> None:
+        self.calls.append(("maximum", maximum))
+
+    def setSingleStep(self, step: int) -> None:
+        self.calls.append(("step", step))
+
+    def setValue(self, value: int) -> None:
+        self.calls.append(("value", value))
 
 
 class SettingsLayoutTests(unittest.TestCase):
@@ -131,6 +149,27 @@ class SettingsLayoutTests(unittest.TestCase):
                 ("step", 0.1),
                 ("value", 1.5),
                 ("suffix", " s"),
+            ],
+        )
+
+    def test_configure_slider_value_input_applies_bounds_step_and_value(self) -> None:
+        control = _FakeSliderInput()
+
+        configure_slider_value_input(
+            control,
+            minimum=70,
+            maximum=100,
+            step=5,
+            value=85,
+        )
+
+        self.assertEqual(
+            control.calls,
+            [
+                ("minimum", 70),
+                ("maximum", 100),
+                ("step", 5),
+                ("value", 85),
             ],
         )
 

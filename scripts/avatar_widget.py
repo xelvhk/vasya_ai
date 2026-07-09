@@ -158,6 +158,7 @@ def main() -> None:
                 add_action_row_widgets,
                 configure_decimal_value_input,
                 configure_ranged_value_input,
+                configure_slider_value_input,
                 configure_settings_form_layout,
             )
             from scripts.ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
@@ -187,6 +188,7 @@ def main() -> None:
                 add_action_row_widgets,
                 configure_decimal_value_input,
                 configure_ranged_value_input,
+                configure_slider_value_input,
                 configure_settings_form_layout,
             )
             from ui.settings_styles import SETTINGS_DIALOG_STYLESHEET
@@ -828,10 +830,13 @@ def main() -> None:
             behavior_form.addRow("Клик по иконке в трее", self._tray_click_combo)
 
             self._opacity_slider = QSlider(Qt.Orientation.Horizontal, self)
-            self._opacity_slider.setMinimum(70)
-            self._opacity_slider.setMaximum(100)
-            self._opacity_slider.setSingleStep(5)
-            self._opacity_slider.setValue(int(widget._avatar_opacity * 100))
+            configure_slider_value_input(
+                self._opacity_slider,
+                minimum=70,
+                maximum=100,
+                step=5,
+                value=int(widget._avatar_opacity * 100),
+            )
             opacity_row = QHBoxLayout()
             opacity_row.addWidget(self._opacity_slider)
             self._opacity_label = QLabel(f"{int(widget._avatar_opacity * 100)}%")

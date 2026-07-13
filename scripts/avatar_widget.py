@@ -154,6 +154,15 @@ def main() -> None:
                 INTEGRATION_TEXT_INPUTS,
                 configure_text_input,
             )
+            from scripts.ui.settings_dialog_specs import (
+                SETTINGS_DIALOG_BUTTON_LABELS,
+                SETTINGS_DIALOG_CHECKBOX_LABELS,
+                SETTINGS_DIALOG_HEADER_TEXTS,
+                SETTINGS_DIALOG_OBJECT_NAMES,
+                SETTINGS_DIALOG_PLACEHOLDERS,
+                SETTINGS_DIALOG_ROW_LABELS,
+                SETTINGS_DIALOG_TOOLTIPS,
+            )
             from scripts.ui.settings_layout import (
                 add_action_row_widgets,
                 configure_checkbox_input,
@@ -184,6 +193,15 @@ def main() -> None:
             from ui.settings_inputs import (
                 INTEGRATION_TEXT_INPUTS,
                 configure_text_input,
+            )
+            from ui.settings_dialog_specs import (
+                SETTINGS_DIALOG_BUTTON_LABELS,
+                SETTINGS_DIALOG_CHECKBOX_LABELS,
+                SETTINGS_DIALOG_HEADER_TEXTS,
+                SETTINGS_DIALOG_OBJECT_NAMES,
+                SETTINGS_DIALOG_PLACEHOLDERS,
+                SETTINGS_DIALOG_ROW_LABELS,
+                SETTINGS_DIALOG_TOOLTIPS,
             )
             from ui.settings_layout import (
                 add_action_row_widgets,
@@ -714,7 +732,7 @@ def main() -> None:
     class SettingsDialog(QDialog):
         def __init__(self, widget: "AvatarWidget") -> None:
             super().__init__(widget)
-            self.setWindowTitle("Настройки Васи")
+            self.setWindowTitle(SETTINGS_DIALOG_HEADER_TEXTS.window_title)
             self.setModal(True)
             self.setMinimumWidth(400)
             self._widget = widget
@@ -724,12 +742,9 @@ def main() -> None:
             layout.setContentsMargins(20, 20, 20, 18)
             layout.setSpacing(14)
 
-            title = QLabel("Настройки Васи", self)
+            title = QLabel(SETTINGS_DIALOG_HEADER_TEXTS.title, self)
             title.setStyleSheet(f"font-size: 18px; font-weight: 800; color: {BRAND_ACCENT_ALT};")
-            subtitle = QLabel(
-                "Управление поведением виджета, автозапуском и голосовой активацией.",
-                self,
-            )
+            subtitle = QLabel(SETTINGS_DIALOG_HEADER_TEXTS.subtitle, self)
             subtitle.setWordWrap(True)
             subtitle.setStyleSheet(f"font-size: 12px; color: {BRAND_MUTED};")
             layout.addWidget(title)
@@ -760,14 +775,14 @@ def main() -> None:
             layout.addWidget(preview_wrap)
 
             tabs = QTabWidget(self)
-            tabs.setObjectName("settingsTabs")
+            tabs.setObjectName(SETTINGS_DIALOG_OBJECT_NAMES.tabs)
             tabs.setDocumentMode(True)
             tabs.tabBar().setDrawBase(False)
 
             tab_pages = {}
             for tab_spec in SETTINGS_TABS:
                 tab_page = QWidget(self)
-                tab_page.setObjectName("settingsTabPage")
+                tab_page.setObjectName(SETTINGS_DIALOG_OBJECT_NAMES.tab_page)
                 tabs.addTab(tab_page, tab_spec.label)
                 tab_pages[tab_spec.tab_id] = tab_page
             appearance_tab = tab_pages["appearance"]
@@ -788,18 +803,27 @@ def main() -> None:
             populate_combo_options(self._size_combo, AVATAR_SIZE_OPTIONS)
             self._select_combo_value(self._size_combo, widget._avatar_size)
             self._size_combo.currentIndexChanged.connect(self._sync_preview)
-            appearance_form.addRow("Размер Васи", self._size_combo)
+            appearance_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.avatar_size,
+                self._size_combo,
+            )
 
             self._skin_combo = QComboBox(self)
             self._skin_combo.currentIndexChanged.connect(self._sync_preview)
             self._reload_skin_choices(widget._avatar_skin)
 
             skin_actions = QHBoxLayout()
-            import_skin_button = QPushButton("Импорт палитры...", self)
+            import_skin_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.import_skin,
+                self,
+            )
             import_skin_button.clicked.connect(self._import_custom_skin)
-            export_skin_button = QPushButton("Экспорт палитры...", self)
+            export_skin_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.export_skin,
+                self,
+            )
             export_skin_button.clicked.connect(self._export_current_skin)
-            reset_skin_button = QPushButton("Сбросить свою", self)
+            reset_skin_button = QPushButton(SETTINGS_DIALOG_BUTTON_LABELS.reset_skin, self)
             reset_skin_button.clicked.connect(self._reset_custom_skin)
             add_action_row_widgets(
                 skin_actions,
@@ -810,26 +834,35 @@ def main() -> None:
             skin_row.setSpacing(8)
             skin_row.addWidget(self._skin_combo)
             skin_row.addLayout(skin_actions)
-            appearance_form.addRow("Скин Васи", skin_row)
+            appearance_form.addRow(SETTINGS_DIALOG_ROW_LABELS.avatar_skin, skin_row)
 
             image_actions = QHBoxLayout()
-            choose_image_button = QPushButton("Выбрать изображение...", self)
+            choose_image_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.choose_avatar_image,
+                self,
+            )
             choose_image_button.clicked.connect(self._choose_avatar_image)
-            reset_image_button = QPushButton("Вернуть встроенный", self)
+            reset_image_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.reset_avatar_image,
+                self,
+            )
             reset_image_button.clicked.connect(self._reset_avatar_image)
             add_action_row_widgets(image_actions, (choose_image_button, reset_image_button))
-            appearance_form.addRow("Картинка Васи", image_actions)
+            appearance_form.addRow(SETTINGS_DIALOG_ROW_LABELS.avatar_image, image_actions)
 
             self._voice_profile_combo = QComboBox(self)
             active_profile = get_active_voice_profile()
             populate_voice_profile_options(self._voice_profile_combo, list_voice_profiles())
             self._select_combo_value(self._voice_profile_combo, active_profile.profile_id)
-            behavior_form.addRow("Голос Васи", self._voice_profile_combo)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.voice_profile,
+                self._voice_profile_combo,
+            )
 
             self._tray_click_combo = QComboBox(self)
             populate_combo_options(self._tray_click_combo, TRAY_CLICK_OPTIONS)
             self._select_combo_value(self._tray_click_combo, widget._tray_click_action)
-            behavior_form.addRow("Клик по иконке в трее", self._tray_click_combo)
+            behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.tray_click, self._tray_click_combo)
 
             self._opacity_slider = QSlider(Qt.Orientation.Horizontal, self)
             configure_slider_value_input(
@@ -847,23 +880,29 @@ def main() -> None:
                 lambda value: self._opacity_label.setText(f"{value}%")
             )
             self._opacity_slider.valueChanged.connect(self._sync_preview)
-            appearance_form.addRow("Прозрачность Васи", opacity_row)
+            appearance_form.addRow(SETTINGS_DIALOG_ROW_LABELS.avatar_opacity, opacity_row)
 
-            self._show_bubble_checkbox = QCheckBox("Показывать пузырь ответа", self)
+            self._show_bubble_checkbox = QCheckBox(
+                SETTINGS_DIALOG_CHECKBOX_LABELS.show_bubble,
+                self,
+            )
             configure_checkbox_input(
                 self._show_bubble_checkbox,
                 checked=widget._show_response_bubble,
             )
             behavior_form.addRow(self._show_bubble_checkbox)
 
-            self._child_mode_checkbox = QCheckBox("Детский режим", self)
+            self._child_mode_checkbox = QCheckBox(SETTINGS_DIALOG_CHECKBOX_LABELS.child_mode, self)
             configure_checkbox_input(
                 self._child_mode_checkbox,
                 checked=child_mode_store.is_enabled(),
             )
             behavior_form.addRow(self._child_mode_checkbox)
 
-            self._morning_show_checkbox = QCheckBox("Утреннее шоу (первое обращение за день)", self)
+            self._morning_show_checkbox = QCheckBox(
+                SETTINGS_DIALOG_CHECKBOX_LABELS.morning_show,
+                self,
+            )
             configure_checkbox_input(
                 self._morning_show_checkbox,
                 checked=widget._morning_show_enabled,
@@ -871,8 +910,13 @@ def main() -> None:
             behavior_form.addRow(self._morning_show_checkbox)
 
             self._morning_show_city_input = QLineEdit(widget._morning_show_city, self)
-            self._morning_show_city_input.setPlaceholderText("Город для погоды, например Moscow")
-            behavior_form.addRow("Город утреннего шоу", self._morning_show_city_input)
+            self._morning_show_city_input.setPlaceholderText(
+                SETTINGS_DIALOG_PLACEHOLDERS.morning_show_city
+            )
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.morning_show_city,
+                self._morning_show_city_input,
+            )
 
             self._morning_show_hour_limit = QSpinBox(self)
             configure_ranged_value_input(
@@ -881,9 +925,15 @@ def main() -> None:
                 maximum=23,
                 value=widget._morning_show_hour_limit,
             )
-            behavior_form.addRow("До какого часа", self._morning_show_hour_limit)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.morning_show_hour_limit,
+                self._morning_show_hour_limit,
+            )
 
-            self._smart_followup_checkbox = QCheckBox("Умный follow-up после ответа", self)
+            self._smart_followup_checkbox = QCheckBox(
+                SETTINGS_DIALOG_CHECKBOX_LABELS.smart_followup,
+                self,
+            )
             configure_checkbox_input(
                 self._smart_followup_checkbox,
                 checked=widget._smart_followup_enabled,
@@ -899,7 +949,10 @@ def main() -> None:
                 value=widget._smart_followup_listen_seconds,
                 suffix=" с",
             )
-            behavior_form.addRow("Окно дослушивания", self._smart_followup_seconds)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.smart_followup_seconds,
+                self._smart_followup_seconds,
+            )
 
             self._smart_followup_retries = QSpinBox(self)
             configure_ranged_value_input(
@@ -908,9 +961,15 @@ def main() -> None:
                 maximum=3,
                 value=widget._smart_followup_retries,
             )
-            behavior_form.addRow("Повторы в follow-up", self._smart_followup_retries)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.smart_followup_retries,
+                self._smart_followup_retries,
+            )
 
-            self._auto_interrupt_checkbox = QCheckBox("Прерывать озвучивание новой голосовой командой", self)
+            self._auto_interrupt_checkbox = QCheckBox(
+                SETTINGS_DIALOG_CHECKBOX_LABELS.auto_interrupt,
+                self,
+            )
             configure_checkbox_input(
                 self._auto_interrupt_checkbox,
                 checked=widget._auto_interrupt_tts_enabled,
@@ -926,16 +985,19 @@ def main() -> None:
                 value=widget._auto_interrupt_sample_seconds,
                 suffix=" с",
             )
-            behavior_form.addRow("Окно barge-in", self._auto_interrupt_sample_seconds)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.auto_interrupt_sample_seconds,
+                self._auto_interrupt_sample_seconds,
+            )
 
             self._auto_interrupt_adaptive_checkbox = QCheckBox(
-                "Адаптивный auto-interrupt (тихо/шумно)",
+                SETTINGS_DIALOG_CHECKBOX_LABELS.auto_interrupt_adaptive,
                 self,
             )
             configure_checkbox_input(
                 self._auto_interrupt_adaptive_checkbox,
                 checked=widget._auto_interrupt_adaptive_enabled,
-                tooltip="Рекомендуется: включено. В тихой среде прерывает быстрее, в шумной осторожнее.",
+                tooltip=SETTINGS_DIALOG_TOOLTIPS.auto_interrupt_adaptive,
             )
             behavior_form.addRow(self._auto_interrupt_adaptive_checkbox)
 
@@ -948,8 +1010,13 @@ def main() -> None:
                 value=widget._auto_interrupt_quiet_rms_threshold,
                 suffix=" RMS",
             )
-            self._auto_interrupt_quiet_rms.setToolTip("Рекомендуется: 140 RMS")
-            behavior_form.addRow("Порог тихой среды", self._auto_interrupt_quiet_rms)
+            self._auto_interrupt_quiet_rms.setToolTip(
+                SETTINGS_DIALOG_TOOLTIPS.auto_interrupt_quiet_rms
+            )
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.auto_interrupt_quiet_rms,
+                self._auto_interrupt_quiet_rms,
+            )
 
             self._auto_interrupt_noisy_rms = QDoubleSpinBox(self)
             configure_decimal_value_input(
@@ -960,8 +1027,13 @@ def main() -> None:
                 value=widget._auto_interrupt_noisy_rms_threshold,
                 suffix=" RMS",
             )
-            self._auto_interrupt_noisy_rms.setToolTip("Рекомендуется: 260 RMS")
-            behavior_form.addRow("Порог шумной среды", self._auto_interrupt_noisy_rms)
+            self._auto_interrupt_noisy_rms.setToolTip(
+                SETTINGS_DIALOG_TOOLTIPS.auto_interrupt_noisy_rms
+            )
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.auto_interrupt_noisy_rms,
+                self._auto_interrupt_noisy_rms,
+            )
 
             self._auto_interrupt_hits_quiet = QSpinBox(self)
             configure_ranged_value_input(
@@ -970,8 +1042,13 @@ def main() -> None:
                 maximum=6,
                 value=widget._auto_interrupt_hits_quiet,
             )
-            self._auto_interrupt_hits_quiet.setToolTip("Рекомендуется: 1 подтверждение")
-            behavior_form.addRow("Подтверждений (тихо)", self._auto_interrupt_hits_quiet)
+            self._auto_interrupt_hits_quiet.setToolTip(
+                SETTINGS_DIALOG_TOOLTIPS.auto_interrupt_hits_quiet
+            )
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.auto_interrupt_hits_quiet,
+                self._auto_interrupt_hits_quiet,
+            )
 
             self._auto_interrupt_hits_normal = QSpinBox(self)
             configure_ranged_value_input(
@@ -980,8 +1057,13 @@ def main() -> None:
                 maximum=6,
                 value=widget._auto_interrupt_hits_normal,
             )
-            self._auto_interrupt_hits_normal.setToolTip("Рекомендуется: 2 подтверждения")
-            behavior_form.addRow("Подтверждений (обычно)", self._auto_interrupt_hits_normal)
+            self._auto_interrupt_hits_normal.setToolTip(
+                SETTINGS_DIALOG_TOOLTIPS.auto_interrupt_hits_normal
+            )
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.auto_interrupt_hits_normal,
+                self._auto_interrupt_hits_normal,
+            )
 
             self._auto_interrupt_hits_noisy = QSpinBox(self)
             configure_ranged_value_input(
@@ -990,8 +1072,13 @@ def main() -> None:
                 maximum=6,
                 value=widget._auto_interrupt_hits_noisy,
             )
-            self._auto_interrupt_hits_noisy.setToolTip("Рекомендуется: 3 подтверждения")
-            behavior_form.addRow("Подтверждений (шумно)", self._auto_interrupt_hits_noisy)
+            self._auto_interrupt_hits_noisy.setToolTip(
+                SETTINGS_DIALOG_TOOLTIPS.auto_interrupt_hits_noisy
+            )
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.auto_interrupt_hits_noisy,
+                self._auto_interrupt_hits_noisy,
+            )
             self._auto_interrupt_adaptive_checkbox.toggled.connect(self._sync_auto_interrupt_controls)
             self._auto_interrupt_quiet_rms.valueChanged.connect(self._sync_auto_interrupt_thresholds)
             self._sync_auto_interrupt_controls()
@@ -999,29 +1086,41 @@ def main() -> None:
             self._routing_profile_combo = QComboBox(self)
             populate_combo_options(self._routing_profile_combo, AGENT_ROUTING_PROFILE_OPTIONS)
             self._select_combo_value(self._routing_profile_combo, widget._agent_routing_profile)
-            behavior_form.addRow("A/B: Routing профиль", self._routing_profile_combo)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.routing_profile,
+                self._routing_profile_combo,
+            )
 
             self._prompt_pack_profile_combo = QComboBox(self)
             populate_combo_options(self._prompt_pack_profile_combo, CHAT_PROMPT_PACK_OPTIONS)
             self._select_combo_value(self._prompt_pack_profile_combo, widget._chat_prompt_pack_profile)
-            behavior_form.addRow("A/B: Prompt pack профиль", self._prompt_pack_profile_combo)
+            behavior_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.prompt_pack_profile,
+                self._prompt_pack_profile_combo,
+            )
 
             tuning_actions = QHBoxLayout()
-            auto_tune_button = QPushButton("Подобрать автоматически", self)
+            auto_tune_button = QPushButton(SETTINGS_DIALOG_BUTTON_LABELS.auto_tune, self)
             auto_tune_button.clicked.connect(self._run_voice_auto_tune)
             add_action_row_widgets(tuning_actions, (auto_tune_button,))
-            behavior_form.addRow("Auto-tune", tuning_actions)
+            behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.auto_tune, tuning_actions)
 
             morning_actions = QHBoxLayout()
-            test_morning_show_button = QPushButton("Тест утреннего шоу", self)
+            test_morning_show_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.test_morning_show,
+                self,
+            )
             test_morning_show_button.clicked.connect(self._test_morning_show)
-            reset_morning_show_button = QPushButton("Сбросить на сегодня", self)
+            reset_morning_show_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.reset_morning_show,
+                self,
+            )
             reset_morning_show_button.clicked.connect(self._reset_morning_show_today)
             add_action_row_widgets(
                 morning_actions,
                 (test_morning_show_button, reset_morning_show_button),
             )
-            behavior_form.addRow("Проверка", morning_actions)
+            behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.morning_show_check, morning_actions)
 
             (
                 github_repo_spec,
@@ -1091,7 +1190,10 @@ def main() -> None:
             self._dictation_target_combo = QComboBox(self)
             populate_combo_options(self._dictation_target_combo, DICTATION_TARGET_OPTIONS)
             self._select_combo_value(self._dictation_target_combo, widget._dictation_target)
-            integrations_form.addRow("Режим диктовки", self._dictation_target_combo)
+            integrations_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.dictation_target,
+                self._dictation_target_combo,
+            )
 
             self._dictation_api_url_input = QLineEdit(
                 get_integration_setting(dictation_api_url_spec.setting_key),
@@ -1116,18 +1218,27 @@ def main() -> None:
             integrations_form.addRow(dictation_api_token_spec.row_label, self._dictation_api_token_input)
 
             integration_actions = QHBoxLayout()
-            test_integrations_button = QPushButton("Проверить интеграции", self)
+            test_integrations_button = QPushButton(
+                SETTINGS_DIALOG_BUTTON_LABELS.test_integrations,
+                self,
+            )
             test_integrations_button.clicked.connect(self._test_integrations)
             add_action_row_widgets(integration_actions, (test_integrations_button,))
-            integrations_form.addRow("Notion/GitHub", integration_actions)
+            integrations_form.addRow(
+                SETTINGS_DIALOG_ROW_LABELS.integrations_check,
+                integration_actions,
+            )
 
             memory_actions = QHBoxLayout()
-            clear_memory_button = QPushButton("Очистить личную память...", self)
+            clear_memory_button = QPushButton(SETTINGS_DIALOG_BUTTON_LABELS.clear_memory, self)
             clear_memory_button.clicked.connect(self._clear_personal_memory)
             add_action_row_widgets(memory_actions, (clear_memory_button,))
-            integrations_form.addRow("Память о пользователе", memory_actions)
+            integrations_form.addRow(SETTINGS_DIALOG_ROW_LABELS.personal_memory, memory_actions)
 
-            self._idle_motion_checkbox = QCheckBox("Плавное движение в покое", self)
+            self._idle_motion_checkbox = QCheckBox(
+                SETTINGS_DIALOG_CHECKBOX_LABELS.idle_motion,
+                self,
+            )
             configure_checkbox_input(
                 self._idle_motion_checkbox,
                 checked=widget._idle_motion_enabled,
@@ -1135,14 +1246,17 @@ def main() -> None:
             self._idle_motion_checkbox.toggled.connect(self._sync_preview)
             appearance_form.addRow(self._idle_motion_checkbox)
 
-            self._snap_checkbox = QCheckBox("Прилипать к краю экрана", self)
+            self._snap_checkbox = QCheckBox(SETTINGS_DIALOG_CHECKBOX_LABELS.snap_to_edge, self)
             configure_checkbox_input(
                 self._snap_checkbox,
                 checked=widget._snap_to_edge_enabled,
             )
             behavior_form.addRow(self._snap_checkbox)
 
-            self._start_hidden_checkbox = QCheckBox("Запускать скрытым", self)
+            self._start_hidden_checkbox = QCheckBox(
+                SETTINGS_DIALOG_CHECKBOX_LABELS.start_hidden,
+                self,
+            )
             configure_checkbox_input(
                 self._start_hidden_checkbox,
                 checked=widget._start_hidden,
@@ -1150,7 +1264,10 @@ def main() -> None:
             behavior_form.addRow(self._start_hidden_checkbox)
 
             if get_platform_name() == "macos":
-                self._autostart_checkbox = QCheckBox("Запускать при входе", self)
+                self._autostart_checkbox = QCheckBox(
+                    SETTINGS_DIALOG_CHECKBOX_LABELS.launch_at_login,
+                    self,
+                )
                 configure_checkbox_input(
                     self._autostart_checkbox,
                     checked=widget._launch_at_login_enabled,
@@ -1160,9 +1277,9 @@ def main() -> None:
                 self._autostart_checkbox = None
 
             self._hotkey_input = QLineEdit(widget._activation_hotkey, self)
-            behavior_form.addRow("Горячая клавиша", self._hotkey_input)
+            behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.hotkey, self._hotkey_input)
             self._text_hotkey_input = QLineEdit(widget._text_hotkey, self)
-            behavior_form.addRow("Текстовая клавиша", self._text_hotkey_input)
+            behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.text_hotkey, self._text_hotkey_input)
 
             layout.addWidget(tabs)
 

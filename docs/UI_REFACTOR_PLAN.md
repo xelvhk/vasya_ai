@@ -12,16 +12,19 @@ What improved:
 - repeated settings option metadata now lives in `scripts/ui/settings_options.py`;
 - repeated settings input configuration now lives in `scripts/ui/settings_layout.py`;
 - tab metadata lives in `scripts/ui/settings_tabs.py`;
+- settings dialog copy/spec metadata lives in `scripts/ui/settings_dialog_specs.py`;
+- the `SettingsDialog` shell now lives in `scripts/ui/settings_dialog.py`;
 - tray menu construction has a dedicated helper in `scripts/ui/tray_menu.py`;
 - avatar state persistence helpers stay GUI-free in `scripts/ui/avatar_state.py`;
 - each helper extraction has focused unit coverage and has passed GitHub CI.
 
 What still needs care:
 - `scripts/avatar_widget.py` is still the main desktop shell entry point and
-  remains too large for comfortable review;
-- `SettingsDialog` construction still mixes appearance, behavior, integrations,
-  signals, and persistence wiring;
-- moving PySide widget construction too early would increase regression risk;
+  still owns the avatar runtime, rendering, tray, onboarding, and command flows;
+- `SettingsDialog` still mixes behavior, voice tuning, integration checks,
+  signals, and persistence wiring inside one class;
+- moving PySide widget construction outside the dialog layer too early would
+  increase regression risk;
 - helper extraction should stop before it turns into generic form-builder code.
 
 ## Guardrails
@@ -52,31 +55,23 @@ What still needs care:
 - Extract profile combo options.
 - Add action row layout helper.
 - Add ranged, decimal, slider, and checkbox input helpers.
+- Extract settings dialog constants/specs.
+- Extract settings dialog shell.
+- Split settings dialog tab builders inside the dialog shell.
 
 ## Next PR Sequence
 
-1. `refactor(ui): extract settings dialog constants`
-   - Move row labels, placeholder strings, tooltip strings, and section labels
-     that are pure metadata into `scripts/ui/settings_dialog_specs.py`.
-   - Do not move widget construction yet.
-
-2. `refactor(ui): extract settings dialog shell`
-   - Create `scripts/ui/settings_dialog.py`.
-   - Move the `SettingsDialog` class as-is, keeping imports explicit and tests
-     focused on smoke/import behavior.
-   - Leave `avatar_widget.py` responsible for launching the desktop widget and
-     passing dependencies through existing instance state.
-
-3. `refactor(ui): split settings dialog sections`
-   - Split appearance, behavior, and integrations builders after the dialog is
-     already isolated.
+1. `refactor(ui): split settings dialog behavior wiring`
+   - Keep the current tab builders inside `scripts/ui/settings_dialog.py`.
+   - Split the behavior tab into focused voice, morning show, hotkey/autostart,
+     and routing setup helpers without changing signal order.
    - Keep each section PR small enough to review independently.
 
-4. `refactor(ui): isolate avatar rendering`
+2. `refactor(ui): isolate avatar rendering`
    - Move paint/rendering helpers and skin preview logic only after settings
-     dialog churn is finished.
+   dialog churn is finished.
 
-5. `refactor(voice): split voice backends`
+3. `refactor(voice): split voice backends`
    - Start after UI shell risk is lower.
    - Split Piper/CosyVoice/XTTS/recorder concerns into dedicated modules with
      compatibility imports if needed.

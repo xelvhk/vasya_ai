@@ -61,6 +61,7 @@ What still needs care:
 - Split settings dialog behavior wiring inside the dialog shell.
 - Extract avatar rendering visual helper formulas.
 - Split avatar preview skin and scale helpers.
+- Extract image avatar paint geometry helpers.
 
 ## Next PR Sequence
 

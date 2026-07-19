@@ -91,6 +91,47 @@ def shadow_width_delta(
     return value * float(skin.get("motion_bob", 1.0))
 
 
+def image_avatar_shadow_metrics(
+    state_name: AssistantStateName,
+    *,
+    container_width: float,
+    container_height: float,
+    pulse: float,
+    bob: float,
+    skin_id: str | None = None,
+) -> tuple[float, float, float, float, int]:
+    shadow_alpha = 65 + int(20 * abs(math.sin(bob)))
+    shadow_width = container_width - 36 + shadow_width_delta(
+        state_name,
+        pulse,
+        skin_id,
+    )
+    shadow_x = (container_width - shadow_width) / 2
+    return (shadow_x, container_height - 26, shadow_width, 14, shadow_alpha)
+
+
+def image_avatar_draw_position(
+    *,
+    container_width: float,
+    container_height: float,
+    pixmap_width: int,
+    pixmap_height: int,
+    bob_offset: float,
+) -> tuple[int, int]:
+    draw_x = int((container_width - pixmap_width) / 2)
+    draw_y = int((container_height - pixmap_height) / 2) - 2 + int(bob_offset)
+    return (draw_x, draw_y)
+
+
+def image_avatar_highlight_rect(
+    *,
+    container_width: float,
+    container_height: float,
+    bob_offset: float,
+) -> tuple[float, float, float, float]:
+    return (18, 20 + bob_offset, container_width - 36, container_height - 44)
+
+
 def highlight_color(
     state_name: AssistantStateName,
     pulse: float,

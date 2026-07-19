@@ -142,6 +142,9 @@ def main() -> None:
                 eye_gaze_offset as _eye_gaze_offset,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
+                image_avatar_draw_position as _image_avatar_draw_position,
+                image_avatar_highlight_rect as _image_avatar_highlight_rect,
+                image_avatar_shadow_metrics as _image_avatar_shadow_metrics,
                 listening_face_lift as _listening_face_lift,
                 mouth_expression as _mouth_expression,
                 shadow_width_delta as _shadow_width_delta,
@@ -179,6 +182,9 @@ def main() -> None:
                 eye_gaze_offset as _eye_gaze_offset,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
+                image_avatar_draw_position as _image_avatar_draw_position,
+                image_avatar_highlight_rect as _image_avatar_highlight_rect,
+                image_avatar_shadow_metrics as _image_avatar_shadow_metrics,
                 listening_face_lift as _listening_face_lift,
                 mouth_expression as _mouth_expression,
                 shadow_width_delta as _shadow_width_delta,
@@ -1340,20 +1346,35 @@ def main() -> None:
             painter.drawEllipse(QRectF(0, 0, self.width(), self.height()))
 
             bob_offset = _avatar_bob_offset(self._state.name, bob, skin_id)
-            shadow_alpha = 65 + int(20 * abs(math.sin(bob)))
+            shadow_x, shadow_y, shadow_width, shadow_height, shadow_alpha = _image_avatar_shadow_metrics(
+                self._state.name,
+                container_width=self.width(),
+                container_height=self.height(),
+                pulse=pulse,
+                bob=bob,
+                skin_id=skin_id,
+            )
             painter.setBrush(QColor(11, 23, 66, shadow_alpha))
-            shadow_width = self.width() - 36 + _shadow_width_delta(self._state.name, pulse, skin_id)
-            shadow_x = (self.width() - shadow_width) / 2
-            painter.drawEllipse(QRectF(shadow_x, self.height() - 26, shadow_width, 14))
+            painter.drawEllipse(QRectF(shadow_x, shadow_y, shadow_width, shadow_height))
 
             avatar_pixmap = self._prepare_avatar_pixmap(self.width() + 12, self.height() + 16)
             if not avatar_pixmap.isNull():
-                draw_x = int((self.width() - avatar_pixmap.width()) / 2)
-                draw_y = int((self.height() - avatar_pixmap.height()) / 2) - 2 + int(bob_offset)
+                draw_x, draw_y = _image_avatar_draw_position(
+                    container_width=self.width(),
+                    container_height=self.height(),
+                    pixmap_width=avatar_pixmap.width(),
+                    pixmap_height=avatar_pixmap.height(),
+                    bob_offset=bob_offset,
+                )
                 painter.drawPixmap(draw_x, draw_y, avatar_pixmap)
 
             highlight_path = QPainterPath()
-            highlight_path.addEllipse(QRectF(18, 20 + bob_offset, self.width() - 36, self.height() - 44))
+            highlight_rect = _image_avatar_highlight_rect(
+                container_width=self.width(),
+                container_height=self.height(),
+                bob_offset=bob_offset,
+            )
+            highlight_path.addEllipse(QRectF(*highlight_rect))
             painter.setPen(QPen(_highlight_color(self._state.name, pulse, skin_id), 2))
             painter.drawPath(highlight_path)
             painter.restore()
@@ -1367,27 +1388,38 @@ def main() -> None:
             avatar_rect = QRectF(-6, -12 + bob_offset, self.width() + 12, self.height() + 16)
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
-            shadow_alpha = 65 + int(20 * abs(math.sin(self._bob)))
-            painter.setBrush(QColor(11, 23, 66, shadow_alpha))
-            shadow_width = self.width() - 36 + _shadow_width_delta(
+            shadow_x, shadow_y, shadow_width, shadow_height, shadow_alpha = _image_avatar_shadow_metrics(
                 self._state.name,
-                self._pulse,
-                self._effective_avatar_skin(),
+                container_width=self.width(),
+                container_height=self.height(),
+                pulse=self._pulse,
+                bob=self._bob,
+                skin_id=self._effective_avatar_skin(),
             )
-            shadow_x = (self.width() - shadow_width) / 2
-            painter.drawEllipse(QRectF(shadow_x, self.height() - 26, shadow_width, 14))
+            painter.setBrush(QColor(11, 23, 66, shadow_alpha))
+            painter.drawEllipse(QRectF(shadow_x, shadow_y, shadow_width, shadow_height))
 
             avatar_pixmap = self._prepare_avatar_pixmap(
                 int(avatar_rect.width()),
                 int(avatar_rect.height()),
             )
             if not avatar_pixmap.isNull():
-                draw_x = int((self.width() - avatar_pixmap.width()) / 2)
-                draw_y = int((self.height() - avatar_pixmap.height()) / 2) - 2 + int(bob_offset)
+                draw_x, draw_y = _image_avatar_draw_position(
+                    container_width=self.width(),
+                    container_height=self.height(),
+                    pixmap_width=avatar_pixmap.width(),
+                    pixmap_height=avatar_pixmap.height(),
+                    bob_offset=bob_offset,
+                )
                 painter.drawPixmap(draw_x, draw_y, avatar_pixmap)
 
             highlight_path = QPainterPath()
-            highlight_path.addEllipse(QRectF(18, 20 + bob_offset, self.width() - 36, self.height() - 44))
+            highlight_rect = _image_avatar_highlight_rect(
+                container_width=self.width(),
+                container_height=self.height(),
+                bob_offset=bob_offset,
+            )
+            highlight_path.addEllipse(QRectF(*highlight_rect))
             painter.setPen(
                 QPen(
                     _highlight_color(

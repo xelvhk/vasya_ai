@@ -5,24 +5,23 @@ import unittest
 from assistant.state import AssistantStateName
 
 try:
-    from scripts.ui.avatar_rendering import (
-        animated_glow,
-        animation_speed,
-        avatar_bob_offset,
-        blink_scale,
-        glow_color,
-        mouth_expression,
-    )
+    from scripts.ui import avatar_rendering
 except ImportError:  # pragma: no cover - depends on optional desktop deps
-    animated_glow = None
-    animation_speed = None
-    avatar_bob_offset = None
-    blink_scale = None
-    glow_color = None
-    mouth_expression = None
+    avatar_rendering = None
+
+if avatar_rendering is not None:
+    animated_glow = avatar_rendering.animated_glow
+    animation_speed = avatar_rendering.animation_speed
+    avatar_bob_offset = avatar_rendering.avatar_bob_offset
+    blink_scale = avatar_rendering.blink_scale
+    glow_color = avatar_rendering.glow_color
+    image_avatar_draw_position = getattr(avatar_rendering, "image_avatar_draw_position", None)
+    image_avatar_highlight_rect = getattr(avatar_rendering, "image_avatar_highlight_rect", None)
+    image_avatar_shadow_metrics = getattr(avatar_rendering, "image_avatar_shadow_metrics", None)
+    mouth_expression = avatar_rendering.mouth_expression
 
 
-@unittest.skipUnless(glow_color is not None, "PySide6 is not installed")
+@unittest.skipUnless(avatar_rendering is not None, "PySide6 is not installed")
 class AvatarRenderingTests(unittest.TestCase):
     def test_glow_color_uses_state_and_skin(self) -> None:
         self.assertEqual(glow_color(AssistantStateName.IDLE, "classic"), "#4f8fff")
@@ -61,6 +60,40 @@ class AvatarRenderingTests(unittest.TestCase):
     def test_blink_scale_keeps_state_specific_behavior(self) -> None:
         self.assertEqual(blink_scale(AssistantStateName.IDLE, 0.0), 1.0)
         self.assertAlmostEqual(blink_scale(AssistantStateName.THINKING, 0.0), 0.90)
+
+    def test_image_avatar_shadow_metrics_match_paint_geometry(self) -> None:
+        x, y, width, height, alpha = image_avatar_shadow_metrics(
+            AssistantStateName.IDLE,
+            container_width=210,
+            container_height=210,
+            pulse=0.0,
+            bob=0.0,
+            skin_id="classic",
+        )
+
+        self.assertEqual((x, y, width, height, alpha), (18.0, 184, 174.0, 14, 65))
+
+    def test_image_avatar_draw_position_uses_bob_offset(self) -> None:
+        self.assertEqual(
+            image_avatar_draw_position(
+                container_width=210,
+                container_height=210,
+                pixmap_width=222,
+                pixmap_height=226,
+                bob_offset=-3.8,
+            ),
+            (-6, -13),
+        )
+
+    def test_image_avatar_highlight_rect_tracks_bob_offset(self) -> None:
+        self.assertEqual(
+            image_avatar_highlight_rect(
+                container_width=210,
+                container_height=210,
+                bob_offset=-3.8,
+            ),
+            (18, 16.2, 174, 166),
+        )
 
 
 if __name__ == "__main__":

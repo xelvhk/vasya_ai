@@ -184,7 +184,7 @@ class SettingsDialog(QDialog):
 
         self._build_appearance_section(appearance_form, widget)
         self._build_behavior_section(behavior_form, widget)
-        self._build_integrations_section(integrations_form)
+        self._build_integrations_section(integrations_form, widget)
 
         layout.addWidget(tabs)
 
@@ -574,6 +574,7 @@ class SettingsDialog(QDialog):
     def _build_integrations_section(
         self,
         integrations_form: QFormLayout,
+        widget: "AvatarWidget",
     ) -> None:
         (
             github_repo_spec,

@@ -59,12 +59,12 @@ What still needs care:
 - Extract settings dialog shell.
 - Split settings dialog tab builders inside the dialog shell.
 - Split settings dialog behavior wiring inside the dialog shell.
+- Extract avatar rendering visual helper formulas.
 
 ## Next PR Sequence
 
 1. `refactor(ui): isolate avatar rendering`
-   - Move paint/rendering helpers and skin preview logic only after settings
-   dialog churn is finished.
+   - Continue with paint/rendering helper isolation and skin preview logic.
 
 2. `refactor(voice): split voice backends`
    - Start after UI shell risk is lower.

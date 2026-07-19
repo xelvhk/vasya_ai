@@ -62,6 +62,7 @@ What still needs care:
 - Extract avatar rendering visual helper formulas.
 - Split avatar preview skin and scale helpers.
 - Extract image avatar paint geometry helpers.
+- Extract character avatar core geometry helpers.
 
 ## Next PR Sequence
 

@@ -139,6 +139,9 @@ def main() -> None:
                 animation_speed as _animation_speed,
                 avatar_bob_offset as _avatar_bob_offset,
                 blink_scale as _blink_scale,
+                character_body_rect as _character_body_rect,
+                character_face_rect as _character_face_rect,
+                character_shadow_metrics as _character_shadow_metrics,
                 eye_gaze_offset as _eye_gaze_offset,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
@@ -179,6 +182,9 @@ def main() -> None:
                 animation_speed as _animation_speed,
                 avatar_bob_offset as _avatar_bob_offset,
                 blink_scale as _blink_scale,
+                character_body_rect as _character_body_rect,
+                character_face_rect as _character_face_rect,
+                character_shadow_metrics as _character_shadow_metrics,
                 eye_gaze_offset as _eye_gaze_offset,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
@@ -1612,17 +1618,24 @@ def main() -> None:
             painter.setBrush(ambient)
             painter.drawEllipse(QRectF(-8, -6, self.width() + 16, self.height() + 12))
 
-            shadow_alpha = 70 + int(18 * abs(math.sin(self._bob)))
-            shadow_width = self.width() * (0.54 * scale) + _shadow_width_delta(
+            shadow_x, shadow_y, shadow_width, shadow_height, shadow_alpha = _character_shadow_metrics(
                 self._state.name,
-                self._pulse,
-                skin_id or self._avatar_skin,
+                container_width=self.width(),
+                container_height=self.height(),
+                pulse=self._pulse,
+                bob=self._bob,
+                scale=scale,
+                skin_id=skin_id or self._avatar_skin,
             )
-            shadow_x = (self.width() - shadow_width) / 2
             painter.setBrush(QColor(9, 18, 54, shadow_alpha))
-            painter.drawEllipse(QRectF(shadow_x, self.height() - 30, shadow_width, 16))
+            painter.drawEllipse(QRectF(shadow_x, shadow_y, shadow_width, shadow_height))
 
-            body_rect = QRectF(self.width() * 0.10, self.height() * 0.18 + bob_offset, self.width() * 0.80, self.height() * 0.74)
+            body_rect_tuple = _character_body_rect(
+                container_width=self.width(),
+                container_height=self.height(),
+                bob_offset=bob_offset,
+            )
+            body_rect = QRectF(*body_rect_tuple)
             body_gradient = QLinearGradient(body_rect.left(), body_rect.top(), body_rect.right(), body_rect.bottom())
             body_gradient.setColorAt(0.0, QColor(skin["body_top"]))
             body_gradient.setColorAt(0.32, QColor(skin["body_mid"]))
@@ -1641,12 +1654,13 @@ def main() -> None:
             painter.drawPath(rim_path)
 
             listening_lift = _listening_face_lift(self._state.name, self._pulse)
-            face_rect = QRectF(
-                self.width() * 0.20,
-                self.height() * 0.23 + bob_offset + listening_lift,
-                self.width() * 0.60,
-                self.height() * 0.48,
+            face_rect_tuple = _character_face_rect(
+                container_width=self.width(),
+                container_height=self.height(),
+                bob_offset=bob_offset,
+                listening_lift=listening_lift,
             )
+            face_rect = QRectF(*face_rect_tuple)
             face_gradient = QRadialGradient(face_rect.center().x(), face_rect.center().y(), face_rect.width() * 0.72)
             face_gradient.setColorAt(0.0, QColor(skin["face_center"]))
             face_gradient.setColorAt(0.72, QColor(skin["face_center"]).darker(104))

@@ -132,6 +132,55 @@ def image_avatar_highlight_rect(
     return (18, 20 + bob_offset, container_width - 36, container_height - 44)
 
 
+def character_shadow_metrics(
+    state_name: AssistantStateName,
+    *,
+    container_width: float,
+    container_height: float,
+    pulse: float,
+    bob: float,
+    scale: float,
+    skin_id: str | None = None,
+) -> tuple[float, float, float, float, int]:
+    shadow_alpha = 70 + int(18 * abs(math.sin(bob)))
+    shadow_width = container_width * (0.54 * scale) + shadow_width_delta(
+        state_name,
+        pulse,
+        skin_id,
+    )
+    shadow_x = (container_width - shadow_width) / 2
+    return (shadow_x, container_height - 30, shadow_width, 16, shadow_alpha)
+
+
+def character_body_rect(
+    *,
+    container_width: float,
+    container_height: float,
+    bob_offset: float,
+) -> tuple[float, float, float, float]:
+    return (
+        container_width * 0.10,
+        container_height * 0.18 + bob_offset,
+        container_width * 0.80,
+        container_height * 0.74,
+    )
+
+
+def character_face_rect(
+    *,
+    container_width: float,
+    container_height: float,
+    bob_offset: float,
+    listening_lift: float,
+) -> tuple[float, float, float, float]:
+    return (
+        container_width * 0.20,
+        container_height * 0.23 + bob_offset + listening_lift,
+        container_width * 0.60,
+        container_height * 0.48,
+    )
+
+
 def highlight_color(
     state_name: AssistantStateName,
     pulse: float,

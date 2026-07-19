@@ -14,6 +14,9 @@ if avatar_rendering is not None:
     animation_speed = avatar_rendering.animation_speed
     avatar_bob_offset = avatar_rendering.avatar_bob_offset
     blink_scale = avatar_rendering.blink_scale
+    character_body_rect = getattr(avatar_rendering, "character_body_rect", None)
+    character_face_rect = getattr(avatar_rendering, "character_face_rect", None)
+    character_shadow_metrics = getattr(avatar_rendering, "character_shadow_metrics", None)
     glow_color = avatar_rendering.glow_color
     image_avatar_draw_position = getattr(avatar_rendering, "image_avatar_draw_position", None)
     image_avatar_highlight_rect = getattr(avatar_rendering, "image_avatar_highlight_rect", None)
@@ -94,6 +97,40 @@ class AvatarRenderingTests(unittest.TestCase):
             ),
             (18, 16.2, 174, 166),
         )
+
+    def test_character_shadow_metrics_match_paint_geometry(self) -> None:
+        x, y, width, height, alpha = character_shadow_metrics(
+            AssistantStateName.IDLE,
+            container_width=210,
+            container_height=210,
+            pulse=0.0,
+            bob=0.0,
+            scale=1.0,
+            skin_id="classic",
+        )
+
+        self.assertEqual((x, y, width, height, alpha), (48.3, 180, 113.4, 16, 70))
+
+    def test_character_body_rect_tracks_bob_offset(self) -> None:
+        self.assertEqual(
+            character_body_rect(
+                container_width=210,
+                container_height=210,
+                bob_offset=-3.8,
+            ),
+            (21.0, 34.0, 168.0, 155.4),
+        )
+
+    def test_character_face_rect_tracks_bob_and_listening_lift(self) -> None:
+        x, y, width, height = character_face_rect(
+            container_width=210,
+            container_height=210,
+            bob_offset=-3.8,
+            listening_lift=-2.0,
+        )
+
+        self.assertEqual((x, width, height), (42.0, 126.0, 100.8))
+        self.assertAlmostEqual(y, 42.5)
 
 
 if __name__ == "__main__":

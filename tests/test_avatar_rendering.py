@@ -15,6 +15,7 @@ if avatar_rendering is not None:
     avatar_bob_offset = avatar_rendering.avatar_bob_offset
     blink_scale = avatar_rendering.blink_scale
     character_body_rect = getattr(avatar_rendering, "character_body_rect", None)
+    character_eye_layout = getattr(avatar_rendering, "character_eye_layout", None)
     character_face_rect = getattr(avatar_rendering, "character_face_rect", None)
     character_shadow_metrics = getattr(avatar_rendering, "character_shadow_metrics", None)
     glow_color = avatar_rendering.glow_color
@@ -131,6 +132,36 @@ class AvatarRenderingTests(unittest.TestCase):
 
         self.assertEqual((x, width, height), (42.0, 126.0, 100.8))
         self.assertAlmostEqual(y, 42.5)
+
+    def test_character_eye_layout_matches_idle_paint_geometry(self) -> None:
+        layout = character_eye_layout(
+            AssistantStateName.IDLE,
+            container_width=210,
+            container_height=210,
+            bob_offset=-3.8,
+            listening_lift=0.0,
+            pulse=0.0,
+        )
+
+        self.assertEqual(layout.left_eye, (58.800000000000004, 76.0, 35.7, 44.1))
+        self.assertEqual(layout.right_eye, (115.50000000000001, 76.0, 35.7, 44.1))
+        self.assertEqual(layout.visible_height, 44.1)
+        self.assertEqual(layout.vertical_shift, 0.0)
+        self.assertEqual(layout.gaze, (0.0, 0.0))
+        self.assertEqual(layout.blink, 1.0)
+
+    def test_character_eye_layout_applies_speaking_squint_after_shift(self) -> None:
+        layout = character_eye_layout(
+            AssistantStateName.SPEAKING,
+            container_width=210,
+            container_height=210,
+            bob_offset=0.0,
+            listening_lift=0.0,
+            pulse=0.0,
+        )
+
+        self.assertEqual(layout.vertical_shift, 0.0)
+        self.assertAlmostEqual(layout.visible_height, 44.1 * 0.9)
 
 
 if __name__ == "__main__":

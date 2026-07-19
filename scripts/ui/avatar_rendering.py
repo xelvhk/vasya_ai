@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 from assistant.state import AssistantStateName
 from PySide6.QtGui import QColor
 
 from .avatar_skins import avatar_skin_spec
+
+
+@dataclass(frozen=True)
+class CharacterEyeLayout:
+    left_eye: tuple[float, float, float, float]
+    right_eye: tuple[float, float, float, float]
+    visible_height: float
+    vertical_shift: float
+    gaze: tuple[float, float]
+    blink: float
 
 
 def glow_color(state_name: AssistantStateName, skin_id: str | None = None) -> str:
@@ -178,6 +189,33 @@ def character_face_rect(
         container_height * 0.23 + bob_offset + listening_lift,
         container_width * 0.60,
         container_height * 0.48,
+    )
+
+
+def character_eye_layout(
+    state_name: AssistantStateName,
+    *,
+    container_width: float,
+    container_height: float,
+    bob_offset: float,
+    listening_lift: float,
+    pulse: float,
+) -> CharacterEyeLayout:
+    eye_w = container_width * 0.17
+    eye_h = container_height * 0.21
+    eye_y = container_height * 0.38 + bob_offset + listening_lift * 0.55
+    blink = blink_scale(state_name, pulse)
+    visible_eye_height = max(eye_h * (0.18 + blink * 0.82), eye_h * 0.18)
+    eye_vertical_shift = (eye_h - visible_eye_height) * 0.48
+    visible_eye_height *= speaking_eye_squint(state_name, pulse)
+
+    return CharacterEyeLayout(
+        left_eye=(container_width * 0.28, eye_y, eye_w, eye_h),
+        right_eye=(container_width * 0.55, eye_y, eye_w, eye_h),
+        visible_height=visible_eye_height,
+        vertical_shift=eye_vertical_shift,
+        gaze=eye_gaze_offset(state_name, pulse),
+        blink=blink,
     )
 
 

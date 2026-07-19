@@ -63,6 +63,7 @@ What still needs care:
 - Split avatar preview skin and scale helpers.
 - Extract image avatar paint geometry helpers.
 - Extract character avatar core geometry helpers.
+- Extract character avatar eye layout helper.
 
 ## Next PR Sequence
 

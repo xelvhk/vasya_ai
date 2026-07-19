@@ -138,11 +138,10 @@ def main() -> None:
                 animated_glow as _animated_glow,
                 animation_speed as _animation_speed,
                 avatar_bob_offset as _avatar_bob_offset,
-                blink_scale as _blink_scale,
                 character_body_rect as _character_body_rect,
+                character_eye_layout as _character_eye_layout,
                 character_face_rect as _character_face_rect,
                 character_shadow_metrics as _character_shadow_metrics,
-                eye_gaze_offset as _eye_gaze_offset,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
                 image_avatar_draw_position as _image_avatar_draw_position,
@@ -150,8 +149,6 @@ def main() -> None:
                 image_avatar_shadow_metrics as _image_avatar_shadow_metrics,
                 listening_face_lift as _listening_face_lift,
                 mouth_expression as _mouth_expression,
-                shadow_width_delta as _shadow_width_delta,
-                speaking_eye_squint as _speaking_eye_squint,
             )
             from scripts.ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -181,11 +178,10 @@ def main() -> None:
                 animated_glow as _animated_glow,
                 animation_speed as _animation_speed,
                 avatar_bob_offset as _avatar_bob_offset,
-                blink_scale as _blink_scale,
                 character_body_rect as _character_body_rect,
+                character_eye_layout as _character_eye_layout,
                 character_face_rect as _character_face_rect,
                 character_shadow_metrics as _character_shadow_metrics,
-                eye_gaze_offset as _eye_gaze_offset,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
                 image_avatar_draw_position as _image_avatar_draw_position,
@@ -193,8 +189,6 @@ def main() -> None:
                 image_avatar_shadow_metrics as _image_avatar_shadow_metrics,
                 listening_face_lift as _listening_face_lift,
                 mouth_expression as _mouth_expression,
-                shadow_width_delta as _shadow_width_delta,
-                speaking_eye_squint as _speaking_eye_squint,
             )
             from ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -1673,17 +1667,20 @@ def main() -> None:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QRectF(self.width() * 0.63, self.height() * 0.24 + bob_offset, self.width() * 0.13, self.height() * 0.08))
 
-            eye_w = self.width() * 0.17
-            eye_h = self.height() * 0.21
-            eye_y = self.height() * 0.38 + bob_offset + listening_lift * 0.55
-            left_eye = QRectF(self.width() * 0.28, eye_y, eye_w, eye_h)
-            right_eye = QRectF(self.width() * 0.55, eye_y, eye_w, eye_h)
-            blink = _blink_scale(self._state.name, self._pulse)
-            visible_eye_height = max(eye_h * (0.18 + blink * 0.82), eye_h * 0.18)
-            eye_vertical_shift = (eye_h - visible_eye_height) * 0.48
-            gaze_x, gaze_y = _eye_gaze_offset(self._state.name, self._pulse)
-            speaking_squint = _speaking_eye_squint(self._state.name, self._pulse)
-            visible_eye_height *= speaking_squint
+            eye_layout = _character_eye_layout(
+                self._state.name,
+                container_width=self.width(),
+                container_height=self.height(),
+                bob_offset=bob_offset,
+                listening_lift=listening_lift,
+                pulse=self._pulse,
+            )
+            left_eye = QRectF(*eye_layout.left_eye)
+            right_eye = QRectF(*eye_layout.right_eye)
+            blink = eye_layout.blink
+            visible_eye_height = eye_layout.visible_height
+            eye_vertical_shift = eye_layout.vertical_shift
+            gaze_x, gaze_y = eye_layout.gaze
 
             def draw_eye(rect: QRectF) -> None:
                 adjusted_rect = QRectF(

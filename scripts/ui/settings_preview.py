@@ -51,17 +51,21 @@ class AvatarPreview(QWidget):
             self._bob = 0.0
         self.update()
 
+    def _effective_skin_id(self) -> str:
+        if self._preview_child_mode_enabled and self._preview_auto_child_skin:
+            return "child"
+        return self._preview_skin_id
+
+    def _character_scale(self) -> float:
+        return max(0.82, min(1.18, self._preview_size / 210.0))
+
     def paintEvent(self, event) -> None:
         _ = event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setOpacity(max(0.45, min(1.0, self._preview_opacity)))
         preview_bounds = QRectF(10, 10, self.width() - 20, self.height() - 20)
-        effective_skin = (
-            "child"
-            if self._preview_child_mode_enabled and self._preview_auto_child_skin
-            else self._preview_skin_id
-        )
+        effective_skin = self._effective_skin_id()
         if self._widget._avatar:
             self._widget._paint_preview_image_avatar(
                 painter,
@@ -76,7 +80,7 @@ class AvatarPreview(QWidget):
                 preview_bounds,
                 pulse=self._pulse,
                 bob=self._bob,
-                scale=max(0.82, min(1.18, self._preview_size / 210.0)),
+                scale=self._character_scale(),
                 skin_id=effective_skin,
                 smile_bounce=0.0,
             )

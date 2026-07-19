@@ -282,6 +282,18 @@ class SettingsDialog(QDialog):
         appearance_form.addRow(self._idle_motion_checkbox)
 
     def _build_behavior_section(self, behavior_form: QFormLayout, widget: "AvatarWidget") -> None:
+        self._build_voice_behavior_controls(behavior_form, widget)
+        self._build_morning_show_controls(behavior_form, widget)
+        self._build_auto_interrupt_controls(behavior_form, widget)
+        self._build_routing_behavior_controls(behavior_form, widget)
+        self._build_morning_show_action_controls(behavior_form)
+        self._build_startup_hotkey_controls(behavior_form, widget)
+
+    def _build_voice_behavior_controls(
+        self,
+        behavior_form: QFormLayout,
+        widget: "AvatarWidget",
+    ) -> None:
         self._voice_profile_combo = QComboBox(self)
         active_profile = get_active_voice_profile()
         populate_voice_profile_options(self._voice_profile_combo, list_voice_profiles())
@@ -313,6 +325,11 @@ class SettingsDialog(QDialog):
         )
         behavior_form.addRow(self._child_mode_checkbox)
 
+    def _build_morning_show_controls(
+        self,
+        behavior_form: QFormLayout,
+        widget: "AvatarWidget",
+    ) -> None:
         self._morning_show_checkbox = QCheckBox(
             SETTINGS_DIALOG_CHECKBOX_LABELS.morning_show,
             self,
@@ -344,6 +361,11 @@ class SettingsDialog(QDialog):
             self._morning_show_hour_limit,
         )
 
+    def _build_auto_interrupt_controls(
+        self,
+        behavior_form: QFormLayout,
+        widget: "AvatarWidget",
+    ) -> None:
         self._smart_followup_checkbox = QCheckBox(
             SETTINGS_DIALOG_CHECKBOX_LABELS.smart_followup,
             self,
@@ -497,6 +519,11 @@ class SettingsDialog(QDialog):
         self._auto_interrupt_quiet_rms.valueChanged.connect(self._sync_auto_interrupt_thresholds)
         self._sync_auto_interrupt_controls()
 
+    def _build_routing_behavior_controls(
+        self,
+        behavior_form: QFormLayout,
+        widget: "AvatarWidget",
+    ) -> None:
         self._routing_profile_combo = QComboBox(self)
         populate_combo_options(self._routing_profile_combo, AGENT_ROUTING_PROFILE_OPTIONS)
         self._select_combo_value(self._routing_profile_combo, widget._agent_routing_profile)
@@ -519,6 +546,7 @@ class SettingsDialog(QDialog):
         add_action_row_widgets(tuning_actions, (auto_tune_button,))
         behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.auto_tune, tuning_actions)
 
+    def _build_morning_show_action_controls(self, behavior_form: QFormLayout) -> None:
         morning_actions = QHBoxLayout()
         test_morning_show_button = QPushButton(
             SETTINGS_DIALOG_BUTTON_LABELS.test_morning_show,
@@ -536,6 +564,11 @@ class SettingsDialog(QDialog):
         )
         behavior_form.addRow(SETTINGS_DIALOG_ROW_LABELS.morning_show_check, morning_actions)
 
+    def _build_startup_hotkey_controls(
+        self,
+        behavior_form: QFormLayout,
+        widget: "AvatarWidget",
+    ) -> None:
         self._snap_checkbox = QCheckBox(SETTINGS_DIALOG_CHECKBOX_LABELS.snap_to_edge, self)
         configure_checkbox_input(
             self._snap_checkbox,

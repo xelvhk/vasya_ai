@@ -58,20 +58,15 @@ What still needs care:
 - Extract settings dialog constants/specs.
 - Extract settings dialog shell.
 - Split settings dialog tab builders inside the dialog shell.
+- Split settings dialog behavior wiring inside the dialog shell.
 
 ## Next PR Sequence
 
-1. `refactor(ui): split settings dialog behavior wiring`
-   - Keep the current tab builders inside `scripts/ui/settings_dialog.py`.
-   - Split the behavior tab into focused voice, morning show, hotkey/autostart,
-     and routing setup helpers without changing signal order.
-   - Keep each section PR small enough to review independently.
-
-2. `refactor(ui): isolate avatar rendering`
+1. `refactor(ui): isolate avatar rendering`
    - Move paint/rendering helpers and skin preview logic only after settings
    dialog churn is finished.
 
-3. `refactor(voice): split voice backends`
+2. `refactor(voice): split voice backends`
    - Start after UI shell risk is lower.
    - Split Piper/CosyVoice/XTTS/recorder concerns into dedicated modules with
      compatibility imports if needed.

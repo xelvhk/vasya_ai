@@ -156,6 +156,10 @@ def main() -> None:
                 cached_avatar_pack_result as _cached_avatar_pack_result,
                 load_avatar_pack_manifest as _load_avatar_pack_manifest,
                 pack_frames_for_state as _pack_frames_for_state,
+                prepare_avatar_pixmap as _prepare_avatar_pixmap,
+                render_lottie_avatar as _render_lottie_avatar,
+                render_pack_avatar as _render_pack_avatar,
+                render_svg_avatar as _render_svg_avatar,
                 resolve_avatar_path as _resolve_avatar_path,
             )
             from scripts.ui.avatar_skins import (
@@ -205,6 +209,10 @@ def main() -> None:
                 cached_avatar_pack_result as _cached_avatar_pack_result,
                 load_avatar_pack_manifest as _load_avatar_pack_manifest,
                 pack_frames_for_state as _pack_frames_for_state,
+                prepare_avatar_pixmap as _prepare_avatar_pixmap,
+                render_lottie_avatar as _render_lottie_avatar,
+                render_pack_avatar as _render_pack_avatar,
+                render_svg_avatar as _render_svg_avatar,
                 resolve_avatar_path as _resolve_avatar_path,
             )
             from ui.avatar_skins import (
@@ -1411,87 +1419,64 @@ def main() -> None:
             self._save_position()
 
         def _prepare_avatar_pixmap(self, width: int, height: int) -> QPixmap:
-            if self._avatar_path is None:
-                return QPixmap()
-
-            if self._avatar_is_pack:
-                state_key = _avatar_state_key(self._state.name)
-                return self._render_pack_avatar(max(width, height), state_key=state_key)
-
-            if self._avatar_is_lottie:
-                return self._render_lottie_avatar(max(width, height))
-
-            if self._avatar_is_svg:
-                return self._render_svg_avatar(max(width, height))
-
-            if not self._avatar:
-                return QPixmap()
-
-            source = self._avatar
-            return source.scaled(
-                width,
-                height,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
+            return _prepare_avatar_pixmap(
+                avatar_path=self._avatar_path,
+                avatar_is_pack=self._avatar_is_pack,
+                avatar_is_lottie=self._avatar_is_lottie,
+                avatar_is_svg=self._avatar_is_svg,
+                avatar=self._avatar,
+                state_name=self._state.name,
+                width=width,
+                height=height,
+                pack_renderer=lambda size, state_key: self._render_pack_avatar(
+                    size,
+                    state_key=state_key,
+                ),
+                lottie_renderer=self._render_lottie_avatar,
+                svg_renderer=self._render_svg_avatar,
+                empty_pixmap_factory=QPixmap,
+                aspect_ratio_mode=Qt.AspectRatioMode.KeepAspectRatio,
+                transformation_mode=Qt.TransformationMode.SmoothTransformation,
             )
 
         def _render_pack_avatar(self, size: int, *, state_key: str) -> QPixmap:
-            frames = _pack_frames_for_state(self._avatar_pack_frames, state_key)
-            if not frames:
-                return QPixmap()
-            current_index = self._avatar_pack_frame_index.get(state_key, 0)
-            source = frames[current_index % len(frames)]
-            target = max(64, int(size))
-            return source.scaled(
-                target,
-                target,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
+            return _render_pack_avatar(
+                frames_by_state=self._avatar_pack_frames,
+                frame_index=self._avatar_pack_frame_index,
+                state_key=state_key,
+                size=size,
+                empty_pixmap_factory=QPixmap,
+                aspect_ratio_mode=Qt.AspectRatioMode.KeepAspectRatio,
+                transformation_mode=Qt.TransformationMode.SmoothTransformation,
             )
 
         def _render_lottie_avatar(self, size: int) -> QPixmap:
-            if self._avatar_lottie is None:
-                return QPixmap()
-            render_size = max(64, int(size))
-            try:
-                frame_index = int(self._avatar_lottie_frame) % max(1, self._avatar_lottie_total_frames)
-                raw = self._avatar_lottie.lottie_animation_render(
-                    frame_num=frame_index,
-                    width=render_size,
-                    height=render_size,
-                )
-            except Exception as exc:
-                log(f"Failed to render lottie avatar frame: {exc}")
-                return QPixmap()
-            image = QImage(raw, render_size, render_size, render_size * 4, QImage.Format.Format_ARGB32)
-            if image.isNull():
-                return QPixmap()
-            return QPixmap.fromImage(image.copy())
+            return _render_lottie_avatar(
+                animation=self._avatar_lottie,
+                frame=self._avatar_lottie_frame,
+                total_frames=self._avatar_lottie_total_frames,
+                size=size,
+                image_factory=QImage,
+                pixmap_cls=QPixmap,
+                image_format=QImage.Format.Format_ARGB32,
+                empty_pixmap_factory=QPixmap,
+                on_error=lambda exc: log(f"Failed to render lottie avatar frame: {exc}"),
+            )
 
         def _render_svg_avatar(self, size: int) -> QPixmap:
-            if self._avatar_path is None:
-                return QPixmap()
-
-            renderer = QSvgRenderer(str(self._avatar_path))
-            if not renderer.isValid():
-                return QPixmap()
-
-            canvas_size = max(64, size)
-            image = QImage(canvas_size, canvas_size, QImage.Format.Format_ARGB32_Premultiplied)
-            image.fill(Qt.GlobalColor.transparent)
-
-            svg_painter = QPainter(image)
-            svg_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            svg_painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-            render_rect = QRectF(
-                canvas_size * -0.05,
-                canvas_size * -0.10,
-                canvas_size * 1.10,
-                canvas_size * 1.12,
+            return _render_svg_avatar(
+                path=self._avatar_path,
+                size=size,
+                renderer_cls=QSvgRenderer,
+                image_cls=QImage,
+                painter_cls=QPainter,
+                pixmap_cls=QPixmap,
+                image_format=QImage.Format.Format_ARGB32_Premultiplied,
+                transparent_color=Qt.GlobalColor.transparent,
+                antialiasing_hint=QPainter.RenderHint.Antialiasing,
+                smooth_transform_hint=QPainter.RenderHint.SmoothPixmapTransform,
+                rect_cls=QRectF,
             )
-            renderer.render(svg_painter, render_rect)
-            svg_painter.end()
-            return QPixmap.fromImage(image)
 
         def _paint_fallback(self, painter: QPainter) -> None:
             self._paint_character(painter)

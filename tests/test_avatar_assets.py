@@ -11,6 +11,10 @@ from scripts.ui.avatar_assets import (
     cached_avatar_pack_result,
     load_avatar_pack_manifest,
     pack_frames_for_state,
+    prepare_avatar_pixmap,
+    render_lottie_avatar,
+    render_pack_avatar,
+    render_svg_avatar,
     resolve_avatar_path,
 )
 
@@ -21,6 +25,104 @@ class FakePixmap:
 
     def isNull(self) -> bool:
         return Path(self.path).name.startswith("missing")
+
+    def scaled(self, width, height, aspect_ratio_mode, transformation_mode):
+        return FakeScaledPixmap(
+            source=self,
+            width=width,
+            height=height,
+            aspect_ratio_mode=aspect_ratio_mode,
+            transformation_mode=transformation_mode,
+        )
+
+    @staticmethod
+    def fromImage(image):
+        return FakeImagePixmap(image)
+
+
+class FakeScaledPixmap:
+    def __init__(self, *, source, width, height, aspect_ratio_mode, transformation_mode) -> None:
+        self.source = source
+        self.width = width
+        self.height = height
+        self.aspect_ratio_mode = aspect_ratio_mode
+        self.transformation_mode = transformation_mode
+
+
+class FakeImagePixmap:
+    def __init__(self, image) -> None:
+        self.image = image
+
+
+class FakeImage:
+    Format_ARGB32 = "argb32"
+    Format_ARGB32_Premultiplied = "argb32-premultiplied"
+
+    def __init__(self, *args) -> None:
+        self.args = args
+        self.filled_with = None
+
+    def isNull(self) -> bool:
+        return False
+
+    def copy(self):
+        return self
+
+    def fill(self, color) -> None:
+        self.filled_with = color
+
+
+class NullFakeImage(FakeImage):
+    def isNull(self) -> bool:
+        return True
+
+
+class FakeLottieAnimation:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def lottie_animation_render(self, **kwargs):
+        self.calls.append(kwargs)
+        return b"raw"
+
+
+class BrokenLottieAnimation:
+    def lottie_animation_render(self, **kwargs):
+        raise RuntimeError("render failed")
+
+
+class FakeSvgRenderer:
+    rendered = []
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def isValid(self) -> bool:
+        return not self.path.endswith("invalid.svg")
+
+    def render(self, painter, rect) -> None:
+        FakeSvgRenderer.rendered.append((painter, rect))
+
+
+class FakePainter:
+    def __init__(self, image) -> None:
+        self.image = image
+        self.hints = []
+        self.ended = False
+
+    def setRenderHint(self, hint) -> None:
+        self.hints.append(hint)
+
+    def end(self) -> None:
+        self.ended = True
+
+
+class FakeRect:
+    def __init__(self, left, top, width, height) -> None:
+        self.left = left
+        self.top = top
+        self.width = width
+        self.height = height
 
 
 class AvatarAssetsTests(unittest.TestCase):
@@ -113,6 +215,148 @@ class AvatarAssetsTests(unittest.TestCase):
             [idle_frame],
         )
         self.assertEqual(pack_frames_for_state({}, "speaking"), [])
+
+    def test_render_pack_avatar_uses_state_frame_and_minimum_size(self) -> None:
+        first = FakePixmap("first.webp")
+        second = FakePixmap("second.webp")
+
+        result = render_pack_avatar(
+            frames_by_state={"speaking": [first, second]},
+            frame_index={"speaking": 1},
+            state_key="speaking",
+            size=32,
+            empty_pixmap_factory=lambda: FakePixmap("empty"),
+            aspect_ratio_mode="keep",
+            transformation_mode="smooth",
+        )
+
+        self.assertIs(result.source, second)
+        self.assertEqual((result.width, result.height), (64, 64))
+        self.assertEqual(result.aspect_ratio_mode, "keep")
+        self.assertEqual(result.transformation_mode, "smooth")
+
+    def test_prepare_avatar_pixmap_routes_pack_lottie_svg_and_static_avatar(self) -> None:
+        path = Path("avatar.png")
+        calls = []
+
+        self.assertEqual(
+            prepare_avatar_pixmap(
+                avatar_path=path,
+                avatar_is_pack=True,
+                avatar_is_lottie=False,
+                avatar_is_svg=False,
+                avatar=None,
+                state_name=AssistantStateName.SPEAKING,
+                width=40,
+                height=80,
+                pack_renderer=lambda size, state_key: ("pack", size, state_key),
+                lottie_renderer=lambda size: ("lottie", size),
+                svg_renderer=lambda size: ("svg", size),
+                empty_pixmap_factory=lambda: ("empty",),
+                aspect_ratio_mode="keep",
+                transformation_mode="smooth",
+            ),
+            ("pack", 80, "speaking"),
+        )
+
+        avatar = FakePixmap("avatar.png")
+        result = prepare_avatar_pixmap(
+            avatar_path=path,
+            avatar_is_pack=False,
+            avatar_is_lottie=False,
+            avatar_is_svg=False,
+            avatar=avatar,
+            state_name=AssistantStateName.IDLE,
+            width=40,
+            height=80,
+            pack_renderer=lambda size, state_key: calls.append(("pack", size, state_key)),
+            lottie_renderer=lambda size: calls.append(("lottie", size)),
+            svg_renderer=lambda size: calls.append(("svg", size)),
+            empty_pixmap_factory=lambda: ("empty",),
+            aspect_ratio_mode="keep",
+            transformation_mode="smooth",
+        )
+
+        self.assertIs(result.source, avatar)
+        self.assertEqual((result.width, result.height), (40, 80))
+        self.assertEqual(calls, [])
+
+    def test_render_lottie_avatar_returns_copied_image_pixmap(self) -> None:
+        animation = FakeLottieAnimation()
+
+        result = render_lottie_avatar(
+            animation=animation,
+            frame=3.8,
+            total_frames=10,
+            size=20,
+            image_factory=FakeImage,
+            pixmap_cls=FakePixmap,
+            image_format=FakeImage.Format_ARGB32,
+            empty_pixmap_factory=lambda: FakePixmap("empty"),
+            on_error=lambda exc: None,
+        )
+
+        self.assertIsInstance(result, FakeImagePixmap)
+        self.assertEqual(animation.calls, [{"frame_num": 3, "width": 64, "height": 64}])
+        self.assertEqual(result.image.args, (b"raw", 64, 64, 256, FakeImage.Format_ARGB32))
+
+    def test_render_lottie_avatar_returns_empty_on_error_or_null_image(self) -> None:
+        errors = []
+
+        broken = render_lottie_avatar(
+            animation=BrokenLottieAnimation(),
+            frame=0,
+            total_frames=1,
+            size=128,
+            image_factory=FakeImage,
+            pixmap_cls=FakePixmap,
+            image_format=FakeImage.Format_ARGB32,
+            empty_pixmap_factory=lambda: FakePixmap("empty"),
+            on_error=errors.append,
+        )
+        null_image = render_lottie_avatar(
+            animation=FakeLottieAnimation(),
+            frame=0,
+            total_frames=1,
+            size=128,
+            image_factory=NullFakeImage,
+            pixmap_cls=FakePixmap,
+            image_format=FakeImage.Format_ARGB32,
+            empty_pixmap_factory=lambda: FakePixmap("empty"),
+            on_error=errors.append,
+        )
+
+        self.assertEqual(broken.path, "empty")
+        self.assertEqual(null_image.path, "empty")
+        self.assertEqual(len(errors), 1)
+
+    def test_render_svg_avatar_uses_same_canvas_and_rect_geometry(self) -> None:
+        FakeSvgRenderer.rendered = []
+
+        result = render_svg_avatar(
+            path=Path("avatar.svg"),
+            size=100,
+            renderer_cls=FakeSvgRenderer,
+            image_cls=FakeImage,
+            painter_cls=FakePainter,
+            pixmap_cls=FakePixmap,
+            image_format=FakeImage.Format_ARGB32_Premultiplied,
+            transparent_color="transparent",
+            antialiasing_hint="antialias",
+            smooth_transform_hint="smooth",
+            rect_cls=FakeRect,
+        )
+
+        self.assertIsInstance(result, FakeImagePixmap)
+        image = result.image
+        self.assertEqual(image.args, (100, 100, FakeImage.Format_ARGB32_Premultiplied))
+        self.assertEqual(image.filled_with, "transparent")
+        painter, rect = FakeSvgRenderer.rendered[0]
+        self.assertEqual(painter.hints, ["antialias", "smooth"])
+        self.assertTrue(painter.ended)
+        self.assertEqual((rect.left, rect.top), (-5.0, -10.0))
+        self.assertAlmostEqual(rect.width, 110.0)
+        self.assertAlmostEqual(rect.height, 112.0)
 
 
 if __name__ == "__main__":

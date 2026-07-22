@@ -120,6 +120,125 @@ def pack_frames_for_state(frames: dict[str, list[Any]], state_key: str) -> list[
     return frames.get(state_key) or frames.get("idle") or []
 
 
+def prepare_avatar_pixmap(
+    *,
+    avatar_path: Path | None,
+    avatar_is_pack: bool,
+    avatar_is_lottie: bool,
+    avatar_is_svg: bool,
+    avatar: Any,
+    state_name: AssistantStateName,
+    width: int,
+    height: int,
+    pack_renderer: Callable[[int, str], Any],
+    lottie_renderer: Callable[[int], Any],
+    svg_renderer: Callable[[int], Any],
+    empty_pixmap_factory: Callable[[], Any],
+    aspect_ratio_mode: Any,
+    transformation_mode: Any,
+) -> Any:
+    if avatar_path is None:
+        return empty_pixmap_factory()
+    if avatar_is_pack:
+        return pack_renderer(max(width, height), avatar_state_key(state_name))
+    if avatar_is_lottie:
+        return lottie_renderer(max(width, height))
+    if avatar_is_svg:
+        return svg_renderer(max(width, height))
+    if not avatar:
+        return empty_pixmap_factory()
+    return avatar.scaled(width, height, aspect_ratio_mode, transformation_mode)
+
+
+def render_pack_avatar(
+    *,
+    frames_by_state: dict[str, list[Any]],
+    frame_index: dict[str, int],
+    state_key: str,
+    size: int,
+    empty_pixmap_factory: Callable[[], Any],
+    aspect_ratio_mode: Any,
+    transformation_mode: Any,
+) -> Any:
+    frames = pack_frames_for_state(frames_by_state, state_key)
+    if not frames:
+        return empty_pixmap_factory()
+    current_index = frame_index.get(state_key, 0)
+    source = frames[current_index % len(frames)]
+    target = max(64, int(size))
+    return source.scaled(target, target, aspect_ratio_mode, transformation_mode)
+
+
+def render_lottie_avatar(
+    *,
+    animation: Any,
+    frame: float,
+    total_frames: int,
+    size: int,
+    image_factory: Callable[..., Any],
+    pixmap_cls: Any,
+    image_format: Any,
+    empty_pixmap_factory: Callable[[], Any],
+    on_error: Callable[[Exception], None],
+) -> Any:
+    if animation is None:
+        return empty_pixmap_factory()
+    render_size = max(64, int(size))
+    try:
+        frame_index = int(frame) % max(1, total_frames)
+        raw = animation.lottie_animation_render(
+            frame_num=frame_index,
+            width=render_size,
+            height=render_size,
+        )
+    except Exception as exc:
+        on_error(exc)
+        return empty_pixmap_factory()
+    image = image_factory(raw, render_size, render_size, render_size * 4, image_format)
+    if image.isNull():
+        return empty_pixmap_factory()
+    return pixmap_cls.fromImage(image.copy())
+
+
+def render_svg_avatar(
+    *,
+    path: Path | None,
+    size: int,
+    renderer_cls: Any,
+    image_cls: Any,
+    painter_cls: Any,
+    pixmap_cls: Any,
+    image_format: Any,
+    transparent_color: Any,
+    antialiasing_hint: Any,
+    smooth_transform_hint: Any,
+    rect_cls: Any,
+) -> Any:
+    if path is None:
+        return pixmap_cls()
+
+    renderer = renderer_cls(str(path))
+    if not renderer.isValid():
+        return pixmap_cls()
+
+    canvas_size = max(64, size)
+    image = image_cls(canvas_size, canvas_size, image_format)
+    image.fill(transparent_color)
+
+    svg_painter = painter_cls(image)
+    svg_painter.setRenderHint(antialiasing_hint)
+    svg_painter.setRenderHint(smooth_transform_hint)
+    render_rect = rect_cls(
+        canvas_size * -0.05,
+        canvas_size * -0.10,
+        canvas_size * 1.10,
+        canvas_size * 1.12,
+    )
+    renderer.render(svg_painter, render_rect)
+    svg_painter.end()
+    return pixmap_cls.fromImage(image)
+
+
 def _load_avatar_pack_frames(
     raw_states: dict,
     *,

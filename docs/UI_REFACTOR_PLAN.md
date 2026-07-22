@@ -70,6 +70,7 @@ What still needs care:
 - Extract avatar bubble and tooltip text helpers.
 - Extract avatar action decision helpers.
 - Extract settings value validation helpers.
+- Extract avatar Memory Center action helpers.
 
 ## Next PR Sequence
 

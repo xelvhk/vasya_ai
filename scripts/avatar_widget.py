@@ -179,6 +179,10 @@ def main() -> None:
                 tray_tooltip_text as _tray_tooltip_text,
                 visible_response_bubble_text as _visible_response_bubble_text,
             )
+            from scripts.ui.avatar_memory_actions import (
+                memory_search_actions as _memory_search_actions,
+                selected_memory_search_action as _selected_memory_search_action,
+            )
             from scripts.ui.avatar_actions import (
                 text_command_decision as _text_command_decision,
                 voice_activation_decision as _voice_activation_decision,
@@ -241,6 +245,10 @@ def main() -> None:
                 hover_hint_text as _hover_hint_text,
                 tray_tooltip_text as _tray_tooltip_text,
                 visible_response_bubble_text as _visible_response_bubble_text,
+            )
+            from ui.avatar_memory_actions import (
+                memory_search_actions as _memory_search_actions,
+                selected_memory_search_action as _selected_memory_search_action,
             )
             from ui.avatar_actions import (
                 text_command_decision as _text_command_decision,
@@ -2116,27 +2124,11 @@ def main() -> None:
             self._prompt_open_memory_search_result(result)
 
         def _prompt_open_memory_search_result(self, result: dict) -> None:
-            items = result.get("items")
-            if not isinstance(items, list) or not items:
-                return
-
-            actions: list[tuple[str, str]] = []
-            for item in items[:8]:
-                if not isinstance(item, dict):
-                    continue
-                title = str(item.get("title") or "Untitled memory").strip()
-                short_title = title if len(title) <= 42 else f"{title[:39].rstrip()}..."
-                markdown_path = str(item.get("markdown_path") or "").strip()
-                url = str(item.get("url") or "").strip()
-                if markdown_path:
-                    actions.append((f"Файл: {short_title}", markdown_path))
-                if url:
-                    actions.append((f"URL: {short_title}", url))
-
+            actions = _memory_search_actions(result)
             if not actions:
                 return
 
-            labels = [label for label, _ in actions]
+            labels = [action.label for action in actions]
             selected_label, accepted = QInputDialog.getItem(
                 self,
                 "Открыть результат",
@@ -2148,15 +2140,13 @@ def main() -> None:
             if not accepted:
                 return
 
-            selected_label = str(selected_label)
-            for label, target in actions:
-                if label != selected_label:
-                    continue
-                if label.startswith("Файл: "):
-                    self._open_memory_search_file(target)
-                else:
-                    self._open_memory_search_url(target)
+            action = _selected_memory_search_action(actions, str(selected_label))
+            if action is None:
                 return
+            if action.kind == "file":
+                self._open_memory_search_file(action.target)
+            else:
+                self._open_memory_search_url(action.target)
 
         def _open_memory_search_file(self, path: str) -> None:
             opened = QDesktopServices.openUrl(QUrl.fromLocalFile(path))

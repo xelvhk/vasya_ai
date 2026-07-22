@@ -32,6 +32,7 @@ Expected shape:
 1. Packaging discovery
    - Confirm entrypoint, icon/assets, PySide runtime requirements, storage paths,
      and first-run config behavior.
+   - Current inventory: `docs/PACKAGING_DISCOVERY.md`.
    - Compare macOS packaging options in a short ADR before choosing tooling.
 
 2. Local macOS artifact prototype

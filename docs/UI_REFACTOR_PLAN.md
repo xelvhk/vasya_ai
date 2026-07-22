@@ -69,6 +69,7 @@ What still needs care:
 - Extract avatar pixmap rendering adapters.
 - Extract avatar bubble and tooltip text helpers.
 - Extract avatar action decision helpers.
+- Extract settings value validation helpers.
 
 ## Next PR Sequence
 

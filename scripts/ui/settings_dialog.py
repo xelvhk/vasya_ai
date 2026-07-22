@@ -84,6 +84,7 @@ from .settings_options import (
 from .settings_preview import AvatarPreview
 from .settings_styles import SETTINGS_DIALOG_STYLESHEET
 from .settings_tabs import SETTINGS_TABS
+from .settings_values import applied_noisy_rms_threshold, minimum_noisy_rms_threshold
 
 BRAND_ACCENT_ALT = "#7b3dff"
 BRAND_MUTED = "#9fb8ec"
@@ -767,8 +768,7 @@ class SettingsDialog(QDialog):
         )
         quiet_threshold = float(self._auto_interrupt_quiet_rms.value())
         noisy_threshold = float(self._auto_interrupt_noisy_rms.value())
-        if noisy_threshold <= quiet_threshold:
-            noisy_threshold = quiet_threshold + 20.0
+        noisy_threshold = applied_noisy_rms_threshold(quiet_threshold, noisy_threshold)
         self._widget._auto_interrupt_quiet_rms_threshold = quiet_threshold
         self._widget._auto_interrupt_noisy_rms_threshold = noisy_threshold
         self._widget._auto_interrupt_hits_quiet = int(self._auto_interrupt_hits_quiet.value())
@@ -961,7 +961,7 @@ class SettingsDialog(QDialog):
     def _sync_auto_interrupt_thresholds(self) -> None:
         quiet_threshold = float(self._auto_interrupt_quiet_rms.value())
         current_noisy = float(self._auto_interrupt_noisy_rms.value())
-        min_noisy = quiet_threshold + 20.0
+        min_noisy = minimum_noisy_rms_threshold(quiet_threshold)
         if current_noisy < min_noisy:
             was_blocked = self._auto_interrupt_noisy_rms.blockSignals(True)
             self._auto_interrupt_noisy_rms.setValue(min_noisy)

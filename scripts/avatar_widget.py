@@ -141,6 +141,7 @@ def main() -> None:
                 character_body_rect as _character_body_rect,
                 character_eye_layout as _character_eye_layout,
                 character_face_rect as _character_face_rect,
+                character_mouth_rect as _character_mouth_rect,
                 character_shadow_metrics as _character_shadow_metrics,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
@@ -181,6 +182,7 @@ def main() -> None:
                 character_body_rect as _character_body_rect,
                 character_eye_layout as _character_eye_layout,
                 character_face_rect as _character_face_rect,
+                character_mouth_rect as _character_mouth_rect,
                 character_shadow_metrics as _character_shadow_metrics,
                 glow_color as _glow_color,
                 highlight_color as _highlight_color,
@@ -1790,20 +1792,19 @@ def main() -> None:
 
             mouth_pen = QPen(QColor(skin["mouth"]), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
             painter.setPen(mouth_pen)
-            mouth_rect = QRectF(
-                self.width() * 0.41,
-                self.height() * 0.58 + bob_offset,
-                self.width() * 0.18,
-                self.height() * 0.10,
-            )
             mouth_start, mouth_span, mouth_y_shift, mouth_width_scale = _mouth_expression(
                 self._state.name,
                 self._pulse,
                 smile_bounce,
             )
-            mouth_rect.moveTop(mouth_rect.top() + mouth_y_shift)
-            mouth_rect.setWidth(mouth_rect.width() * mouth_width_scale)
-            mouth_rect.moveLeft(self.width() * 0.5 - mouth_rect.width() * 0.5)
+            mouth_rect_tuple = _character_mouth_rect(
+                container_width=self.width(),
+                container_height=self.height(),
+                bob_offset=bob_offset,
+                y_shift=mouth_y_shift,
+                width_scale=mouth_width_scale,
+            )
+            mouth_rect = QRectF(*mouth_rect_tuple)
             painter.drawArc(mouth_rect, mouth_start * 16, mouth_span * 16)
 
             cheek_glow = QRadialGradient(

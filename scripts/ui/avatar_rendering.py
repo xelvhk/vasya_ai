@@ -219,6 +219,23 @@ def character_eye_layout(
     )
 
 
+def character_mouth_rect(
+    *,
+    container_width: float,
+    container_height: float,
+    bob_offset: float,
+    y_shift: float,
+    width_scale: float,
+) -> tuple[float, float, float, float]:
+    mouth_width = container_width * 0.18 * width_scale
+    return (
+        container_width * 0.5 - mouth_width * 0.5,
+        container_height * 0.58 + bob_offset + y_shift,
+        mouth_width,
+        container_height * 0.10,
+    )
+
+
 def highlight_color(
     state_name: AssistantStateName,
     pulse: float,

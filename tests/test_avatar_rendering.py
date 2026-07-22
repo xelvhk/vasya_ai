@@ -17,6 +17,7 @@ if avatar_rendering is not None:
     character_body_rect = getattr(avatar_rendering, "character_body_rect", None)
     character_eye_layout = getattr(avatar_rendering, "character_eye_layout", None)
     character_face_rect = getattr(avatar_rendering, "character_face_rect", None)
+    character_mouth_rect = getattr(avatar_rendering, "character_mouth_rect", None)
     character_shadow_metrics = getattr(avatar_rendering, "character_shadow_metrics", None)
     glow_color = avatar_rendering.glow_color
     image_avatar_draw_position = getattr(avatar_rendering, "image_avatar_draw_position", None)
@@ -162,6 +163,20 @@ class AvatarRenderingTests(unittest.TestCase):
 
         self.assertEqual(layout.vertical_shift, 0.0)
         self.assertAlmostEqual(layout.visible_height, 44.1 * 0.9)
+
+    def test_character_mouth_rect_matches_paint_geometry_after_expression(self) -> None:
+        left, top, width, height = character_mouth_rect(
+            container_width=210,
+            container_height=210,
+            bob_offset=-3.8,
+            y_shift=-1.8,
+            width_scale=1.08,
+        )
+
+        self.assertAlmostEqual(left, 84.588)
+        self.assertAlmostEqual(top, 116.2)
+        self.assertAlmostEqual(width, 40.824)
+        self.assertEqual(height, 21.0)
 
 
 if __name__ == "__main__":

@@ -64,6 +64,7 @@ What still needs care:
 - Extract image avatar paint geometry helpers.
 - Extract character avatar core geometry helpers.
 - Extract character avatar eye layout helper.
+- Extract character avatar mouth geometry helper.
 
 ## Next PR Sequence
 

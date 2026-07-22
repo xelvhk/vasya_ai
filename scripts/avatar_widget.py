@@ -173,6 +173,12 @@ def main() -> None:
                 pack_skin_from_combo_value as _pack_skin_from_combo_value,
                 save_custom_skin_spec as _save_custom_skin_spec,
             )
+            from scripts.ui.avatar_text import (
+                bubble_text as _bubble_text,
+                hover_hint_text as _hover_hint_text,
+                tray_tooltip_text as _tray_tooltip_text,
+                visible_response_bubble_text as _visible_response_bubble_text,
+            )
             from scripts.ui.settings_dialog import SettingsDialog
             from scripts.ui.tray_menu import build_tray_menu
         except ImportError:
@@ -225,6 +231,12 @@ def main() -> None:
                 pack_skin_combo_value as _pack_skin_combo_value,
                 pack_skin_from_combo_value as _pack_skin_from_combo_value,
                 save_custom_skin_spec as _save_custom_skin_spec,
+            )
+            from ui.avatar_text import (
+                bubble_text as _bubble_text,
+                hover_hint_text as _hover_hint_text,
+                tray_tooltip_text as _tray_tooltip_text,
+                visible_response_bubble_text as _visible_response_bubble_text,
             )
             from ui.settings_dialog import SettingsDialog
             from ui.tray_menu import build_tray_menu
@@ -1772,31 +1784,18 @@ def main() -> None:
             painter.restore()
 
         def _bubble_text(self) -> str:
-            if self._state.message:
-                return self._state.message.strip()
-            if self._state.name == AssistantStateName.LISTENING:
-                return "Слушаю..."
-            if self._state.name == AssistantStateName.THINKING:
-                return "Думаю..."
-            if self._state.name == AssistantStateName.SPEAKING:
-                return "Отвечаю..."
-            if self._state.name == AssistantStateName.ERROR:
-                return "Что-то пошло не так"
-            return ""
+            return _bubble_text(self._state)
 
         def _update_bubble(self) -> None:
-            text = self._bubble_text()
-            if (
-                not self._show_response_bubble
-                or not text
-                or self._state.name == AssistantStateName.IDLE
-                or not self.isVisible()
-            ):
+            text = _visible_response_bubble_text(
+                self._state,
+                show_response_bubble=self._show_response_bubble,
+                widget_visible=self.isVisible(),
+            )
+            if text is None:
                 self._bubble.hide()
                 return
 
-            if len(text) > 110:
-                text = f"{text[:107]}..."
             self._bubble.set_text(text)
             self._update_bubble_position()
             self._bubble.show()
@@ -1826,23 +1825,15 @@ def main() -> None:
             self._hover_bubble.hide()
 
         def _hover_hint_text(self) -> str:
-            if self._state.name == AssistantStateName.LISTENING:
-                return "Слушаю…"
-            if self._state.name == AssistantStateName.THINKING:
-                seconds = max(1, int(time.monotonic() - self._state_since))
-                return f"Думаю… {seconds}с"
-            if self._state.name == AssistantStateName.SPEAKING:
-                return "Говорю…"
-            if self._state.name == AssistantStateName.ERROR:
-                message = (self._state.message or "").lower()
-                if "тихо" in message:
-                    return "Слишком тихо — скажи громче"
-                if "не расслыш" in message:
-                    return "Не расслышал — повтори"
-                if "сомнева" in message:
-                    return "Сомневаюсь — повтори"
-                return "Не понял — повтори"
-            return f"Клик — говорить • ПКМ — меню\n{self._voice_health_hint()}"
+            return _hover_hint_text(
+                self._state,
+                thinking_seconds=int(time.monotonic() - self._state_since),
+                voice_health_hint=(
+                    self._voice_health_hint()
+                    if self._state.name == AssistantStateName.IDLE
+                    else ""
+                ),
+            )
 
         def _voice_health_hint(self) -> str:
             now = time.monotonic()
@@ -2048,20 +2039,17 @@ def main() -> None:
         def _update_tray_tooltip(self) -> None:
             if self._tray is None:
                 return
-            suffix = ""
-            if self._state.name != AssistantStateName.IDLE:
-                suffix = f" [{_state_label(self._state.name)}]"
-                if self._state.name == AssistantStateName.THINKING:
-                    seconds = max(1, int(time.monotonic() - self._state_since))
-                    suffix = f"{suffix} {seconds}с"
-                elif self._state.message:
-                    detail = " ".join(self._state.message.split())
-                    if len(detail) > 56:
-                        detail = f"{detail[:53]}..."
-                    suffix = f"{suffix} • {detail}"
-            else:
-                suffix = f" • {self._voice_health_hint()}"
-            self._tray.setToolTip(f"Вася AI{suffix}")
+            self._tray.setToolTip(
+                _tray_tooltip_text(
+                    self._state,
+                    thinking_seconds=int(time.monotonic() - self._state_since),
+                    voice_health_hint=(
+                        self._voice_health_hint()
+                        if self._state.name == AssistantStateName.IDLE
+                        else ""
+                    ),
+                )
+            )
 
         def _open_settings_dialog(self, *, focus: str | None = None) -> None:
             self._settings_focus = focus
@@ -2504,17 +2492,6 @@ def main() -> None:
                 raise RuntimeError("Не удалось применить текстовую горячую клавишу.")
 
             self._save_position()
-
-    def _state_label(state_name: AssistantStateName) -> str:
-        if state_name == AssistantStateName.LISTENING:
-            return "слушает"
-        if state_name == AssistantStateName.THINKING:
-            return "думает"
-        if state_name == AssistantStateName.SPEAKING:
-            return "говорит"
-        if state_name == AssistantStateName.ERROR:
-            return "ошибка"
-        return "в покое"
 
     def _load_widget_state() -> dict:
         return load_avatar_widget_state(AVATAR_STATE_FILE)

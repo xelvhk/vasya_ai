@@ -67,6 +67,7 @@ What still needs care:
 - Extract character avatar mouth geometry helper.
 - Extract avatar asset loading helpers.
 - Extract avatar pixmap rendering adapters.
+- Extract avatar bubble and tooltip text helpers.
 
 ## Next PR Sequence
 

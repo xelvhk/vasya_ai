@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 import sys
 import threading
@@ -151,6 +150,14 @@ def main() -> None:
                 listening_face_lift as _listening_face_lift,
                 mouth_expression as _mouth_expression,
             )
+            from scripts.ui.avatar_assets import (
+                avatar_pack_cache_payload as _avatar_pack_cache_payload,
+                avatar_state_key as _avatar_state_key,
+                cached_avatar_pack_result as _cached_avatar_pack_result,
+                load_avatar_pack_manifest as _load_avatar_pack_manifest,
+                pack_frames_for_state as _pack_frames_for_state,
+                resolve_avatar_path as _resolve_avatar_path,
+            )
             from scripts.ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
                 avatar_skin_ids as _avatar_skin_ids,
@@ -191,6 +198,14 @@ def main() -> None:
                 image_avatar_shadow_metrics as _image_avatar_shadow_metrics,
                 listening_face_lift as _listening_face_lift,
                 mouth_expression as _mouth_expression,
+            )
+            from ui.avatar_assets import (
+                avatar_pack_cache_payload as _avatar_pack_cache_payload,
+                avatar_state_key as _avatar_state_key,
+                cached_avatar_pack_result as _cached_avatar_pack_result,
+                load_avatar_pack_manifest as _load_avatar_pack_manifest,
+                pack_frames_for_state as _pack_frames_for_state,
+                resolve_avatar_path as _resolve_avatar_path,
             )
             from ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -844,17 +859,7 @@ def main() -> None:
             start_memory_background_scheduler()
 
         def _resolve_avatar_path(self) -> Path | None:
-            override_path = str(self._widget_state.get("avatar_image_path", "")).strip()
-            if override_path:
-                path = Path(override_path).expanduser()
-                if path.exists():
-                    return path
-            if not AVATAR_IMAGE_PATH:
-                return None
-            path = Path(AVATAR_IMAGE_PATH).expanduser()
-            if not path.exists():
-                return None
-            return path
+            return _resolve_avatar_path(self._widget_state, AVATAR_IMAGE_PATH)
 
         def _load_avatar(self):
             path = self._avatar_path
@@ -877,81 +882,18 @@ def main() -> None:
             self._avatar_pack_frame_index = {}
             self._avatar_pack_elapsed_ms = 0.0
             manifest_key = str(manifest_path.resolve())
-            cached_payload = self._avatar_pack_preloaded_cache.get(manifest_key)
-            if isinstance(cached_payload, dict):
-                cached_frames = cached_payload.get("frames")
-                cached_timing = cached_payload.get("timing_ms")
-                if isinstance(cached_frames, dict) and isinstance(cached_timing, dict):
-                    self._avatar_pack_frames = {
-                        str(key): list(value)
-                        for key, value in cached_frames.items()
-                        if isinstance(value, list) and value
-                    }
-                    self._avatar_pack_timing_ms = {
-                        str(key): int(value)
-                        for key, value in cached_timing.items()
-                    }
-                    for key, frames in self._avatar_pack_frames.items():
-                        if frames:
-                            self._avatar_pack_frame_index[key] = 0
-                    if self._avatar_pack_frames:
-                        self._avatar_is_pack = True
-                        return True
-            try:
-                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                return False
-            if not isinstance(payload, dict):
-                return False
-            raw_states = payload.get("states")
-            if not isinstance(raw_states, dict):
+            result = _cached_avatar_pack_result(
+                self._avatar_pack_preloaded_cache.get(manifest_key)
+            )
+            if result is None:
+                result = _load_avatar_pack_manifest(manifest_path, QPixmap)
+            if not result.loaded:
                 return False
 
-            base_dir = manifest_path.parent
-            loaded_any = False
-            for key, value in raw_states.items():
-                state_key = str(key).strip().lower()
-                if state_key not in {"idle", "listening", "thinking", "speaking", "error"}:
-                    continue
-                if not isinstance(value, list):
-                    continue
-                frames: list[QPixmap] = []
-                for item in value:
-                    candidate = base_dir / str(item).strip()
-                    pixmap = QPixmap(str(candidate))
-                    if pixmap.isNull():
-                        continue
-                    frames.append(pixmap)
-                if frames:
-                    self._avatar_pack_frames[state_key] = frames
-                    self._avatar_pack_frame_index[state_key] = 0
-                    loaded_any = True
-
-            if not loaded_any:
-                return False
-
-            timing_defaults = {
-                "idle": 260,
-                "listening": 180,
-                "thinking": 200,
-                "speaking": 90,
-                "error": 150,
-            }
-            raw_timing = payload.get("timing_ms")
-            if isinstance(raw_timing, dict):
-                for key, default_value in timing_defaults.items():
-                    raw_value = raw_timing.get(key, default_value)
-                    try:
-                        self._avatar_pack_timing_ms[key] = min(2000, max(40, int(raw_value)))
-                    except (TypeError, ValueError):
-                        self._avatar_pack_timing_ms[key] = default_value
-            else:
-                self._avatar_pack_timing_ms = dict(timing_defaults)
-
-            self._avatar_pack_preloaded_cache[manifest_key] = {
-                "frames": {key: list(value) for key, value in self._avatar_pack_frames.items()},
-                "timing_ms": dict(self._avatar_pack_timing_ms),
-            }
+            self._avatar_pack_frames = result.frames
+            self._avatar_pack_timing_ms = result.timing_ms
+            self._avatar_pack_frame_index = result.frame_index
+            self._avatar_pack_preloaded_cache[manifest_key] = _avatar_pack_cache_payload(result)
             self._avatar_is_pack = True
             return True
 
@@ -1094,8 +1036,8 @@ def main() -> None:
                     self._tray.setIcon(QIcon(self._tray_icon_pixmap))
             if self._avatar_is_pack and self._avatar_pack_frames:
                 self._avatar_pack_elapsed_ms += 60.0
-                state_key = self._avatar_state_key(self._state.name)
-                state_frames = self._avatar_pack_frames.get(state_key) or self._avatar_pack_frames.get("idle") or []
+                state_key = _avatar_state_key(self._state.name)
+                state_frames = _pack_frames_for_state(self._avatar_pack_frames, state_key)
                 frame_count = len(state_frames)
                 interval_ms = int(self._avatar_pack_timing_ms.get(state_key, 220))
                 if frame_count > 1 and self._avatar_pack_elapsed_ms >= interval_ms:
@@ -1473,7 +1415,7 @@ def main() -> None:
                 return QPixmap()
 
             if self._avatar_is_pack:
-                state_key = self._avatar_state_key(self._state.name)
+                state_key = _avatar_state_key(self._state.name)
                 return self._render_pack_avatar(max(width, height), state_key=state_key)
 
             if self._avatar_is_lottie:
@@ -1493,20 +1435,8 @@ def main() -> None:
                 Qt.TransformationMode.SmoothTransformation,
             )
 
-        @staticmethod
-        def _avatar_state_key(state_name: AssistantStateName) -> str:
-            if state_name == AssistantStateName.LISTENING:
-                return "listening"
-            if state_name == AssistantStateName.THINKING:
-                return "thinking"
-            if state_name == AssistantStateName.SPEAKING:
-                return "speaking"
-            if state_name == AssistantStateName.ERROR:
-                return "error"
-            return "idle"
-
         def _render_pack_avatar(self, size: int, *, state_key: str) -> QPixmap:
-            frames = self._avatar_pack_frames.get(state_key) or self._avatar_pack_frames.get("idle") or []
+            frames = _pack_frames_for_state(self._avatar_pack_frames, state_key)
             if not frames:
                 return QPixmap()
             current_index = self._avatar_pack_frame_index.get(state_key, 0)

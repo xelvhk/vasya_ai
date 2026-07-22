@@ -65,11 +65,12 @@ What still needs care:
 - Extract character avatar core geometry helpers.
 - Extract character avatar eye layout helper.
 - Extract character avatar mouth geometry helper.
+- Extract avatar asset loading helpers.
 
 ## Next PR Sequence
 
 1. `refactor(ui): isolate avatar rendering`
-   - Continue with paint/rendering helper isolation.
+   - Continue with pixmap/rendering adapter isolation.
 
 2. `refactor(voice): split voice backends`
    - Start after UI shell risk is lower.

@@ -179,6 +179,10 @@ def main() -> None:
                 tray_tooltip_text as _tray_tooltip_text,
                 visible_response_bubble_text as _visible_response_bubble_text,
             )
+            from scripts.ui.avatar_actions import (
+                text_command_decision as _text_command_decision,
+                voice_activation_decision as _voice_activation_decision,
+            )
             from scripts.ui.settings_dialog import SettingsDialog
             from scripts.ui.tray_menu import build_tray_menu
         except ImportError:
@@ -237,6 +241,10 @@ def main() -> None:
                 hover_hint_text as _hover_hint_text,
                 tray_tooltip_text as _tray_tooltip_text,
                 visible_response_bubble_text as _visible_response_bubble_text,
+            )
+            from ui.avatar_actions import (
+                text_command_decision as _text_command_decision,
+                voice_activation_decision as _voice_activation_decision,
             )
             from ui.settings_dialog import SettingsDialog
             from ui.tray_menu import build_tray_menu
@@ -1160,26 +1168,22 @@ def main() -> None:
                 log(f"Context menu error: {exc}")
 
         def _activate_interaction(self) -> None:
-            if self._interaction_lock.locked():
-                if assistant_state.get().name == AssistantStateName.SPEAKING:
-                    log_voice_event("widget_activation_interrupt_speaking")
-                    stop_speaking()
-                    assistant_state.set(
-                        AssistantStateName.IDLE,
-                        "Остановила озвучивание. Нажми еще раз, чтобы говорить.",
-                    )
-                    return
-                else:
-                    with self._interaction_control_lock:
-                        self._queued_voice_activation = True
-                    log_voice_event("widget_activation_queued reason=interaction_in_progress")
-                    assistant_state.set(
-                        AssistantStateName.THINKING,
-                        "Заканчиваю текущий запрос и сразу начну слушать.",
-                    )
-                    return
+            decision = _voice_activation_decision(
+                interaction_locked=self._interaction_lock.locked(),
+                current_state_name=assistant_state.get().name,
+            )
+            if decision.action == "start":
+                self._start_interaction_thread(decision.log_event)
+                return
 
-            self._start_interaction_thread("widget_activation_started")
+            if decision.queue_activation:
+                with self._interaction_control_lock:
+                    self._queued_voice_activation = True
+            log_voice_event(decision.log_event)
+            if decision.stop_speaking:
+                stop_speaking()
+            if decision.state_name is not None:
+                assistant_state.set(decision.state_name, decision.state_message)
 
         def _start_interaction_thread(self, log_event: str) -> None:
             def worker() -> None:
@@ -2307,19 +2311,24 @@ def main() -> None:
             if self._interaction_lock.locked():
                 with self._text_command_control_lock:
                     cancel_event = self._text_command_cancel_event
-                    if cancel_event is not None:
+                    decision = _text_command_decision(
+                        interaction_locked=True,
+                        has_cancel_event=cancel_event is not None,
+                    )
+                    if decision.queue_command:
                         self._queued_text_command = command_text
+                    if decision.cancel_current and cancel_event is not None:
                         cancel_event.set()
+                    if decision.stop_speaking:
                         stop_speaking()
+                    if decision.action == "replace_current":
                         assistant_state.set(
-                            AssistantStateName.THINKING,
-                            "Останавливаю текущий ответ и переключаюсь на новую команду...",
+                            decision.state_name,
+                            decision.state_message,
                         )
                         return
-                assistant_state.set(
-                    AssistantStateName.THINKING,
-                    "Секунду, сначала закончу текущий запрос.",
-                )
+                if decision.state_name is not None:
+                    assistant_state.set(decision.state_name, decision.state_message)
                 return
 
             def worker() -> None:

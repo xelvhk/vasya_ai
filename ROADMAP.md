@@ -59,6 +59,27 @@ Later:
 - Windows setup path
 - Linux setup path
 
+Installable artifact release track:
+- `v0.6.x`: keep improving first-run/setup reliability through scripts,
+  diagnostics, CI smoke checks, and documentation.
+- `v0.7.0`: ship the first macOS installable artifact (`.app` packaged in
+  `.dmg` or equivalent) after the desktop shell and UI refactor are stable.
+- `v0.7.x`: add reproducible release automation for signed/notarized macOS
+  artifacts when credentials are available.
+- Later `v0.8.x+`: add Windows and Linux installers after macOS packaging is
+  repeatable, rather than solving all platforms in the first packaging pass.
+
+Installer acceptance criteria:
+- a clean machine can install and launch the desktop shell without cloning the
+  repository or manually creating a virtualenv;
+- first-run still generates/preserves local `.env`, storage, and API auth
+  defaults safely;
+- `doctor` runs from the packaged app or a bundled companion command and reports
+  actionable setup issues;
+- CI or a documented release script produces the artifact from a tagged commit;
+- release notes list known external prerequisites such as Ollama, microphone
+  permission, Accessibility permission, and optional integrations.
+
 Why this matters:
 - setup friction is one of the biggest barriers to real usage
 
@@ -278,9 +299,12 @@ Good future exports:
 - `v0.5.23`: security test baseline (`SEC-007`) with e2e coverage for auth/throttling and real log-redaction writes
 - `v0.5.24`: managed Obsidian vault bootstrap (knowledge folder model, templates, metadata/link indexing, plugin-manifest helper)
 - `v0.5.x`: fuller desktop shell, richer avatar behavior, and user-imported visual themes
-- `v0.6.x`: easier installation, starting with Windows, then Linux
-- `v0.7.x`: deeper Obsidian workflow and Notion adapter
-- `v0.8.x`: code agent and writing/research agent
+- `v0.6.x`: easier first-run/setup reliability through scripts, doctor checks, and docs
+- `v0.7.0`: first macOS installable artifact (`.app`/`.dmg`) after desktop shell stabilization
+- `v0.7.x`: reproducible macOS packaging automation, signing/notarization path, and release artifacts
+- `v0.8.x`: Windows/Linux installer tracks after macOS packaging is repeatable
+- `v0.9.x`: deeper Obsidian workflow and Notion adapter
+- `v1.0-rc`: code agent and writing/research agent hardening
 - `v1.0`: cross-platform Vasya with simple installation, skins, Obsidian + Notion, stable voice UX, and multi-agent workflows
 
 ## Near-term recommendation
@@ -291,7 +315,7 @@ If choosing one practical path from here, the best next order is:
 2. Deepen avatar personalization and user theme import
 3. Continue improving speech understanding and recovery UX
 4. Add context-aware actions (selected text, screenshot prompts, quick slash actions)
-5. Simplify setup and first-run experience, starting with Windows setup
+5. Finish the macOS installer release track before broadening packaging to Windows/Linux
 6. Deepen adapters such as Obsidian and later Notion
 
 The current desktop UI cleanup is tracked in

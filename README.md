@@ -174,6 +174,7 @@ Short roadmap:
 - [ ] Stabilize voice quality profiles and recovery flow
 - [ ] Add test coverage for critical services and routers
 - [x] Improve onboarding script for zero-friction local setup
+- [ ] Ship first macOS installable artifact after desktop shell stabilization
 - [ ] Prepare API for web/mobile thin clients
 
 Detailed roadmap and release timeline:

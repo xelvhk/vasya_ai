@@ -80,6 +80,9 @@ Installer acceptance criteria:
 - release notes list known external prerequisites such as Ollama, microphone
   permission, Accessibility permission, and optional integrations.
 
+Detailed packaging plan:
+- [docs/PACKAGING_PLAN.md](docs/PACKAGING_PLAN.md)
+
 Why this matters:
 - setup friction is one of the biggest barriers to real usage
 

@@ -7,6 +7,9 @@ __pycache__/
 credentials.json
 input.wav
 .DS_Store
+*.spec
+build/
+dist/
 
 storage/*.json
 storage/*.db

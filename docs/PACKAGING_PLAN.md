@@ -37,6 +37,7 @@ Expected shape:
 
 2. Local macOS artifact prototype
    - Add a local build script that produces a disposable `.app` artifact.
+   - Prototype entrypoint: `python scripts/build_macos_app.py --dry-run`.
    - Keep generated build output ignored.
    - Verify the app launches the desktop shell on the maintainer machine.
 

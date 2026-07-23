@@ -33,7 +33,7 @@ Expected shape:
    - Confirm entrypoint, icon/assets, PySide runtime requirements, storage paths,
      and first-run config behavior.
    - Current inventory: `docs/PACKAGING_DISCOVERY.md`.
-   - Compare macOS packaging options in a short ADR before choosing tooling.
+   - Packaging tool decision: `docs/adr/ADR-002-macos-packaging-tool.md`.
 
 2. Local macOS artifact prototype
    - Add a local build script that produces a disposable `.app` artifact.
@@ -74,7 +74,6 @@ Expected shape:
 
 ## Open Decisions
 
-- Packaging tool: choose after a short ADR and a small local prototype.
 - Artifact format: `.dmg` is the likely first downloadable shape, but `.zip`
   may be acceptable for the first unsigned prototype.
 - Signing/notarization: required for polished distribution, but intentionally

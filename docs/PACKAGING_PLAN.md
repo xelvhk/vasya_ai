@@ -41,6 +41,7 @@ Expected shape:
    - Install build-only packaging dependencies with
      `.venv/bin/python -m pip install -r requirements-build.txt`.
    - First local build result: `docs/PACKAGING_PROTOTYPE.md`.
+   - Local bundle smoke: `.venv/bin/python scripts/smoke_macos_app.py`.
    - Keep generated build output ignored.
    - Verify the app launches the desktop shell on the maintainer machine.
 

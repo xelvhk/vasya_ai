@@ -38,6 +38,9 @@ Expected shape:
 2. Local macOS artifact prototype
    - Add a local build script that produces a disposable `.app` artifact.
    - Prototype entrypoint: `python scripts/build_macos_app.py --dry-run`.
+   - Install build-only packaging dependencies with
+     `.venv/bin/python -m pip install -r requirements-build.txt`.
+   - First local build result: `docs/PACKAGING_PROTOTYPE.md`.
    - Keep generated build output ignored.
    - Verify the app launches the desktop shell on the maintainer machine.
 

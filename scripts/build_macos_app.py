@@ -31,6 +31,10 @@ class MacOSAppBuildConfig:
         return self.root_dir / "build" / "packaging" / "spec"
 
     @property
+    def cache_path(self) -> Path:
+        return self.root_dir / "build" / "packaging" / "cache"
+
+    @property
     def assets_path(self) -> Path:
         return self.root_dir / "assets"
 
@@ -76,7 +80,7 @@ def run_build(
         if dry_run:
             pyinstaller = "pyinstaller"
         else:
-            print("PyInstaller is not installed. Run: .venv/bin/pip install pyinstaller")
+            print("PyInstaller is not installed. Run: .venv/bin/python -m pip install -r requirements-build.txt")
             return 1
 
     command = pyinstaller_command(config, pyinstaller=pyinstaller)
@@ -84,7 +88,12 @@ def run_build(
         print(" ".join(command))
         return 0
 
-    subprocess.run(command, cwd=str(config.root_dir), check=True)
+    subprocess.run(
+        command,
+        cwd=str(config.root_dir),
+        env=pyinstaller_environment(config),
+        check=True,
+    )
     print(f"Built app prototype under: {config.dist_path}")
     return 0
 
@@ -115,6 +124,12 @@ def pyinstaller_command(config: MacOSAppBuildConfig, *, pyinstaller: str) -> lis
         f"{config.assets_path}{os.pathsep}assets",
         str(config.entrypoint),
     ]
+
+
+def pyinstaller_environment(config: MacOSAppBuildConfig) -> dict[str, str]:
+    env = dict(os.environ)
+    env.setdefault("PYINSTALLER_CONFIG_DIR", str(config.cache_path))
+    return env
 
 
 if __name__ == "__main__":

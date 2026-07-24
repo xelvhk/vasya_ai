@@ -9,6 +9,7 @@ from unittest.mock import patch
 from scripts.build_macos_app import (
     MacOSAppBuildConfig,
     pyinstaller_command,
+    pyinstaller_environment,
     resolve_pyinstaller,
     run_build,
 )
@@ -50,6 +51,22 @@ class BuildMacOSAppTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         run.assert_not_called()
+
+    def test_pyinstaller_environment_uses_repo_local_cache_by_default(self) -> None:
+        config = MacOSAppBuildConfig(root_dir=Path("/repo"))
+
+        with patch.dict(os.environ, {}, clear=True):
+            env = pyinstaller_environment(config)
+
+        self.assertEqual(env["PYINSTALLER_CONFIG_DIR"], "/repo/build/packaging/cache")
+
+    def test_pyinstaller_environment_preserves_explicit_cache_override(self) -> None:
+        config = MacOSAppBuildConfig(root_dir=Path("/repo"))
+
+        with patch.dict(os.environ, {"PYINSTALLER_CONFIG_DIR": "/tmp/pyinstaller-cache"}, clear=True):
+            env = pyinstaller_environment(config)
+
+        self.assertEqual(env["PYINSTALLER_CONFIG_DIR"], "/tmp/pyinstaller-cache")
 
     def test_run_build_rejects_non_macos_without_override(self) -> None:
         config = MacOSAppBuildConfig(root_dir=Path("/repo"))

@@ -11,13 +11,18 @@ Run from the repository root on macOS:
 .venv/bin/python scripts/build_macos_app.py
 .venv/bin/python scripts/smoke_macos_app.py
 .venv/bin/python scripts/smoke_macos_app.py --launch --timeout 3
+.venv/bin/python scripts/build_macos_doctor.py
 .venv/bin/python scripts/package_macos_app.py
 ```
 
 Expected local output:
 
 - `.app`: `build/packaging/dist/Vasya AI.app`
+- doctor companion: `build/packaging/doctor-dist/Vasya AI Doctor`
 - unsigned ZIP: `build/packaging/release/Vasya-AI-macos-unsigned.zip`
+
+The current ZIP wrapper contains the `.app`; adding the doctor companion to the
+archive payload is the next packaging slice.
 
 ## Quality Gates
 
@@ -52,5 +57,5 @@ GitHub Actions CI must be green on the release commit before tagging.
 
 - The first artifact is unsigned and not notarized.
 - DMG packaging is still a follow-up; ZIP is the first downloadable shape.
-- Packaged `doctor` access is not yet integrated into the app bundle.
+- The doctor companion is built separately and is not yet included in the ZIP.
 - Windows and Linux installers are out of scope for `v0.7.0`.

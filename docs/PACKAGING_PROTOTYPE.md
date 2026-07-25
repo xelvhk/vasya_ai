@@ -7,7 +7,8 @@ Status: first local unsigned macOS `.app` prototype built with PyInstaller.
 1. `.venv/bin/python -m pip install -r requirements-build.txt`
 2. `.venv/bin/python scripts/build_macos_app.py`
 3. `.venv/bin/python scripts/smoke_macos_app.py`
-4. `.venv/bin/python scripts/package_macos_app.py`
+4. `.venv/bin/python scripts/build_macos_doctor.py`
+5. `.venv/bin/python scripts/package_macos_app.py`
 
 The build script sets `PYINSTALLER_CONFIG_DIR` to `build/packaging/cache` by
 default so PyInstaller does not write to `~/Library/Application Support`.
@@ -16,14 +17,18 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 
 - App bundle: `build/packaging/dist/Vasya AI.app`
 - Onedir payload: `build/packaging/dist/Vasya AI`
+- Doctor companion: `build/packaging/doctor-dist/Vasya AI Doctor`
 - Unsigned ZIP artifact: `build/packaging/release/Vasya-AI-macos-unsigned.zip`
 - Generated spec/work/cache directories: `build/packaging/spec`,
   `build/packaging/work`, and `build/packaging/cache`
 - Local observed size: around 398M for the `.app`, around 794M for the full
   `build/packaging/dist` directory
+- Local observed doctor companion size: around 225M
 - Local observed ZIP size: around 145M
 - Assets are bundled under the app resources and onedir internal payload
 - Structure smoke and direct executable launch smoke passed locally
+- Doctor companion starts from the packaged executable and reports diagnostic
+  issues without import/runtime failures
 
 ## First Build Findings
 
@@ -35,6 +40,9 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - macOS hotkey dependencies report several optional PyObjC/Quartz imports in
   PyInstaller's warning file. Treat this as a launch-smoke watchlist item.
 - The bundled executable stayed alive through a 3 second launch smoke.
+- The doctor companion reports packaged Python runtime and bundled Python
+  dependencies as OK after hidden import coverage for dateparser and Google
+  client modules.
 - Pydantic compatibility warnings should remain on the packaging watchlist while
   the project runs on Python 3.14.
 
@@ -44,6 +52,7 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - First-run `.env` and storage behavior from inside the bundle.
 - macOS microphone and Accessibility permission prompts.
 - Ollama/model diagnostics inside the packaged app.
+- Including the doctor companion inside the unsigned ZIP payload.
 - DMG wrapping, signing, and notarization.
 
 ## Unsigned ZIP

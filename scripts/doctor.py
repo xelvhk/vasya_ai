@@ -148,6 +148,9 @@ def check_env_file() -> CheckResult:
 
 
 def check_virtualenv() -> CheckResult:
+    if _is_packaged_runtime():
+        return report("virtualenv", "OK", "packaged Python runtime is active")
+
     in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
     if _is_ci_environment() and not in_venv:
         return report("virtualenv", "OK", "CI uses GitHub Actions managed Python")
@@ -388,6 +391,10 @@ def _healthcheck_url() -> str:
 
 def _is_ci_environment() -> bool:
     return str(os.getenv("CI", "")).strip().lower() in {"1", "true", "yes"}
+
+
+def _is_packaged_runtime() -> bool:
+    return bool(getattr(sys, "frozen", False))
 
 
 if __name__ == "__main__":

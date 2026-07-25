@@ -95,6 +95,12 @@ class DoctorScriptTests(unittest.TestCase):
         self.assertIn(result.status, {"OK", "WARN"})
         self.assertEqual(result.name, "virtualenv")
 
+    def test_virtualenv_check_accepts_packaged_runtime(self) -> None:
+        with patch.object(doctor.sys, "frozen", True, create=True):
+            result = doctor.check_virtualenv()
+        self.assertEqual(result.status, "OK")
+        self.assertIn("packaged", result.message)
+
     def test_ci_env_does_not_require_local_ollama_binary(self) -> None:
         with patch.dict("os.environ", {"CI": "true"}), patch.object(
             doctor.shutil,

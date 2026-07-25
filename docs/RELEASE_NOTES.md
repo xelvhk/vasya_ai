@@ -8,10 +8,12 @@ For shorter user-facing notes with a lighter tone, see [WHATS_NEW.md](WHATS_NEW.
 - Added repeatable local commands:
   - `.venv/bin/python scripts/build_macos_app.py`
   - `.venv/bin/python scripts/smoke_macos_app.py`
+  - `.venv/bin/python scripts/build_macos_doctor.py`
   - `.venv/bin/python scripts/package_macos_app.py`
+- Added the first packaged doctor companion prototype for diagnostics outside a repository checkout.
 - Added structural and launch smoke checks for the bundled app, including Info.plist metadata, executable bit, bundled avatar assets, and short startup survival.
 - Documented current packaging output in `docs/PACKAGING_PROTOTYPE.md` and the release checklist in `docs/RELEASE_CHECKLIST_V0_7.md`.
-- Known limitations: the artifact is unsigned and not notarized; Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites; packaged `doctor` access is still a follow-up.
+- Known limitations: the artifact is unsigned and not notarized; Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites; the doctor companion is not yet included in the ZIP payload.
 - Release checks: unit test suite, scoped source `compileall`, strict doctor smoke, packaging smoke, unsigned ZIP creation, and GitHub Actions CI should pass before tagging.
 
 ## v0.6.0 (2026-06-19)

@@ -48,6 +48,7 @@ Expected shape:
 3. Packaged first-run diagnostics
    - Make `doctor` runnable for packaged app users, either inside the app flow or
      through a bundled companion command.
+   - Companion prototype: `.venv/bin/python scripts/build_macos_doctor.py`.
    - Document the expected output for missing Ollama, permissions, and optional
      integrations.
 

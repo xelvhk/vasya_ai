@@ -2,6 +2,18 @@
 
 For shorter user-facing notes with a lighter tone, see [WHATS_NEW.md](WHATS_NEW.md).
 
+## v0.7.0 (Draft)
+- Added the first macOS packaging track for Vasya AI: PyInstaller builds a local unsigned `.app` prototype, and `ditto` wraps it into an unsigned ZIP artifact.
+- Added build-only packaging dependencies in `requirements-build.txt`.
+- Added repeatable local commands:
+  - `.venv/bin/python scripts/build_macos_app.py`
+  - `.venv/bin/python scripts/smoke_macos_app.py`
+  - `.venv/bin/python scripts/package_macos_app.py`
+- Added structural and launch smoke checks for the bundled app, including Info.plist metadata, executable bit, bundled avatar assets, and short startup survival.
+- Documented current packaging output in `docs/PACKAGING_PROTOTYPE.md` and the release checklist in `docs/RELEASE_CHECKLIST_V0_7.md`.
+- Known limitations: the artifact is unsigned and not notarized; Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites; packaged `doctor` access is still a follow-up.
+- Release checks: unit test suite, scoped source `compileall`, strict doctor smoke, packaging smoke, unsigned ZIP creation, and GitHub Actions CI should pass before tagging.
+
 ## v0.6.0 (2026-06-19)
 - Promoted Vasya AI to the `0.6.0` Installation & First-Run milestone.
 - Added Morning Brief v1: weather, open tasks, today/tomorrow calendar events, Memory Center context, suggested priorities, short spoken summary, and deterministic local Markdown briefings.

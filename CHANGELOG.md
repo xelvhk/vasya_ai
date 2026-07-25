@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.7.0 - Draft
+
+### Added
+- First macOS installable artifact track with a PyInstaller `.app` prototype and unsigned ZIP wrapper.
+- `scripts/build_macos_app.py` for local unsigned `.app` builds.
+- `scripts/smoke_macos_app.py` for structure and short launch smoke checks.
+- `scripts/package_macos_app.py` for `Vasya-AI-macos-unsigned.zip` creation.
+- Build-only packaging dependency pin in `requirements-build.txt`.
+- Packaging prototype and release checklist docs for the `v0.7.0` artifact path.
+
+### Changed
+- Promoted the packaging roadmap from discovery to a repeatable local artifact flow.
+
+### Verification
+- Expected release checks: unit test suite, scoped source `compileall`, strict doctor smoke, packaging smoke, unsigned ZIP creation, and GitHub Actions CI.
+
+### Known Limitations
+- The first macOS artifact is unsigned and not notarized.
+- Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites.
+- Packaged `doctor` access and DMG/signing automation remain follow-up work.
+
 ## v0.6.0 - 2026-06-19
 
 ### Added

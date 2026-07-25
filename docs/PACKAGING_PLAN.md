@@ -54,6 +54,7 @@ Expected shape:
 4. Release artifact packaging
    - Wrap the `.app` into `.dmg` or an equivalent downloadable artifact.
    - First unsigned ZIP wrapper: `.venv/bin/python scripts/package_macos_app.py`.
+   - Release checklist: `docs/RELEASE_CHECKLIST_V0_7.md`.
    - Add release notes checklist items for prerequisites and known limitations.
 
 5. Automation and signing path

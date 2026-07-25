@@ -44,7 +44,7 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - First-run `.env` and storage behavior from inside the bundle.
 - macOS microphone and Accessibility permission prompts.
 - Ollama/model diagnostics inside the packaged app.
-- DMG or ZIP wrapping, signing, and notarization.
+- DMG wrapping, signing, and notarization.
 
 ## Unsigned ZIP
 

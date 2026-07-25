@@ -19,12 +19,13 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - Onedir payload: `build/packaging/dist/Vasya AI`
 - Doctor companion: `build/packaging/doctor-dist/Vasya AI Doctor`
 - Unsigned ZIP artifact: `build/packaging/release/Vasya-AI-macos-unsigned.zip`
+  with `Vasya AI.app/` and `Vasya AI Doctor/` at the top level
 - Generated spec/work/cache directories: `build/packaging/spec`,
   `build/packaging/work`, and `build/packaging/cache`
 - Local observed size: around 398M for the `.app`, around 794M for the full
   `build/packaging/dist` directory
 - Local observed doctor companion size: around 225M
-- Local observed ZIP size: around 145M
+- Local observed ZIP size with app and doctor companion: around 224M
 - Assets are bundled under the app resources and onedir internal payload
 - Structure smoke and direct executable launch smoke passed locally
 - Doctor companion starts from the packaged executable and reports diagnostic
@@ -52,16 +53,18 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - First-run `.env` and storage behavior from inside the bundle.
 - macOS microphone and Accessibility permission prompts.
 - Ollama/model diagnostics inside the packaged app.
-- Including the doctor companion inside the unsigned ZIP payload.
+- Running the doctor companion from an unpacked ZIP directory.
 - DMG wrapping, signing, and notarization.
 
 ## Unsigned ZIP
 
 Run `.venv/bin/python scripts/package_macos_app.py` after build and smoke checks
-to create the first downloadable unsigned macOS artifact. The script uses
-`/usr/bin/ditto --keepParent --sequesterRsrc` so the archive preserves the app
-bundle directory and macOS resource metadata. The resulting archive includes
-`Vasya AI.app/` at the top level and may include `__MACOSX/` metadata entries.
+to create the first downloadable unsigned macOS artifact. The script stages the
+app and doctor companion payloads with `/usr/bin/ditto`, then archives that
+staging directory with `/usr/bin/ditto --sequesterRsrc` so macOS resource
+metadata is preserved. The resulting archive includes `Vasya AI.app/` and
+`Vasya AI Doctor/` at the top level and may include `__MACOSX/` metadata
+entries.
 
 ## Local Smoke
 

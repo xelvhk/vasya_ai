@@ -21,8 +21,8 @@ Expected local output:
 - doctor companion: `build/packaging/doctor-dist/Vasya AI Doctor`
 - unsigned ZIP: `build/packaging/release/Vasya-AI-macos-unsigned.zip`
 
-The current ZIP wrapper contains the `.app`; adding the doctor companion to the
-archive payload is the next packaging slice.
+The ZIP wrapper includes both top-level payloads: `Vasya AI.app/` and
+`Vasya AI Doctor/`.
 
 ## Quality Gates
 
@@ -42,6 +42,7 @@ GitHub Actions CI must be green on the release commit before tagging.
 
 - Unzip `Vasya-AI-macos-unsigned.zip` into a clean directory.
 - Launch `Vasya AI.app`.
+- Run `Vasya AI Doctor/Vasya AI Doctor --quiet`.
 - Confirm the desktop shell appears or starts hidden according to saved config.
 - Confirm the app does not overwrite an existing `.env`.
 - Confirm first-run setup problems are actionable through docs or `doctor`.
@@ -57,5 +58,6 @@ GitHub Actions CI must be green on the release commit before tagging.
 
 - The first artifact is unsigned and not notarized.
 - DMG packaging is still a follow-up; ZIP is the first downloadable shape.
-- The doctor companion is built separately and is not yet included in the ZIP.
+- The doctor companion is a separate top-level folder inside the ZIP, not yet an
+  in-app diagnostics flow.
 - Windows and Linux installers are out of scope for `v0.7.0`.

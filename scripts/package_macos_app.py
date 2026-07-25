@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -23,8 +24,16 @@ class MacOSAppPackageConfig:
         return self.root_dir / "build" / "packaging" / "dist" / f"{self.app_name}.app"
 
     @property
+    def doctor_path(self) -> Path:
+        return self.root_dir / "build" / "packaging" / "doctor-dist" / "Vasya AI Doctor"
+
+    @property
     def release_path(self) -> Path:
         return self.root_dir / "build" / "packaging" / "release"
+
+    @property
+    def payload_path(self) -> Path:
+        return self.release_path / "payload"
 
     @property
     def artifact_path(self) -> Path:
@@ -52,16 +61,32 @@ def run_package(config: MacOSAppPackageConfig, *, dry_run: bool = False) -> int:
     if not config.app_path.is_dir():
         print(f"Missing app bundle: {config.app_path}. Run scripts/build_macos_app.py first.")
         return 1
+    if not config.doctor_path.is_dir():
+        print(f"Missing doctor companion: {config.doctor_path}. Run scripts/build_macos_doctor.py first.")
+        return 1
 
     command = ditto_zip_command(config)
     if dry_run:
-        print(" ".join(command))
+        for item in ditto_payload_commands(config) + [command]:
+            print(" ".join(item))
         return 0
 
     config.release_path.mkdir(parents=True, exist_ok=True)
+    if config.payload_path.exists():
+        shutil.rmtree(config.payload_path)
+    config.payload_path.mkdir(parents=True)
+    for item in ditto_payload_commands(config):
+        subprocess.run(item, cwd=str(config.root_dir), check=True)
     subprocess.run(command, cwd=str(config.root_dir), check=True)
     print(f"Packaged unsigned macOS artifact: {config.artifact_path}")
     return 0
+
+
+def ditto_payload_commands(config: MacOSAppPackageConfig) -> list[list[str]]:
+    return [
+        ["/usr/bin/ditto", str(config.app_path), str(config.payload_path / config.app_path.name)],
+        ["/usr/bin/ditto", str(config.doctor_path), str(config.payload_path / config.doctor_path.name)],
+    ]
 
 
 def ditto_zip_command(config: MacOSAppPackageConfig) -> list[str]:
@@ -69,9 +94,8 @@ def ditto_zip_command(config: MacOSAppPackageConfig) -> list[str]:
         "/usr/bin/ditto",
         "-c",
         "-k",
-        "--keepParent",
         "--sequesterRsrc",
-        str(config.app_path),
+        str(config.payload_path),
         str(config.artifact_path),
     ]
 

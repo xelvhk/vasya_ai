@@ -7,7 +7,7 @@
 - `scripts/build_macos_app.py` for local unsigned `.app` builds.
 - `scripts/smoke_macos_app.py` for structure and short launch smoke checks.
 - `scripts/build_macos_doctor.py` for a packaged doctor companion prototype.
-- `scripts/package_macos_app.py` for `Vasya-AI-macos-unsigned.zip` creation.
+- `scripts/package_macos_app.py` for `Vasya-AI-macos-unsigned.zip` creation with both app and doctor companion payloads.
 - Build-only packaging dependency pin in `requirements-build.txt`.
 - Packaging prototype and release checklist docs for the `v0.7.0` artifact path.
 
@@ -20,7 +20,7 @@
 ### Known Limitations
 - The first macOS artifact is unsigned and not notarized.
 - Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites.
-- The doctor companion is built separately and is not yet included in the ZIP.
+- The doctor companion is a separate top-level folder inside the ZIP, not yet an in-app diagnostics flow.
 - DMG/signing automation remains follow-up work.
 
 ## v0.6.0 - 2026-06-19

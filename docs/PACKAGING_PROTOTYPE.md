@@ -9,6 +9,7 @@ Status: first local unsigned macOS `.app` prototype built with PyInstaller.
 3. `.venv/bin/python scripts/smoke_macos_app.py`
 4. `.venv/bin/python scripts/build_macos_doctor.py`
 5. `.venv/bin/python scripts/package_macos_app.py`
+6. `.venv/bin/python scripts/smoke_macos_zip.py`
 
 The build script sets `PYINSTALLER_CONFIG_DIR` to `build/packaging/cache` by
 default so PyInstaller does not write to `~/Library/Application Support`.
@@ -28,6 +29,8 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - Local observed ZIP size with app and doctor companion: around 224M
 - Assets are bundled under the app resources and onedir internal payload
 - Structure smoke and direct executable launch smoke passed locally
+- ZIP smoke verifies the app and doctor companion payloads are present at the
+  archive top level
 - Doctor companion starts from the packaged executable and reports diagnostic
   issues without import/runtime failures
 
@@ -65,6 +68,10 @@ staging directory with `/usr/bin/ditto --sequesterRsrc` so macOS resource
 metadata is preserved. The resulting archive includes `Vasya AI.app/` and
 `Vasya AI Doctor/` at the top level and may include `__MACOSX/` metadata
 entries.
+
+Run `.venv/bin/python scripts/smoke_macos_zip.py` after packaging to verify the
+ZIP contains the expected top-level app and doctor payloads and does not expose
+the temporary `payload/` staging directory.
 
 ## Local Smoke
 

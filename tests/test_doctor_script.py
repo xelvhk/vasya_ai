@@ -94,7 +94,8 @@ class DoctorScriptTests(unittest.TestCase):
         with patch.object(doctor.sys, "frozen", True, create=True):
             with patch.object(doctor.Path, "cwd", return_value=doctor.Path("/tmp/Vasya AI")):
                 with patch.object(doctor.Path, "exists", return_value=False):
-                    result = doctor.check_env_file()
+                    with patch.object(doctor, "_is_ci_environment", return_value=False):
+                        result = doctor.check_env_file()
 
         self.assertEqual(result.status, "WARN")
         self.assertIn("/tmp/Vasya AI/.env", result.message)

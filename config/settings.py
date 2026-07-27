@@ -1,8 +1,16 @@
 from dotenv import load_dotenv
 import os
 from pathlib import Path
+import sys
 
-load_dotenv()
+
+def _dotenv_path_for_runtime() -> Path | None:
+    if getattr(sys, "frozen", False):
+        return Path.cwd() / ".env"
+    return None
+
+
+load_dotenv(dotenv_path=_dotenv_path_for_runtime())
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 

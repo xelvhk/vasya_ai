@@ -34,6 +34,8 @@ default so PyInstaller does not write to `~/Library/Application Support`.
   archive top level
 - Unpacked ZIP smoke verifies ditto extraction, executable permissions, and
   doctor companion startup from a clean temporary directory
+- Packaged runtime loads and checks `.env` from the unpacked ZIP working
+  directory
 - Doctor companion starts from the packaged executable and reports diagnostic
   issues without import/runtime failures
 
@@ -56,7 +58,8 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 ## Not Yet Verified
 
 - Launching the `.app` through Finder or `open`.
-- First-run `.env` and storage behavior from inside the bundle.
+- Confirming that `.env` with a generated API token is present before final
+  release tagging.
 - macOS microphone and Accessibility permission prompts.
 - Ollama/model diagnostics inside the packaged app.
 - DMG wrapping, signing, and notarization.

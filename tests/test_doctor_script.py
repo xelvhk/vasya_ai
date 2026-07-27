@@ -90,6 +90,15 @@ class DoctorScriptTests(unittest.TestCase):
         self.assertEqual(result.status, "OK")
         self.assertIn("CI", result.message)
 
+    def test_env_file_check_uses_working_directory_in_packaged_runtime(self) -> None:
+        with patch.object(doctor.sys, "frozen", True, create=True):
+            with patch.object(doctor.Path, "cwd", return_value=doctor.Path("/tmp/Vasya AI")):
+                with patch.object(doctor.Path, "exists", return_value=False):
+                    result = doctor.check_env_file()
+
+        self.assertEqual(result.status, "WARN")
+        self.assertIn("/tmp/Vasya AI/.env", result.message)
+
     def test_virtualenv_check_returns_result(self) -> None:
         result = doctor.check_virtualenv()
         self.assertIn(result.status, {"OK", "WARN"})

@@ -134,7 +134,7 @@ def check_python_version() -> CheckResult:
 
 
 def check_env_file() -> CheckResult:
-    env_path = ROOT_DIR / ".env"
+    env_path = _runtime_root() / ".env"
     if env_path.exists():
         return report("env file", "OK", f"found .env at {env_path}")
     if _is_ci_environment():
@@ -395,6 +395,12 @@ def _is_ci_environment() -> bool:
 
 def _is_packaged_runtime() -> bool:
     return bool(getattr(sys, "frozen", False))
+
+
+def _runtime_root() -> Path:
+    if _is_packaged_runtime():
+        return Path.cwd()
+    return ROOT_DIR
 
 
 if __name__ == "__main__":

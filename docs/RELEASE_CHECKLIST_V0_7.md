@@ -14,6 +14,7 @@ Run from the repository root on macOS:
 .venv/bin/python scripts/build_macos_doctor.py
 .venv/bin/python scripts/package_macos_app.py
 .venv/bin/python scripts/smoke_macos_zip.py
+.venv/bin/python scripts/smoke_macos_unpacked_zip.py
 ```
 
 Expected local output:
@@ -35,6 +36,7 @@ Before running `doctor --strict`, make sure `.env` has a non-empty
 .venv/bin/python -m compileall agents apps assistant config core interfaces repositories scripts services tests utils voice main.py
 .venv/bin/python scripts/doctor.py --strict --quiet
 .venv/bin/python scripts/smoke_macos_zip.py
+.venv/bin/python scripts/smoke_macos_unpacked_zip.py
 git diff --check
 ```
 

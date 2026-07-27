@@ -9,6 +9,7 @@
 - `scripts/build_macos_doctor.py` for a packaged doctor companion prototype.
 - `scripts/package_macos_app.py` for `Vasya-AI-macos-unsigned.zip` creation with both app and doctor companion payloads.
 - `scripts/smoke_macos_zip.py` for top-level ZIP payload validation.
+- `scripts/smoke_macos_unpacked_zip.py` for clean extraction and doctor companion startup validation.
 - Build-only packaging dependency pin in `requirements-build.txt`.
 - Packaging prototype and release checklist docs for the `v0.7.0` artifact path.
 

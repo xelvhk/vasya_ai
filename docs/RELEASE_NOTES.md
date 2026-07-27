@@ -11,10 +11,12 @@ For shorter user-facing notes with a lighter tone, see [WHATS_NEW.md](WHATS_NEW.
   - `.venv/bin/python scripts/build_macos_doctor.py`
   - `.venv/bin/python scripts/package_macos_app.py`
   - `.venv/bin/python scripts/smoke_macos_zip.py`
+  - `.venv/bin/python scripts/smoke_macos_unpacked_zip.py`
 - Added the first packaged doctor companion prototype for diagnostics outside a repository checkout.
 - Added structural and launch smoke checks for the bundled app, including Info.plist metadata, executable bit, bundled avatar assets, and short startup survival.
 - Updated the unsigned ZIP wrapper to include both `Vasya AI.app/` and the `Vasya AI Doctor/` companion.
 - Added ZIP smoke checks for top-level payload shape and bundled doctor dependencies.
+- Added unpacked ZIP smoke checks for ditto extraction, executable permissions, and doctor companion startup.
 - Documented current packaging output in `docs/PACKAGING_PROTOTYPE.md` and the release checklist in `docs/RELEASE_CHECKLIST_V0_7.md`.
 - Known limitations: the artifact is unsigned and not notarized; Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites; diagnostics are still a separate companion, not an in-app flow.
 - Release checks: unit test suite, scoped source `compileall`, strict doctor smoke, packaging smoke, unsigned ZIP creation, and GitHub Actions CI should pass before tagging.

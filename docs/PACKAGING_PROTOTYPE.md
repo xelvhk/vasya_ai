@@ -10,6 +10,7 @@ Status: first local unsigned macOS `.app` prototype built with PyInstaller.
 4. `.venv/bin/python scripts/build_macos_doctor.py`
 5. `.venv/bin/python scripts/package_macos_app.py`
 6. `.venv/bin/python scripts/smoke_macos_zip.py`
+7. `.venv/bin/python scripts/smoke_macos_unpacked_zip.py`
 
 The build script sets `PYINSTALLER_CONFIG_DIR` to `build/packaging/cache` by
 default so PyInstaller does not write to `~/Library/Application Support`.
@@ -31,6 +32,8 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - Structure smoke and direct executable launch smoke passed locally
 - ZIP smoke verifies the app and doctor companion payloads are present at the
   archive top level
+- Unpacked ZIP smoke verifies ditto extraction, executable permissions, and
+  doctor companion startup from a clean temporary directory
 - Doctor companion starts from the packaged executable and reports diagnostic
   issues without import/runtime failures
 
@@ -56,7 +59,6 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 - First-run `.env` and storage behavior from inside the bundle.
 - macOS microphone and Accessibility permission prompts.
 - Ollama/model diagnostics inside the packaged app.
-- Running the doctor companion from an unpacked ZIP directory.
 - DMG wrapping, signing, and notarization.
 
 ## Unsigned ZIP
@@ -72,6 +74,10 @@ entries.
 Run `.venv/bin/python scripts/smoke_macos_zip.py` after packaging to verify the
 ZIP contains the expected top-level app and doctor payloads and does not expose
 the temporary `payload/` staging directory.
+
+Run `.venv/bin/python scripts/smoke_macos_unpacked_zip.py` to extract the ZIP
+with `/usr/bin/ditto -x -k`, verify the unpacked payload shape, and confirm the
+doctor companion starts from the clean extracted directory.
 
 ## Local Smoke
 

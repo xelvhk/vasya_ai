@@ -19,6 +19,7 @@ For shorter user-facing notes with a lighter tone, see [WHATS_NEW.md](WHATS_NEW.
 - Added unpacked ZIP smoke checks for ditto extraction, executable permissions, and doctor companion startup.
 - Added optional unpacked ZIP `--open-launch` smoke coverage for macOS LaunchServices startup.
 - Aligned packaged runtime `.env` lookup with the unpacked ZIP working directory.
+- Added packaged first-run `.env` creation with a generated `VASYA_API_AUTH_TOKEN`.
 - Documented current packaging output in `docs/PACKAGING_PROTOTYPE.md` and the release checklist in `docs/RELEASE_CHECKLIST_V0_7.md`.
 - Known limitations: the artifact is unsigned and not notarized; Ollama, microphone permission, Accessibility permission, and optional integration credentials remain external prerequisites; diagnostics are still a separate companion, not an in-app flow.
 - Release checks: unit test suite, scoped source `compileall`, strict doctor smoke, packaging smoke, unsigned ZIP creation, and GitHub Actions CI should pass before tagging.

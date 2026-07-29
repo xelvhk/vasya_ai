@@ -3,10 +3,14 @@ import os
 from pathlib import Path
 import sys
 
+from config.runtime_env import ensure_runtime_env_file
+
 
 def _dotenv_path_for_runtime() -> Path | None:
     if getattr(sys, "frozen", False):
-        return Path.cwd() / ".env"
+        root = Path.cwd()
+        ensure_runtime_env_file(root)
+        return root / ".env"
     return None
 
 

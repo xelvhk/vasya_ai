@@ -3,13 +3,16 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-import secrets
 import shutil
 import subprocess
 import sys
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from config.runtime_env import build_env_from_template, default_env_content, ensure_runtime_env_file  # noqa: E402
+
 DEFAULT_MODEL = "llama3"
 
 
@@ -105,49 +108,21 @@ def _install_dependencies(root: Path, *, dry_run: bool) -> StepResult:
 
 
 def _ensure_env_file(root: Path, *, dry_run: bool) -> StepResult:
-    env_path = root / ".env"
-    if env_path.exists():
+    if (root / ".env").exists():
         return StepResult("env", "OK", ".env already exists; left unchanged")
     if dry_run:
         return StepResult("env", "PLAN", "would create .env from .env.example with generated API token")
 
-    example_path = root / ".env.example"
-    if example_path.exists():
-        content = _build_env_from_example(example_path.read_text(encoding="utf-8"))
-    else:
-        content = _default_env_content()
-    env_path.write_text(content, encoding="utf-8")
-    return StepResult("env", "OK", "created .env with generated VASYA_API_AUTH_TOKEN")
+    result = ensure_runtime_env_file(root, template_path=root / ".env.example")
+    return StepResult("env", result.status, result.message)
 
 
 def _build_env_from_example(template: str) -> str:
-    token = _generate_api_token()
-    lines = []
-    token_seen = False
-    for raw_line in template.splitlines():
-        if raw_line.startswith("VASYA_API_AUTH_TOKEN="):
-            lines.append(f"VASYA_API_AUTH_TOKEN={token}")
-            token_seen = True
-        else:
-            lines.append(raw_line)
-    if not token_seen:
-        lines.append(f"VASYA_API_AUTH_TOKEN={token}")
-    return "\n".join(lines).rstrip() + "\n"
+    return build_env_from_template(template)
 
 
 def _default_env_content() -> str:
-    return (
-        "APP_VERSION=0.5.50\n"
-        "OLLAMA_MODEL=llama3\n"
-        "GOOGLE_CALENDAR_ENABLED=false\n"
-        f"VASYA_API_AUTH_TOKEN={_generate_api_token()}\n"
-        "VASYA_API_REQUIRE_AUTH=true\n"
-        "MEMORY_WIKI_DIR=storage/memory_wiki\n"
-    )
-
-
-def _generate_api_token() -> str:
-    return secrets.token_urlsafe(32)
+    return default_env_content()
 
 
 def _ensure_storage_dirs(root: Path, *, dry_run: bool) -> StepResult:

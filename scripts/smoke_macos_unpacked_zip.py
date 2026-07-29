@@ -92,6 +92,8 @@ def run_smoke(
                 checks.extend(validate_unpacked_payload(extract_path))
             if all(check.state == "OK" for check in checks):
                 checks.append(run_unpacked_doctor(extract_path, timeout_seconds=config.doctor_timeout_seconds))
+            if all(check.state == "OK" for check in checks):
+                checks.append(validate_first_run_env(extract_path))
             if open_launch and all(check.state == "OK" for check in checks):
                 checks.append(launch_unpacked_app_with_open(extract_path, timeout_seconds=open_timeout_seconds))
 
@@ -144,6 +146,17 @@ def run_unpacked_doctor(extract_path: Path, *, timeout_seconds: float) -> Unpack
     if result.returncode in {0, 1, 2} and "doctor result:" in output:
         return UnpackedSmokeCheck("doctor run", "OK", first_line)
     return UnpackedSmokeCheck("doctor run", "FAIL", f"exit {result.returncode}: {first_line[:240]}")
+
+
+def validate_first_run_env(extract_path: Path) -> UnpackedSmokeCheck:
+    env_path = extract_path / ".env"
+    if not env_path.is_file():
+        return UnpackedSmokeCheck("first-run env", "FAIL", f"missing .env at {env_path}")
+
+    token = _env_value(env_path, "VASYA_API_AUTH_TOKEN")
+    if not token:
+        return UnpackedSmokeCheck("first-run env", "FAIL", "VASYA_API_AUTH_TOKEN is empty")
+    return UnpackedSmokeCheck("first-run env", "OK", ".env exists with generated VASYA_API_AUTH_TOKEN")
 
 
 def launch_unpacked_app_with_open(extract_path: Path, *, timeout_seconds: float) -> UnpackedSmokeCheck:
@@ -215,6 +228,14 @@ def _summarize_process_output(stdout: str, stderr: str) -> str:
         return ""
     first_line = output.splitlines()[0]
     return f": {first_line[:240]}"
+
+
+def _env_value(env_path: Path, key: str) -> str:
+    prefix = f"{key}="
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        if raw_line.startswith(prefix):
+            return raw_line[len(prefix) :].strip()
+    return ""
 
 
 if __name__ == "__main__":

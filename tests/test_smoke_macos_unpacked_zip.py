@@ -11,6 +11,7 @@ from scripts.smoke_macos_unpacked_zip import (
     launch_unpacked_app_with_open,
     run_unpacked_doctor,
     unpack_zip_artifact,
+    validate_first_run_env,
     validate_unpacked_payload,
 )
 
@@ -63,6 +64,25 @@ class SmokeMacOSUnpackedZipTests(unittest.TestCase):
                 check = run_unpacked_doctor(root, timeout_seconds=1)
 
         self.assertEqual(check.state, "FAIL")
+
+    def test_validate_first_run_env_accepts_generated_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".env").write_text("VASYA_API_AUTH_TOKEN=generated-token\n", encoding="utf-8")
+
+            check = validate_first_run_env(root)
+
+        self.assertEqual(check.state, "OK")
+
+    def test_validate_first_run_env_rejects_empty_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".env").write_text("VASYA_API_AUTH_TOKEN=\n", encoding="utf-8")
+
+            check = validate_first_run_env(root)
+
+        self.assertEqual(check.state, "FAIL")
+        self.assertIn("empty", check.message)
 
     def test_unpack_zip_artifact_uses_ditto_extract(self) -> None:
         config = MacOSUnpackedZipSmokeConfig(root_dir=Path("/repo"))

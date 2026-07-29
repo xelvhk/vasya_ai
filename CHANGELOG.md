@@ -12,6 +12,7 @@
 - `scripts/smoke_macos_unpacked_zip.py` for clean extraction and doctor companion startup validation.
 - Optional `--open-launch` unpacked ZIP smoke for LaunchServices startup validation.
 - Packaged runtime `.env` lookup from the unpacked ZIP working directory.
+- Packaged first-run `.env` creation with a generated API auth token.
 - Build-only packaging dependency pin in `requirements-build.txt`.
 - Packaging prototype and release checklist docs for the `v0.7.0` artifact path.
 

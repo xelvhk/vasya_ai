@@ -36,6 +36,8 @@ default so PyInstaller does not write to `~/Library/Application Support`.
   doctor companion startup from a clean temporary directory
 - Packaged runtime loads and checks `.env` from the unpacked ZIP working
   directory
+- Packaged first run creates `.env` with a generated `VASYA_API_AUTH_TOKEN`
+  when it is missing and leaves an existing `.env` unchanged
 - Unpacked ZIP `--open-launch` smoke verifies macOS LaunchServices startup
 - Doctor companion starts from the packaged executable and reports diagnostic
   issues without import/runtime failures
@@ -58,8 +60,6 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 
 ## Not Yet Verified
 
-- Confirming that `.env` with a generated API token is present before final
-  release tagging.
 - macOS microphone and Accessibility permission prompts.
 - Ollama/model diagnostics inside the packaged app.
 - DMG wrapping, signing, and notarization.

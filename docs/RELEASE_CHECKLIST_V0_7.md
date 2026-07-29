@@ -45,8 +45,9 @@ GitHub Actions CI must be green on the release commit before tagging.
 ## Manual Smoke
 
 - Unzip `Vasya-AI-macos-unsigned.zip` into a clean directory.
-- Put release `.env` in the unpacked directory, next to `Vasya AI.app` and
-  `Vasya AI Doctor`.
+- Optionally put release `.env` in the unpacked directory, next to
+  `Vasya AI.app` and `Vasya AI Doctor`; if it is missing, first run creates one
+  with a generated `VASYA_API_AUTH_TOKEN`.
 - Launch `Vasya AI.app`.
 - Run `.venv/bin/python scripts/smoke_macos_unpacked_zip.py --open-launch`.
 - Run `Vasya AI Doctor/Vasya AI Doctor --quiet`.

@@ -15,7 +15,16 @@ class SettingsEnvTests(unittest.TestCase):
     def test_dotenv_path_uses_working_directory_in_packaged_runtime(self) -> None:
         with patch.object(settings.sys, "frozen", True, create=True):
             with patch.object(settings.Path, "cwd", return_value=Path("/tmp/Vasya AI")):
-                self.assertEqual(settings._dotenv_path_for_runtime(), Path("/tmp/Vasya AI/.env"))
+                with patch.object(settings, "ensure_runtime_env_file"):
+                    self.assertEqual(settings._dotenv_path_for_runtime(), Path("/tmp/Vasya AI/.env"))
+
+    def test_dotenv_path_bootstraps_env_in_packaged_runtime(self) -> None:
+        with patch.object(settings.sys, "frozen", True, create=True):
+            with patch.object(settings.Path, "cwd", return_value=Path("/tmp/Vasya AI")):
+                with patch.object(settings, "ensure_runtime_env_file") as ensure_env:
+                    self.assertEqual(settings._dotenv_path_for_runtime(), Path("/tmp/Vasya AI/.env"))
+
+        ensure_env.assert_called_once_with(Path("/tmp/Vasya AI"))
 
 
 if __name__ == "__main__":

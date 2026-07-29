@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 from scripts.smoke_macos_unpacked_zip import (
     MacOSUnpackedZipSmokeConfig,
+    launch_unpacked_app_with_open,
     run_unpacked_doctor,
     unpack_zip_artifact,
     validate_unpacked_payload,
@@ -84,6 +85,41 @@ class SmokeMacOSUnpackedZipTests(unittest.TestCase):
             cwd="/repo",
             check=True,
         )
+
+    def test_launch_unpacked_app_with_open_treats_timeout_as_started(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _create_unpacked_payload(root)
+            process = Mock()
+            process.communicate.side_effect = [
+                subprocess.TimeoutExpired(cmd="/usr/bin/open", timeout=1),
+                ("", ""),
+            ]
+
+            with patch("scripts.smoke_macos_unpacked_zip.platform.system", return_value="Darwin"):
+                with patch("scripts.smoke_macos_unpacked_zip.subprocess.Popen", return_value=process) as popen:
+                    with patch("scripts.smoke_macos_unpacked_zip._request_app_quit") as quit_app:
+                        check = launch_unpacked_app_with_open(root, timeout_seconds=1)
+
+        self.assertEqual(check.state, "OK")
+        self.assertIn("stayed alive", check.message)
+        popen.assert_called_once_with(
+            ["/usr/bin/open", "-W", str(root / "Vasya AI.app")],
+            cwd=str(root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        quit_app.assert_called_once()
+        process.terminate.assert_called_once()
+
+    def test_launch_unpacked_app_with_open_rejects_non_macos(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("scripts.smoke_macos_unpacked_zip.platform.system", return_value="Linux"):
+                check = launch_unpacked_app_with_open(Path(tmp), timeout_seconds=1)
+
+        self.assertEqual(check.state, "FAIL")
+        self.assertIn("requires macOS", check.message)
 
 
 def _create_unpacked_payload(root: Path) -> None:

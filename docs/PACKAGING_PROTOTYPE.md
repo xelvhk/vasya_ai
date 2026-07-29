@@ -36,6 +36,7 @@ default so PyInstaller does not write to `~/Library/Application Support`.
   doctor companion startup from a clean temporary directory
 - Packaged runtime loads and checks `.env` from the unpacked ZIP working
   directory
+- Unpacked ZIP `--open-launch` smoke verifies macOS LaunchServices startup
 - Doctor companion starts from the packaged executable and reports diagnostic
   issues without import/runtime failures
 
@@ -57,7 +58,6 @@ default so PyInstaller does not write to `~/Library/Application Support`.
 
 ## Not Yet Verified
 
-- Launching the `.app` through Finder or `open`.
 - Confirming that `.env` with a generated API token is present before final
   release tagging.
 - macOS microphone and Accessibility permission prompts.
@@ -81,6 +81,10 @@ the temporary `payload/` staging directory.
 Run `.venv/bin/python scripts/smoke_macos_unpacked_zip.py` to extract the ZIP
 with `/usr/bin/ditto -x -k`, verify the unpacked payload shape, and confirm the
 doctor companion starts from the clean extracted directory.
+
+Run `.venv/bin/python scripts/smoke_macos_unpacked_zip.py --open-launch` on
+macOS to launch the unpacked `Vasya AI.app` through `/usr/bin/open -W` and watch
+for early LaunchServices startup crashes.
 
 ## Local Smoke
 

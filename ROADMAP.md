@@ -166,6 +166,53 @@ Recommended order:
 Why this matters:
 - a desktop assistant should feel immediately available, not hidden behind terminal commands
 
+## Phase 3.5: Vasya Project OS
+
+Focus:
+- turn Vasya into a cross-platform project operating layer with dashboards,
+  voice navigation, and safe agent-backed actions
+
+Product shape:
+- **Vasya Project OS** is the broader product track;
+- **Vasya Control Center** is the first dashboard interface;
+- the first screen shows all active projects, not only `ai_pal`;
+- the avatar remains as a lightweight launcher, voice presence, and desktop
+  status companion.
+
+Targets:
+- all-project dashboard with tasks, status, next actions, blockers, git/CI
+  signals, and Memory Center context;
+- project detail dashboard for one selected project;
+- voice/text commands such as "what is next by projects?", "open ai_pal", and
+  "show blockers";
+- confirmed agent actions for creating tasks, running tests, preparing commits,
+  and pushing changes;
+- later Creative Studio dashboards built on the same project registry and action
+  queue primitives.
+
+Recommended order:
+1. project registry foundation;
+2. read-only `/v1/projects/status` endpoint;
+3. Vasya Control Center web dashboard;
+4. voice navigation commands;
+5. confirmed agent action queue;
+6. Codex bridge for project tasks and repository operations;
+7. Creative Studio dashboard.
+
+Release track:
+- `v0.8.0`: Vasya Control Center MVP with read-only all-project dashboard.
+- `v0.8.1`: project detail pages and richer Memory Center context.
+- `v0.8.2`: confirmed action queue for safe project operations.
+- `v0.8.3`: Codex bridge for project work handoff and status reporting.
+- `v0.9.0`: first Creative Studio dashboard.
+
+Detailed Project OS plan:
+- [docs/PROJECT_OS_PLAN.md](docs/PROJECT_OS_PLAN.md)
+
+Why this matters:
+- the long-term assistant should not only answer commands; it should show the
+  operating picture of the user's projects and coordinate safe next actions
+
 ## Phase 4: Structured integrations
 
 Focus:

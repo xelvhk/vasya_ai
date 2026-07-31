@@ -96,7 +96,9 @@ projects without scanning the whole machine.
 
 Acceptance criteria:
 - `ai_pal`, `portfolio`, `ai_twin`, `ai_predictor`, `document_ops_ai`, and
-  `onboardica` can be represented.
+  `onboardica` can be represented as opt-in personal presets.
+- Installed users get an empty default registry until they add their own
+  projects.
 - Missing project paths are reported as warnings, not crashes.
 - Tests cover valid projects and missing paths.
 

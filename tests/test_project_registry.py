@@ -3,22 +3,47 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from config.projects import ProjectConfig
+from config.projects import (
+    PERSONAL_PROJECT_PRESETS,
+    ProjectConfig,
+    configured_project_configs,
+)
 from services.project_registry_service import list_project_registry
 
 
 class ProjectRegistryTests(unittest.TestCase):
-    def test_default_registry_contains_active_projects(self) -> None:
+    def test_default_registry_is_empty_for_installed_users(self) -> None:
         projects = list_project_registry()
-        project_ids = {project.id for project in projects}
 
-        self.assertIn("ai_pal", project_ids)
-        self.assertIn("portfolio", project_ids)
-        self.assertIn("ai_twin", project_ids)
-        self.assertIn("ai_predictor", project_ids)
-        self.assertIn("document_ops_ai", project_ids)
-        self.assertIn("onboardica", project_ids)
+        self.assertEqual(projects, [])
+
+    def test_personal_presets_can_represent_active_projects_when_enabled(self) -> None:
+        project_ids = {project.id for project in PERSONAL_PROJECT_PRESETS}
+
+        self.assertEqual(
+            {
+                "ai_pal",
+                "portfolio",
+                "ai_twin",
+                "ai_predictor",
+                "document_ops_ai",
+                "onboardica",
+            },
+            project_ids,
+        )
+
+    def test_configured_projects_can_include_personal_presets_explicitly(self) -> None:
+        projects = configured_project_configs(include_personal_presets=True)
+
+        self.assertEqual(projects, PERSONAL_PROJECT_PRESETS)
+
+    def test_env_flag_can_include_personal_presets(self) -> None:
+        with patch.dict("os.environ", {"VASYA_PROJECT_OS_INCLUDE_PERSONAL_DEFAULTS": "true"}):
+            projects = configured_project_configs()
+
+        self.assertEqual(projects, PERSONAL_PROJECT_PRESETS)
 
     def test_registry_marks_existing_project_ok(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

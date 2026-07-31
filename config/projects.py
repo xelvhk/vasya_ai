@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 
@@ -15,7 +16,9 @@ class ProjectConfig:
 
 _HOME = Path.home()
 
-DEFAULT_PROJECTS: tuple[ProjectConfig, ...] = (
+DEFAULT_PROJECTS: tuple[ProjectConfig, ...] = ()
+
+PERSONAL_PROJECT_PRESETS: tuple[ProjectConfig, ...] = (
     ProjectConfig(
         id="ai_pal",
         name="Vasya AI",
@@ -59,3 +62,18 @@ DEFAULT_PROJECTS: tuple[ProjectConfig, ...] = (
         priority=60,
     ),
 )
+
+
+def configured_project_configs(
+    *,
+    include_personal_presets: bool | None = None,
+) -> tuple[ProjectConfig, ...]:
+    if include_personal_presets is None:
+        include_personal_presets = _env_flag("VASYA_PROJECT_OS_INCLUDE_PERSONAL_DEFAULTS")
+    if include_personal_presets:
+        return PERSONAL_PROJECT_PRESETS
+    return DEFAULT_PROJECTS
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}

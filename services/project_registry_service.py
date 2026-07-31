@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from config.projects import DEFAULT_PROJECTS, ProjectConfig
+from config.projects import ProjectConfig, configured_project_configs
 
 
 @dataclass(frozen=True)
@@ -19,8 +19,10 @@ class RegisteredProject:
 
 
 def list_project_registry(
-    projects: Iterable[ProjectConfig] = DEFAULT_PROJECTS,
+    projects: Iterable[ProjectConfig] | None = None,
 ) -> list[RegisteredProject]:
+    if projects is None:
+        projects = configured_project_configs()
     registered = [_to_registered_project(project) for project in projects]
     return sorted(registered, key=lambda project: (project.priority, project.name.lower(), project.id))
 

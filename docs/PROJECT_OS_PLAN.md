@@ -86,6 +86,9 @@ Goal: add the first dedicated dashboard for the future AI creative studio.
 
 ## MVP Task List
 
+Completed:
+- Task 1: Project Registry Foundation.
+
 ### Task 1: Project Registry Foundation
 
 Description: Add local project metadata and a service that returns configured

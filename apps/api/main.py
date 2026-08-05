@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.deps import require_api_key
 from apps.api.rate_limit import check_http_rate_limit, resolve_client_id_from_request
-from apps.api.routes import chat, events, memory, morning_brief, notes, projects, realtime, recovery, system, tasks
+from apps.api.routes import chat, control_center, events, memory, morning_brief, notes, projects, realtime, recovery, system, tasks
 from config.settings import APP_VERSION
 from utils.logger import log_interaction_event, start_logging_scope
 
@@ -17,6 +17,7 @@ app = FastAPI(
 )
 
 app.include_router(system.router)
+app.include_router(control_center.router)
 _secure = [Depends(require_api_key)]
 
 app.include_router(chat.router, dependencies=_secure)

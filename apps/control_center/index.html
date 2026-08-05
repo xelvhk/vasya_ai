@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vasya Project OS</title>
+    <link rel="stylesheet" href="/control-center/assets/app.css" />
+  </head>
+  <body>
+    <main class="shell" aria-labelledby="page-title">
+      <header class="topbar">
+        <div class="brand-lockup" aria-label="Vasya Project OS">
+          <span class="brand-mark" aria-hidden="true">V</span>
+          <div>
+            <h1 id="page-title">Vasya Project OS</h1>
+            <p id="dashboard-summary">Loading project status...</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <label class="token-field">
+            <span>API token</span>
+            <input id="api-token" type="password" autocomplete="off" spellcheck="false" />
+          </label>
+          <button id="refresh-projects" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="status-strip" aria-label="Project status summary">
+        <article>
+          <span class="metric-label">Projects</span>
+          <strong id="metric-total">0</strong>
+        </article>
+        <article>
+          <span class="metric-label">Needs Review</span>
+          <strong id="metric-warn">0</strong>
+        </article>
+        <article>
+          <span class="metric-label">Dirty Repos</span>
+          <strong id="metric-dirty">0</strong>
+        </article>
+      </section>
+
+      <section id="project-grid" class="project-grid" aria-live="polite"></section>
+    </main>
+
+    <template id="project-card-template">
+      <article class="project-card">
+        <header>
+          <div>
+            <h2 class="project-name"></h2>
+            <p class="project-kind"></p>
+          </div>
+          <span class="status-pill"></span>
+        </header>
+        <dl class="project-details">
+          <div>
+            <dt>Branch</dt>
+            <dd class="project-branch"></dd>
+          </div>
+          <div>
+            <dt>Worktree</dt>
+            <dd class="project-dirty"></dd>
+          </div>
+          <div>
+            <dt>Latest Commit</dt>
+            <dd class="project-commit"></dd>
+          </div>
+          <div>
+            <dt>Path</dt>
+            <dd class="project-path"></dd>
+          </div>
+        </dl>
+        <footer>
+          <span class="next-action"></span>
+        </footer>
+      </article>
+    </template>
+
+    <script src="/control-center/assets/app.js" defer></script>
+  </body>
+</html>

@@ -135,6 +135,7 @@ Goal: add the first dedicated dashboard for the future AI creative studio.
 Completed:
 - Task 1: Project Registry Foundation.
 - Task 2: Read-Only Project Status Endpoint.
+- Task 3: Vasya Control Center Shell.
 
 ### Task 1: Project Registry Foundation
 
@@ -197,13 +198,21 @@ Acceptance criteria:
 - The dashboard can be run locally by a documented command.
 
 Verification:
-- Frontend build/test command once the web stack is selected.
-- Manual browser smoke for desktop and narrow viewport.
+- `.venv/bin/python -m unittest tests.test_control_center_routes tests.test_api_project_routes`
+- Manual browser smoke for desktop and narrow viewport at `/control-center`.
+
+Local run:
+- `VASYA_API_REQUIRE_AUTH=false COSYVOICE_PYTHON= .venv/bin/python -m uvicorn apps.api.main:app --reload`
+- Open `http://127.0.0.1:8000/control-center`.
+- With API auth enabled, store the local API token in the dashboard token field.
 
 Dependencies: Task 2.
 
 Likely files:
 - `apps/control_center/`
+- `apps/api/routes/control_center.py`
+- `apps/api/main.py`
+- `tests/test_control_center_routes.py`
 - `docs/PROJECT_OS_PLAN.md`
 
 Estimated scope: Medium.

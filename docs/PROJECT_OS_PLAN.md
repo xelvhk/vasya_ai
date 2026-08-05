@@ -33,6 +33,31 @@ project experience moves into a larger window.
 - Store the project registry as explicit local configuration first; infer only
   safe, read-only metadata from repositories.
 
+
+## OpenWorker-Inspired Additions
+
+Keep Vasya distinct from generic AI coworker products: Vasya Project OS should
+be a local, voice-aware project operating layer with Memory Center and
+Codex-style repository workflows. The useful patterns to adopt are:
+
+- native desktop shell supervising a local Python API server;
+- web dashboard UI for dense project surfaces instead of expanding PySide
+  dialogs;
+- approval inbox for consequential actions such as shell commands, commits,
+  pushes, messages, and calendar edits;
+- action run history with request, plan, confirmation, command summary, result,
+  and linked artifacts;
+- connector adapter layer for GitHub, Codex, Obsidian, Calendar, Gmail/Notion
+  later, and MCP-compatible tools;
+- scheduled project runs such as morning project brief, weekly release status,
+  CI/watch summaries, and stale-blocker checks;
+- provider/profile settings for model routing by task type: chat, project
+  summary, coding, cheap/fast utility calls, and local/offline mode.
+
+Do not copy broad Slack-first coworker behavior or a large connector catalog
+until the Project OS dashboard, action queue, and Codex bridge are useful for
+one local user.
+
 ## Release Track
 
 ### v0.8.0: Vasya Control Center MVP
@@ -56,16 +81,17 @@ Goal: make one project page useful enough to replace ad hoc status checks.
 - "What is next for this project?" summary.
 - Project snapshot persisted as a local artifact for review and history.
 
-### v0.8.2: Agent Action Queue
+### v0.8.2: Agent Action Queue And Approval Inbox
 
 Goal: safely introduce actions without letting voice mutate repositories
 directly.
 
 - Action model for `read_status`, `run_tests`, `create_task`, `prepare_commit`,
   and `push`.
-- Confirmation layer for every mutating action.
+- Confirmation layer and approval inbox for every mutating action.
 - Dry-run output before commit/push.
-- Audit log for requested action, confirmation, command summary, and result.
+- Audit log for requested action, plan, confirmation, command summary, result,
+  and linked artifacts.
 
 ### v0.8.3: Codex Bridge
 
@@ -75,6 +101,26 @@ Goal: connect Project OS to the existing Codex working style.
 - Pass project context and requested action to Codex.
 - Show task status and final summary in the dashboard.
 - Keep commit/push behind explicit confirmation.
+
+### v0.8.4: Project Automations And Run History
+
+Goal: make recurring project operations trustworthy and reviewable.
+
+- Scheduled morning project brief and weekly release status.
+- Watch summaries for CI, blockers, and stale project tasks.
+- Run history visible from the dashboard with transcript, decisions, commands,
+  outputs, and artifacts.
+- Paused approval requests stay in the inbox instead of acting unattended.
+
+### v0.8.5: Connector And Model Profiles
+
+Goal: add integrations without turning Project OS into a brittle monolith.
+
+- Connector adapter contract for GitHub, Codex, Obsidian, Calendar, and later
+  Gmail/Notion/MCP tools.
+- Per-connector capability and permission metadata.
+- Model profiles for project summary, coding/task planning, cheap utility work,
+  and local/offline mode.
 
 ### v0.9.0: Creative Studio Dashboard
 
@@ -88,6 +134,7 @@ Goal: add the first dedicated dashboard for the future AI creative studio.
 
 Completed:
 - Task 1: Project Registry Foundation.
+- Task 2: Read-Only Project Status Endpoint.
 
 ### Task 1: Project Registry Foundation
 
@@ -185,16 +232,18 @@ Likely files:
 
 Estimated scope: Medium.
 
-### Task 5: Confirmed Agent Action Queue
+### Task 5: Confirmed Agent Action Queue And Approval Inbox
 
-Description: Add the first action queue contract for project operations without
-executing dangerous actions directly from voice.
+Description: Add the first action queue and approval inbox contract for project
+operations without executing dangerous actions directly from voice.
 
 Acceptance criteria:
 - Read-only actions can run immediately.
 - Mutating actions require explicit confirmation.
 - Commit/push actions show a dry-run summary before execution.
-- Every action writes an audit record.
+- Every action writes an audit record with request, plan, confirmation, result,
+  and linked artifacts.
+- Paused confirmations are visible in an approval inbox.
 
 Verification:
 - `.venv/bin/python -m unittest tests.test_project_action_queue`
@@ -205,13 +254,114 @@ Dependencies: Task 2.
 Likely files:
 - `services/project_action_service.py`
 - `repositories/project_action_repository.py`
+- `apps/api/routes/project_actions.py`
 - `tests/test_project_action_queue.py`
+
+Estimated scope: Medium.
+
+### Task 6: Project Run History
+
+Description: Persist and expose reviewable records for agent and automation
+runs so users can trust what Vasya did and why.
+
+Acceptance criteria:
+- Run records include request text, plan summary, confirmation state, command
+  summary, result status, timestamps, and artifact links.
+- The API can list recent runs and filter by project id.
+- Failed runs preserve enough context for debugging without storing secrets.
+
+Verification:
+- `.venv/bin/python -m unittest tests.test_project_run_history`
+- Existing project action tests remain green.
+
+Dependencies: Task 5.
+
+Likely files:
+- `repositories/project_run_repository.py`
+- `services/project_run_history_service.py`
+- `apps/api/routes/project_runs.py`
+- `tests/test_project_run_history.py`
+
+Estimated scope: Medium.
+
+### Task 7: Scheduled Project Briefs
+
+Description: Add recurring read-only project runs for morning/weekly summaries
+without executing mutating actions unattended.
+
+Acceptance criteria:
+- Morning project brief summarizes status, blockers, dirty repos, and next
+  actions.
+- Weekly release status highlights readiness, open risks, and stale work.
+- Any action requiring mutation is parked in the approval inbox.
+
+Verification:
+- `.venv/bin/python -m unittest tests.test_project_automations`
+- Manual local smoke for one scheduled read-only brief.
+
+Dependencies: Tasks 2 and 6.
+
+Likely files:
+- `services/project_automation_service.py`
+- `tests/test_project_automations.py`
+- `docs/PROJECT_OS_PLAN.md`
+
+Estimated scope: Medium.
+
+### Task 8: Connector Adapter Contract
+
+Description: Define a small connector boundary so Project OS can add GitHub,
+Codex, Obsidian, Calendar, Gmail/Notion, and MCP-compatible tools gradually.
+
+Acceptance criteria:
+- Connectors declare id, display name, capabilities, auth/setup status, and
+  whether each operation is read-only or mutating.
+- The dashboard can show connector readiness without invoking heavy workflows.
+- Mutating connector operations route through the action queue.
+
+Verification:
+- `.venv/bin/python -m unittest tests.test_project_connectors`
+- Existing Memory Center and GitHub/Obsidian tests remain green.
+
+Dependencies: Task 5.
+
+Likely files:
+- `services/project_connector_service.py`
+- `interfaces/project_connectors.py`
+- `tests/test_project_connectors.py`
+
+Estimated scope: Medium.
+
+### Task 9: Model Profiles For Project OS
+
+Description: Add explicit model/profile selection for Project OS workloads so
+summary, coding, cheap utility, and local/offline tasks can use different
+providers safely.
+
+Acceptance criteria:
+- Profiles are configured locally and default conservatively.
+- Project status/dashboard paths still work without cloud model keys.
+- The selected profile is recorded in run history for agent actions.
+
+Verification:
+- `.venv/bin/python -m unittest tests.test_project_model_profiles`
+- Settings tests remain green.
+
+Dependencies: Tasks 5 and 6.
+
+Likely files:
+- `config/settings.py`
+- `services/project_model_profile_service.py`
+- `tests/test_project_model_profiles.py`
 
 Estimated scope: Medium.
 
 ## Not Doing Yet
 
 - Direct commit/push from a single voice command without confirmation.
+- Slack-first coworker mode.
+- A large 25+ connector catalog before the adapter boundary is proven.
+- Browser automation as a default project action.
 - Replacing the avatar widget.
 - Building a full IDE inside Vasya.
 - Cross-platform installers for Project OS before the macOS artifact track is

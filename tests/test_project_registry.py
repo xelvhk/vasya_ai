@@ -10,7 +10,7 @@ from config.projects import (
     ProjectConfig,
     configured_project_configs,
 )
-from services.project_registry_service import list_project_registry
+from services.project_registry_service import list_project_registry, list_project_status
 
 
 class ProjectRegistryTests(unittest.TestCase):
@@ -91,6 +91,57 @@ class ProjectRegistryTests(unittest.TestCase):
             projects = list_project_registry(configs)
 
         self.assertEqual([project.id for project in projects], ["a", "c", "b"])
+
+    def test_project_status_includes_git_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = ProjectConfig("example", "Example", root, "python", 10)
+
+            with patch("services.project_registry_service._git_output") as git_output:
+                git_output.side_effect = [
+                    ("main", None),
+                    (" M main.py", None),
+                    ("abc1234 Initial commit", None),
+                ]
+                projects = list_project_status([config])
+
+        self.assertEqual(projects[0].status, "OK")
+        self.assertEqual(projects[0].branch, "main")
+        self.assertTrue(projects[0].dirty)
+        self.assertEqual(projects[0].latest_commit, "abc1234 Initial commit")
+        self.assertEqual(projects[0].next_action, "Review project status.")
+
+    def test_project_status_reports_missing_path_per_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = ProjectConfig("missing", "Missing", Path(tmp) / "missing", "python", 10)
+
+            projects = list_project_status([config])
+
+        self.assertEqual(projects[0].status, "WARN")
+        self.assertFalse(projects[0].exists)
+        self.assertIsNone(projects[0].branch)
+        self.assertIsNone(projects[0].dirty)
+        self.assertIsNone(projects[0].latest_commit)
+        self.assertIn("missing", projects[0].warning or "")
+
+    def test_project_status_reports_git_errors_per_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = ProjectConfig("example", "Example", root, "python", 10)
+
+            with patch("services.project_registry_service._git_output") as git_output:
+                git_output.side_effect = [
+                    (None, "not a git repository"),
+                    (None, "not a git repository"),
+                    (None, "not a git repository"),
+                ]
+                projects = list_project_status([config])
+
+        self.assertEqual(projects[0].status, "WARN")
+        self.assertIn("git metadata unavailable", projects[0].warning or "")
+        self.assertIsNone(projects[0].branch)
+        self.assertIsNone(projects[0].dirty)
+        self.assertIsNone(projects[0].latest_commit)
 
 
 if __name__ == "__main__":

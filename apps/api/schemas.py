@@ -55,3 +55,22 @@ class MemoryDigestRequest(BaseModel):
 class MorningBriefRequest(BaseModel):
     save_markdown: bool = True
     use_llm: bool = True
+
+
+class ProjectStatusItem(BaseModel):
+    id: str
+    name: str
+    path: str
+    kind: str
+    priority: int
+    exists: bool
+    status: str
+    warning: str | None = None
+    branch: str | None = None
+    dirty: bool | None = None
+    latest_commit: str | None = None
+    next_action: str
+
+
+class ProjectStatusResponse(BaseModel):
+    items: list[ProjectStatusItem]

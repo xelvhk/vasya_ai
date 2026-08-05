@@ -187,6 +187,12 @@ Targets:
   "show blockers";
 - confirmed agent actions for creating tasks, running tests, preparing commits,
   and pushing changes;
+- approval inbox and run history for every consequential action;
+- scheduled project briefs and watch summaries;
+- connector adapter layer for GitHub, Codex, Obsidian, Calendar, and later
+  Gmail/Notion/MCP-compatible tools;
+- model profiles for chat, project summaries, coding, cheap utility calls, and
+  local/offline operation;
 - later Creative Studio dashboards built on the same project registry and action
   queue primitives.
 
@@ -195,15 +201,20 @@ Recommended order:
 2. read-only `/v1/projects/status` endpoint;
 3. Vasya Control Center web dashboard;
 4. voice navigation commands;
-5. confirmed agent action queue;
+5. confirmed agent action queue and approval inbox;
 6. Codex bridge for project tasks and repository operations;
-7. Creative Studio dashboard.
+7. project run history and scheduled briefs;
+8. connector adapter contract and model profiles;
+9. Creative Studio dashboard.
 
 Release track:
 - `v0.8.0`: Vasya Control Center MVP with read-only all-project dashboard.
 - `v0.8.1`: project detail pages and richer Memory Center context.
-- `v0.8.2`: confirmed action queue for safe project operations.
+- `v0.8.2`: confirmed action queue and approval inbox for safe project
+  operations.
 - `v0.8.3`: Codex bridge for project work handoff and status reporting.
+- `v0.8.4`: project automations and run history.
+- `v0.8.5`: connector adapter contract and model profiles.
 - `v0.9.0`: first Creative Studio dashboard.
 
 Detailed Project OS plan:

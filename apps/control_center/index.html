@@ -8,24 +8,51 @@
   </head>
   <body>
     <main class="shell" aria-labelledby="page-title">
-      <header class="topbar">
-        <div class="brand-lockup" aria-label="Vasya Project OS">
+      <div class="status-banner" aria-label="Dashboard status">
+        <span aria-hidden="true">✦</span>
+        <span>Local project operating layer</span>
+        <span aria-hidden="true">→</span>
+      </div>
+
+      <nav class="floating-nav" aria-label="Control Center sections">
+        <a class="nav-brand" href="/control-center" aria-label="Vasya Project OS home">
           <span class="brand-mark" aria-hidden="true">V</span>
-          <div>
-            <h1 id="page-title">Vasya Project OS</h1>
-            <p id="dashboard-summary">Loading project status...</p>
+          <span>Project OS</span>
+        </a>
+        <div class="nav-links">
+          <a href="#project-grid">Projects</a>
+          <a href="#status-summary">Status</a>
+        </div>
+        <button id="refresh-projects" type="button">Refresh</button>
+      </nav>
+
+      <section class="dashboard-hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Vasya Control Center</p>
+          <h1 id="page-title">Vasya Project OS</h1>
+          <p id="dashboard-summary">Loading project status...</p>
+          <div class="hero-bullets" aria-label="Dashboard capabilities">
+            <span><i aria-hidden="true"></i> Project status and next actions</span>
+            <span><i aria-hidden="true"></i> Git branch, dirty state, latest commit</span>
+            <span><i aria-hidden="true"></i> Local-first dashboard over Vasya API</span>
           </div>
         </div>
-        <div class="topbar-actions">
+
+        <aside class="device-frame" aria-label="Control Center authentication">
+          <div class="device-toolbar">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
           <label class="token-field">
             <span>API token</span>
             <input id="api-token" type="password" autocomplete="off" spellcheck="false" />
           </label>
-          <button id="refresh-projects" type="button">Refresh</button>
-        </div>
-      </header>
+          <p>With auth enabled, store the local token here for project status requests.</p>
+        </aside>
+      </section>
 
-      <section class="status-strip" aria-label="Project status summary">
+      <section id="status-summary" class="status-strip" aria-label="Project status summary">
         <article>
           <span class="metric-label">Projects</span>
           <strong id="metric-total">0</strong>

@@ -32,6 +32,16 @@ project experience moves into a larger window.
   clear rollback/escape paths.
 - Store the project registry as explicit local configuration first; infer only
   safe, read-only metadata from repositories.
+- Distribute an empty application; keep projects, tasks, notes, histories, and
+  connector configuration in a user-owned platform app-data directory.
+- Treat Project OS as an aggregation and action layer, not the sole source of
+  truth for every record.
+- Preserve source identity, project mapping, last sync time, and connector
+  capability on imported records.
+- Add external sources read-only before enabling writes through the approval
+  queue.
+
+Detailed data boundary: `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 
 
 ## OpenWorker-Inspired Additions
@@ -80,6 +90,9 @@ Goal: make one project page useful enough to replace ad hoc status checks.
   local docs links.
 - "What is next for this project?" summary.
 - Project snapshot persisted as a local artifact for review and history.
+- User-owned project registry stored outside the application bundle.
+- Selected read-only planning sources, beginning with Eva-synchronized Apple
+  Reminders and Apple Calendar on macOS.
 
 ### v0.8.2: Agent Action Queue And Approval Inbox
 
@@ -116,7 +129,7 @@ Goal: make recurring project operations trustworthy and reviewable.
 
 Goal: add integrations without turning Project OS into a brittle monolith.
 
-- Connector adapter contract for GitHub, Codex, Obsidian, Calendar, and later
+- Expand connector adapters for GitHub, Codex, Obsidian, Calendar, and later
   Gmail/Notion/MCP tools.
 - Per-connector capability and permission metadata.
 - Model profiles for project summary, coding/task planning, cheap utility work,
@@ -129,6 +142,21 @@ Goal: add the first dedicated dashboard for the future AI creative studio.
 - Creative projects, assets, scripts, generation queues, and review states.
 - Voice navigation across creative work.
 - Reuse the same project registry, status cards, and action queue primitives.
+
+## Personal Planning Sources
+
+For the maintainer workflow, Eva remains the convenient task and calendar entry
+surface. Project OS should consume those records instead of requiring duplicate
+entry.
+
+- macOS first: read selected Eva-synchronized Apple Reminders lists and Apple
+  Calendar calendars through EventKit;
+- index normalized records in Memory Center with provenance;
+- keep the connector opt-in and read-only until conflict and approval semantics
+  exist;
+- never read Eva's private application database;
+- treat Eva archive import as a later discovery item for notes or other records
+  not exposed through Apple system services.
 
 ## MVP Task List
 
@@ -241,6 +269,22 @@ Likely files:
 
 Estimated scope: Medium.
 
+### Foundation Gate Before Task 5
+
+Before implementing mutating agent actions, complete the ordered foundation
+slices in `docs/EXECUTION_PLAN.md`:
+
+- platform app-data paths and migration;
+- user-owned project registry;
+- backup and restore;
+- read-only connector contract;
+- Eva ingestion through Apple Reminders and Apple Calendar;
+- unified project detail read model;
+- public macOS release foundation.
+
+The existing task numbers below are retained to avoid rewriting historical
+references. Their execution order is governed by the checklist.
+
 ### Task 5: Confirmed Agent Action Queue And Approval Inbox
 
 Description: Add the first action queue and approval inbox contract for project
@@ -332,7 +376,7 @@ Verification:
 - `.venv/bin/python -m unittest tests.test_project_connectors`
 - Existing Memory Center and GitHub/Obsidian tests remain green.
 
-Dependencies: Task 5.
+Dependencies: Task 2 and the app-data/user-registry foundation. Mutating capabilities also depend on Task 5.
 
 Likely files:
 - `services/project_connector_service.py`
@@ -367,6 +411,9 @@ Estimated scope: Medium.
 
 ## Not Doing Yet
 
+- Direct reads from Eva's private on-device storage.
+- Two-way Eva/Reminders writes before connector conflicts and approval behavior
+  are designed.
 - Direct commit/push from a single voice command without confirmation.
 - Slack-first coworker mode.
 - A large 25+ connector catalog before the adapter boundary is proven.
@@ -390,8 +437,13 @@ Estimated scope: Medium.
 
 ## Open Questions
 
-- Which frontend stack should power `apps/control_center`?
-- Should project registry live in `.env`, a JSON file under `storage/`, or a
-  tracked default config with local overrides?
 - How should Codex task handoff be represented in the dashboard: embedded
   status, link-out, or both?
+- Which Eva record types beyond Reminders and Calendar are present in its backup
+  archive, and is that format stable enough for an optional importer?
+
+## Execution Order
+
+The strict current sequence, statuses, completion checks, and release gates live
+in `docs/EXECUTION_PLAN.md`. This document owns feature architecture and
+acceptance detail; it must not become a second active queue.

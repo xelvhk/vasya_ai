@@ -21,6 +21,8 @@ The long-term target is a desktop AI assistant that:
 - Add external services as adapters, not as the system core
 - Reduce setup friction over time until the app feels close to one-click install
 - Improve recognition and feedback loops before adding more UI polish
+- Ship empty product defaults; keep projects, tasks, notes, tokens, and history
+  in user-owned local storage outside the application bundle
 
 ## Phase 1: Stabilize the core assistant
 
@@ -70,6 +72,9 @@ Installable artifact release track:
   repeatable, rather than solving all platforms in the first packaging pass.
 
 Installer acceptance criteria:
+- runtime state uses a platform-native per-user app-data directory rather than
+  the application bundle or launch working directory;
+- app upgrades preserve user projects, settings, and indexed personal data;
 - a clean machine can install and launch the desktop shell without cloning the
   repository or manually creating a virtualenv;
 - first-run still generates/preserves local `.env`, storage, and API auth
@@ -178,6 +183,10 @@ Product shape:
 - the first screen shows all active projects, not only `ai_pal`;
 - the avatar remains as a lightweight launcher, voice presence, and desktop
   status companion.
+- Project OS aggregates existing sources instead of requiring duplicate entry:
+  Git owns repository state, task/calendar tools own planning records, and
+  Memory Center owns searchable projections with provenance.
+- Eva integration starts read-only through Apple Reminders and Apple Calendar.
 
 Targets:
 - all-project dashboard with tasks, status, next actions, blockers, git/CI
@@ -201,24 +210,32 @@ Recommended order:
 2. read-only `/v1/projects/status` endpoint;
 3. Vasya Control Center web dashboard;
 4. voice navigation commands;
-5. confirmed agent action queue and approval inbox;
-6. Codex bridge for project tasks and repository operations;
-7. project run history and scheduled briefs;
-8. connector adapter contract and model profiles;
-9. Creative Studio dashboard.
+5. platform app-data paths and user-owned project registry;
+6. backup/restore and the read-only connector contract;
+7. Eva ingestion through Apple Reminders and Apple Calendar;
+8. unified project detail read model;
+9. public macOS release foundation;
+10. confirmed agent action queue and approval inbox;
+11. Codex bridge, project run history, and scheduled briefs;
+12. model profiles and the Creative Studio dashboard.
 
 Release track:
 - `v0.8.0`: Vasya Control Center MVP with read-only all-project dashboard.
 - `v0.8.1`: project detail pages and richer Memory Center context.
+  Include the user-owned project registry and selected read-only planning
+  sources before enabling mutating project actions.
 - `v0.8.2`: confirmed action queue and approval inbox for safe project
   operations.
 - `v0.8.3`: Codex bridge for project work handoff and status reporting.
 - `v0.8.4`: project automations and run history.
-- `v0.8.5`: connector adapter contract and model profiles.
+- `v0.8.5`: connector expansion and model profiles.
 - `v0.9.0`: first Creative Studio dashboard.
 
 Detailed Project OS plan:
 - [docs/PROJECT_OS_PLAN.md](docs/PROJECT_OS_PLAN.md)
+
+Current ordered implementation queue:
+- [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md)
 
 Why this matters:
 - the long-term assistant should not only answer commands; it should show the

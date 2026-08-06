@@ -17,6 +17,13 @@ Expected shape:
 - release artifact produced from a tagged commit by a documented command or CI
   workflow.
 
+## Pre-Release Foundation
+
+Before general distribution, move writable runtime state behind a platform
+app-data path resolver as defined by
+`docs/adr/ADR-003-public-app-and-private-user-data.md`. Implement and verify
+that migration as its own slice, not as an incidental packaging change.
+
 ## Non-Goals For The First Artifact
 
 - Windows and Linux installers.
@@ -24,8 +31,8 @@ Expected shape:
 - Replacing Ollama or bundling large local models.
 - Solving signing/notarization before the unsigned local artifact is
   reproducible.
-- Changing runtime behavior, settings defaults, storage layout, or API auth
-  semantics as part of packaging.
+- Changing application behavior or API auth semantics inside a packaging slice.
+- Bundling maintainer projects, local databases, tokens, histories, or caches.
 
 ## Release Slices
 
@@ -68,6 +75,9 @@ Expected shape:
 
 ## Acceptance Criteria
 
+- Writable state resolves to the current user's platform app-data directory.
+- Upgrades and reinstalls preserve local projects, settings, and indexed data.
+- Release artifacts contain no maintainer-specific records or credentials.
 - A clean macOS machine can install and launch Vasya AI without cloning the
   repository or manually creating a virtualenv.
 - First run creates or preserves local `.env`, storage directories, and generated

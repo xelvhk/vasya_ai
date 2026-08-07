@@ -44,6 +44,8 @@ class IntentResult(BaseModel):
         "memory_digest_latest",
         "speed_report",
         "morning_show",
+        "project_status_summary",
+        "open_project_dashboard",
         "start_dictation_mode",
         "stop_dictation_mode",
         "os_open_url",

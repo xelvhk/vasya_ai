@@ -27,4 +27,5 @@ def chat(payload: ChatRequest) -> ChatResponse:
         intent=result.intent,
         response=result.response,
         needs_followup=result.needs_followup,
+        navigation_target=getattr(result, "navigation_target", None),
     )

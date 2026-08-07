@@ -11,6 +11,7 @@ class ChatResponse(BaseModel):
     intent: str
     response: str
     needs_followup: bool
+    navigation_target: str | None = None
 
 
 class PipelineRequest(BaseModel):
@@ -25,6 +26,7 @@ class PipelineResponse(BaseModel):
     response: str
     needs_followup: bool
     metrics: dict[str, float]
+    navigation_target: str | None = None
 
 
 class CreateTaskRequest(BaseModel):

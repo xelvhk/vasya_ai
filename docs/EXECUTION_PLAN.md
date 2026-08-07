@@ -24,15 +24,15 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 
 ## Current Checkpoint
 
-- Last completed Project OS slice: Control Center design reference.
-- Task 4 implementation is in progress and must be verified before the next slice.
+- Last completed Project OS slice: voice project summaries and dashboard navigation targets.
+- Next implementation slice: platform app-data paths and compatibility migration.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.
 
 ## Ordered Queue
 
-### 1. IN PROGRESS: Finish Project OS Voice Navigation
+### 1. DONE: Finish Project OS Voice Navigation
 
 Scope: complete the current read-only commands for project summaries and
 dashboard targets.

@@ -10,6 +10,7 @@ from services.project_idea_planning_service import (
     continue_project_idea_clarification,
     has_pending_project_idea_clarification,
 )
+from services.project_registry_service import project_dashboard_target, resolve_project_reference
 from services.user_profile_service import confirm_clear_user_profile
 from core.intent_parser import parse_intent
 from core.router import route_intent
@@ -28,6 +29,7 @@ class ProcessResult:
     response: str
     role: str = "chat_agent"
     needs_followup: bool = False
+    navigation_target: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,7 +146,18 @@ def _handle_parsed_intent(user_text: str) -> ProcessResult | None:
         response=response,
         role=role,
         needs_followup=_should_follow_up(intent_result.intent, response),
+        navigation_target=_project_navigation_target(intent_result),
     )
+
+
+def _project_navigation_target(intent_result: IntentResult) -> str | None:
+    if intent_result.intent != "open_project_dashboard":
+        return None
+    reference = str(intent_result.data.get("project", "")).strip()
+    project = resolve_project_reference(reference)
+    if project is None:
+        return None
+    return project_dashboard_target(project.id)
 
 
 def _handle_pending_confirmation(user_text: str) -> ProcessResult | None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 import subprocess
 from typing import Iterable
 
@@ -50,6 +51,47 @@ def list_project_status(
     return [_to_project_status(project) for project in list_project_registry(projects)]
 
 
+def build_project_status_summary(
+    projects: Iterable[ProjectStatus] | None = None,
+) -> str:
+    statuses = list(projects) if projects is not None else list_project_status()
+    if not statuses:
+        return "В Vasya Project OS пока нет добавленных проектов."
+
+    fragments = [_project_summary_fragment(project) for project in statuses[:4]]
+    if len(statuses) > 4:
+        fragments.append(f"ещё проектов: {len(statuses) - 4}")
+    next_action = statuses[0].next_action.strip()
+    summary = f"По проектам: {'; '.join(fragments)}."
+    if next_action:
+        summary = f"{summary} Ближайший шаг: {next_action}"
+    return summary
+
+
+def resolve_project_reference(
+    reference: str,
+    projects: Iterable[ProjectConfig] | None = None,
+) -> RegisteredProject | None:
+    normalized_reference = _normalize_project_reference(reference)
+    if not normalized_reference:
+        return None
+    matches = [
+        project
+        for project in list_project_registry(projects)
+        if normalized_reference
+        in {
+            _normalize_project_reference(project.id),
+            _normalize_project_reference(project.name),
+        }
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def project_dashboard_target(project_id: str) -> str:
+    normalized_id = re.sub(r"[^a-zA-Z0-9_-]", "", project_id.strip())
+    return f"/control-center#project-{normalized_id}"
+
+
 def _to_registered_project(project: ProjectConfig) -> RegisteredProject:
     path = project.path.expanduser()
     exists = path.exists()
@@ -64,6 +106,23 @@ def _to_registered_project(project: ProjectConfig) -> RegisteredProject:
         status="OK" if exists else "WARN",
         warning=warning,
     )
+
+
+def _project_summary_fragment(project: ProjectStatus) -> str:
+    if project.status != "OK" or not project.exists:
+        state = "требует внимания"
+    elif project.dirty:
+        branch = project.branch or "ветка не определена"
+        state = f"{branch}, есть незакоммиченные изменения"
+    elif project.branch:
+        state = f"{project.branch}, чисто"
+    else:
+        state = "статус доступен"
+    return f"{project.name} — {state}"
+
+
+def _normalize_project_reference(value: str) -> str:
+    return re.sub(r"[^a-zа-яё0-9]+", "", value.strip().lower())
 
 
 def _to_project_status(project: RegisteredProject) -> ProjectStatus:

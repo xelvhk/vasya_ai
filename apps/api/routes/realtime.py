@@ -58,10 +58,17 @@ def pipeline(payload: PipelineRequest) -> PipelineResponse:
     final_response = ""
     final_followup = False
     final_metrics: dict[str, float] = {}
+    final_navigation_target: str | None = None
     for event in events:
         if event.stage == "intent_resolved":
             final_intent = str(event.data.get("intent", "unknown"))
             final_followup = bool(event.data.get("needs_followup", False))
+            raw_navigation_target = event.data.get("navigation_target")
+            final_navigation_target = (
+                raw_navigation_target
+                if isinstance(raw_navigation_target, str) and raw_navigation_target
+                else None
+            )
         if event.stage == "response_stream":
             final_response = f"{final_response} {str(event.data.get('text', '')).strip()}".strip()
         if event.stage == "pipeline_done":
@@ -74,6 +81,7 @@ def pipeline(payload: PipelineRequest) -> PipelineResponse:
         response=final_response,
         needs_followup=final_followup,
         metrics=final_metrics,
+        navigation_target=final_navigation_target,
     )
 
 

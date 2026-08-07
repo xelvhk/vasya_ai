@@ -122,6 +122,8 @@ _INTENT_TO_ROLE: dict[str, str] = {
     "read_notion_page": "notion_sync_agent",
     "append_notion_page": "notion_sync_agent",
     "morning_show": "chat_agent",
+    "project_status_summary": "chat_agent",
+    "open_project_dashboard": "chat_agent",
     "start_dictation_mode": "os_operator_agent",
     "stop_dictation_mode": "os_operator_agent",
     "remember_user_profile": "profile_agent",

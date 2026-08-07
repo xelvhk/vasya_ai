@@ -145,6 +145,7 @@ class ChatRouteSmokeTests(unittest.TestCase):
             intent: str
             response: str
             needs_followup: bool
+            navigation_target: str | None = None
 
         schemas_module.ChatRequest = ChatRequest
         schemas_module.ChatResponse = ChatResponse
@@ -169,6 +170,7 @@ class ChatRouteSmokeTests(unittest.TestCase):
         self.assertEqual(response.intent, "chat")
         self.assertIn("Чем помочь", response.response)
         self.assertTrue(response.needs_followup)
+        self.assertIsNone(response.navigation_target)
 
 
 if __name__ == "__main__":

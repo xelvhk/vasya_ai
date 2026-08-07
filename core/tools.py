@@ -38,6 +38,10 @@ from services.memory_sync_service import sync_memory_source
 from services.obsidian_knowledge_service import triage_unstructured_ideas
 from services.obsidian_service import resolve_obsidian_vault_path
 from services.project_idea_planning_service import handle_project_idea_request
+from services.project_registry_service import (
+    build_project_status_summary,
+    resolve_project_reference,
+)
 from services.morning_show_service import get_morning_show_message
 from services.speed_report_service import build_voice_diagnostics_report
 from services.os_action_service import execute_os_action
@@ -254,6 +258,17 @@ def _run_morning_show_tool(intent_result: IntentResult) -> str:
     return "Доброе утро. Я на связи."
 
 
+def _run_project_os_tool(intent_result: IntentResult) -> str:
+    if intent_result.intent == "project_status_summary":
+        return build_project_status_summary()
+
+    reference = str(intent_result.data.get("project", "")).strip()
+    project = resolve_project_reference(reference)
+    if project is None:
+        return f"Не нашла проект «{reference}» в Vasya Project OS."
+    return f"Открываю {project.name} в Vasya Project OS."
+
+
 def _run_start_dictation_mode_tool(intent_result: IntentResult) -> str:
     _ = intent_result
     enabled_now = dictation_mode_store.enable()
@@ -413,6 +428,12 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
         description="Утреннее шоу: погода, задачи и короткая мысль дня.",
         intents=("morning_show",),
         handler=_run_morning_show_tool,
+    ),
+    ToolSpec(
+        tool_id="project_os",
+        description="Read-only сводка и навигация по проектам Vasya Project OS.",
+        intents=("project_status_summary", "open_project_dashboard"),
+        handler=_run_project_os_tool,
     ),
     ToolSpec(
         tool_id="dictation_mode",

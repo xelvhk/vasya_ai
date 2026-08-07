@@ -258,6 +258,30 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
     }:
         return IntentResult(intent="forget_user_profile", data={"target": "все"})
 
+    if normalized.strip(" ?.!") in {
+        "что дальше по проектам",
+        "что следующее по проектам",
+        "какой следующий шаг по проектам",
+        "what is next by projects",
+        "what is next across projects",
+    }:
+        return IntentResult(intent="project_status_summary", data={})
+
+    open_project_patterns = (
+        r"(?:открой|покажи)\s+проект\s+(.+?)[?.!]?",
+        r"open\s+project\s+(.+?)[?.!]?",
+        r"(?:открой|open)\s+([a-z0-9][a-z0-9.-]*[_-][a-z0-9._-]+)[?.!]?",
+    )
+    for pattern in open_project_patterns:
+        open_project_match = re.fullmatch(pattern, normalized)
+        if open_project_match:
+            project_reference = open_project_match.group(1).strip(" .,:;!-")
+            if project_reference:
+                return IntentResult(
+                    intent="open_project_dashboard",
+                    data={"project": project_reference},
+                )
+
     if normalized in {
         "покажи статус памяти",
         "статус памяти",
@@ -704,6 +728,8 @@ def detect_early_fast_intent(user_text: str) -> IntentResult | None:
         "memory_digest",
         "memory_digest_history",
         "memory_digest_latest",
+        "project_status_summary",
+        "open_project_dashboard",
         "os_open_url",
         "os_open_app",
         "os_type_text",

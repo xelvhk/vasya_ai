@@ -27,6 +27,7 @@ class PipelineResult:
     response: str
     needs_followup: bool
     metrics: dict[str, float]
+    navigation_target: str | None = None
 
 
 def run_text_pipeline(
@@ -57,7 +58,13 @@ def run_text_pipeline(
             "cancelled": 1.0,
         }
         yield _event("done", "pipeline_done", started, {"metrics": metrics, "canceled": True})
-        return PipelineResult(intent="canceled", response="", needs_followup=False, metrics=metrics)
+        return PipelineResult(
+            intent="canceled",
+            response="",
+            needs_followup=False,
+            metrics=metrics,
+            navigation_target=None,
+        )
 
     intent_started = time.perf_counter()
     result = process_text_detailed(text)
@@ -70,6 +77,7 @@ def run_text_pipeline(
             "intent": result.intent,
             "needs_followup": bool(result.needs_followup),
             "intent_ms": round(intent_ms, 2),
+            "navigation_target": getattr(result, "navigation_target", None),
         },
     )
 
@@ -192,6 +200,7 @@ def run_text_pipeline(
         response=result.response,
         needs_followup=bool(result.needs_followup),
         metrics=metrics,
+        navigation_target=getattr(result, "navigation_target", None),
     )
 
 

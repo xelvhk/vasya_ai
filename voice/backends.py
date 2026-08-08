@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,13 @@ from scipy.io.wavfile import read as read_wav
 from scipy.io.wavfile import write
 
 from config.settings import (
+    COSYVOICE_MODEL_DIR,
+    COSYVOICE_PROMPT_TEXT,
+    COSYVOICE_PROMPT_WAV,
+    COSYVOICE_PYTHON,
+    COSYVOICE_REPO_DIR,
+    COSYVOICE_SPEAKER,
+    COSYVOICE_TIMEOUT_SECONDS,
     MIN_AUDIO_RMS,
     PIPER_COMMAND,
     PIPER_LENGTH_SCALE,
@@ -25,7 +33,9 @@ from config.settings import (
     TTS_BACKEND,
     TTS_HYBRID_SHORT_TEXT_MAX_WORDS,
     TTS_RATE,
+    TTS_RUNTIME_MODE,
     TTS_VOICE,
+    TTS_CACHE_DIR,
     VOICE_EARLY_FAST_INTENT_ENABLED,
     VOICE_EARLY_FAST_INTENT_MIN_REPEATS,
     VOICE_MIN_SPEECH_SECONDS,
@@ -38,6 +48,7 @@ from config.settings import (
     XTTS_COMMAND,
     XTTS_LANGUAGE,
     XTTS_MODEL_NAME,
+    XTTS_SPEAKER_WAV,
     XTTS_TIMEOUT_SECONDS,
     XTTS_SPEED,
 )
@@ -484,6 +495,178 @@ class XTTSBackend(BaseTTSBackend):
                 self._play_process = None
 
 
+class CosyVoiceTTSBackend(BaseTTSBackend):
+    name = "cosyvoice"
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._tts_process: subprocess.Popen[str] | None = None
+        self._play_process: subprocess.Popen[str] | None = None
+        self._is_playing = False
+
+    def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
+        _ = voice, rate
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            output_path = Path(temp_file.name)
+
+        try:
+            command, cosyvoice_env = self._build_command(text=text, output_path=output_path)
+            tts_process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=cosyvoice_env,
+            )
+            with self._lock:
+                self._tts_process = tts_process
+            try:
+                _stdout, stderr = tts_process.communicate(timeout=COSYVOICE_TIMEOUT_SECONDS)
+                if tts_process.returncode != 0:
+                    raise RuntimeError((stderr or "").strip() or "CosyVoice synthesis failed.")
+            finally:
+                with self._lock:
+                    if self._tts_process is tts_process:
+                        self._tts_process = None
+
+            if output_path.exists():
+                self._play_audio_file(output_path)
+        finally:
+            with self._lock:
+                self._is_playing = False
+            output_path.unlink(missing_ok=True)
+
+    def _build_command(self, *, text: str, output_path: Path) -> tuple[list[str], dict[str, str]]:
+        repo_dir = Path(COSYVOICE_REPO_DIR).expanduser() if COSYVOICE_REPO_DIR else None
+        model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+        if repo_dir is None or not repo_dir.exists():
+            raise RuntimeError("CosyVoice repo is not configured. Set COSYVOICE_REPO_DIR.")
+        if model_dir is None or not model_dir.exists():
+            raise RuntimeError("CosyVoice model is not configured. Set COSYVOICE_MODEL_DIR.")
+        python_path = _resolve_python_command(COSYVOICE_PYTHON)
+        if python_path is None:
+            raise RuntimeError(f"CosyVoice Python was not found: {COSYVOICE_PYTHON}")
+
+        script_path = Path(__file__).resolve().parent.parent / "scripts" / "run_cosyvoice_tts.py"
+        command = [
+            python_path,
+            str(script_path),
+            "--repo-dir",
+            str(repo_dir),
+            "--model-dir",
+            str(model_dir),
+            "--text",
+            text,
+            "--output",
+            str(output_path),
+        ]
+        prompt_wav = _cosyvoice_prompt_wav()
+        if (model_dir / "cosyvoice3.yaml").exists():
+            if prompt_wav is None:
+                raise RuntimeError("CosyVoice3 requires COSYVOICE_PROMPT_WAV or XTTS_SPEAKER_WAV.")
+            command.extend(["--prompt-wav", str(prompt_wav), "--prompt-text", COSYVOICE_PROMPT_TEXT])
+        if COSYVOICE_SPEAKER:
+            command.extend(["--speaker", COSYVOICE_SPEAKER])
+
+        cache_dir = Path(TTS_CACHE_DIR).expanduser()
+        if not cache_dir.is_absolute():
+            cache_dir = Path(__file__).resolve().parent.parent / cache_dir
+        cosyvoice_cache_dir = cache_dir / "cosyvoice"
+        hf_cache_dir = cosyvoice_cache_dir / "hf_home"
+        mpl_cache_dir = Path(__file__).resolve().parent.parent / "storage" / "mpl_cache"
+        for cache_path in (cosyvoice_cache_dir, hf_cache_dir, mpl_cache_dir):
+            cache_path.mkdir(parents=True, exist_ok=True)
+        cosyvoice_env = {
+            **os.environ,
+            "XDG_CACHE_HOME": str(cosyvoice_cache_dir),
+            "HF_HOME": str(hf_cache_dir),
+            "MPLCONFIGDIR": str(mpl_cache_dir),
+            "TOKENIZERS_PARALLELISM": "false",
+        }
+        return command, cosyvoice_env
+
+    def list_voices(self) -> list[str]:
+        suffix = "" if is_cosyvoice_available() else " (нужно настроить CosyVoice3)"
+        return [f"Вася — красивый CosyVoice3{suffix}"]
+
+    def stop(self) -> None:
+        with self._lock:
+            tts_process = self._tts_process
+        if tts_process is not None and tts_process.poll() is None:
+            tts_process.terminate()
+            try:
+                tts_process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                tts_process.kill()
+        sd.stop()
+        with self._lock:
+            play_process = self._play_process
+        if play_process is not None and play_process.poll() is None:
+            play_process.terminate()
+            try:
+                play_process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                play_process.kill()
+        with self._lock:
+            self._tts_process = None
+            self._play_process = None
+            self._is_playing = False
+
+    def is_speaking(self) -> bool:
+        with self._lock:
+            tts_process = self._tts_process
+            play_process = self._play_process
+            is_playing = self._is_playing
+        return (
+            (tts_process is not None and tts_process.poll() is None)
+            or (play_process is not None and play_process.poll() is None)
+            or is_playing
+        )
+
+    def _play_audio_file(self, output_path: Path) -> None:
+        if get_platform_name() == "macos" and self._play_with_afplay(output_path):
+            return
+
+        try:
+            sample_rate, audio_data = read_wav(str(output_path))
+            if audio_data.dtype.kind in ("i", "u"):
+                max_value = max(abs(np.iinfo(audio_data.dtype).min), np.iinfo(audio_data.dtype).max)
+                audio_data = audio_data.astype(np.float32) / float(max_value)
+            else:
+                audio_data = audio_data.astype(np.float32)
+
+            if audio_data.ndim > 1 and audio_data.shape[1] == 1:
+                audio_data = audio_data.reshape(-1)
+
+            with self._lock:
+                self._is_playing = True
+            sd.play(audio_data, sample_rate)
+            sd.wait()
+            return
+        except Exception:
+            sd.stop()
+
+        if self._play_with_afplay(output_path):
+            return
+
+        print("[CosyVoice playback error] Unable to play generated audio")
+
+    def _play_with_afplay(self, output_path: Path) -> bool:
+        try:
+            play_process = subprocess.Popen(["afplay", str(output_path)])
+            with self._lock:
+                self._play_process = play_process
+                self._is_playing = True
+            play_process.wait(timeout=120)
+            return play_process.returncode == 0
+        except Exception as exc:
+            print(f"[CosyVoice playback error] {exc}")
+            return False
+        finally:
+            with self._lock:
+                self._play_process = None
+
+
 class HybridTTSBackend(BaseTTSBackend):
     name = "hybrid"
 
@@ -679,7 +862,6 @@ def get_tts_backend() -> BaseTTSBackend:
         return _TTS_BACKEND
 
     backend_name = TTS_BACKEND.lower()
-    platform_name = get_platform_name()
 
     if backend_name == "print":
         _TTS_BACKEND = PrintTTSBackend()
@@ -690,6 +872,9 @@ def get_tts_backend() -> BaseTTSBackend:
     if backend_name == "xtts":
         _TTS_BACKEND = XTTSBackend()
         return _TTS_BACKEND
+    if backend_name == "cosyvoice":
+        _TTS_BACKEND = CosyVoiceTTSBackend()
+        return _TTS_BACKEND
     if backend_name == "hybrid":
         _TTS_BACKEND = HybridTTSBackend()
         return _TTS_BACKEND
@@ -698,6 +883,12 @@ def get_tts_backend() -> BaseTTSBackend:
         return _TTS_BACKEND
     if backend_name == "auto":
         active_profile = get_active_voice_profile()
+        if TTS_RUNTIME_MODE == "quality" and is_cosyvoice_available():
+            _TTS_BACKEND = CosyVoiceTTSBackend()
+            return _TTS_BACKEND
+        if active_profile.backend == "cosyvoice" and is_cosyvoice_available():
+            _TTS_BACKEND = CosyVoiceTTSBackend()
+            return _TTS_BACKEND
         if active_profile.backend == "xtts" and is_xtts_available(active_profile):
             _TTS_BACKEND = HybridTTSBackend()
             return _TTS_BACKEND
@@ -706,9 +897,6 @@ def get_tts_backend() -> BaseTTSBackend:
             return _TTS_BACKEND
         if active_profile.backend == "xtts" and is_xtts_command_available():
             _TTS_BACKEND = XTTSBackend()
-            return _TTS_BACKEND
-        if platform_name == "macos":
-            _TTS_BACKEND = MacOSTTSBackend()
             return _TTS_BACKEND
         _TTS_BACKEND = PrintTTSBackend()
         return _TTS_BACKEND
@@ -738,6 +926,20 @@ def is_xtts_available(profile: VoiceProfile | None = None) -> bool:
     return is_xtts_command_available() and get_profile_speaker_wav(profile) is not None
 
 
+def is_cosyvoice_available() -> bool:
+    repo_dir = Path(COSYVOICE_REPO_DIR).expanduser() if COSYVOICE_REPO_DIR else None
+    model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+    if repo_dir is None or not repo_dir.exists():
+        return False
+    if model_dir is None or not model_dir.exists():
+        return False
+    if (model_dir / "cosyvoice3.yaml").exists() and _cosyvoice_prompt_wav() is None:
+        return False
+    if COSYVOICE_PYTHON:
+        return _resolve_python_command(COSYVOICE_PYTHON) is not None
+    return importlib.util.find_spec("cosyvoice") is not None
+
+
 def get_tts_backend_name() -> str:
     return get_tts_backend().name
 
@@ -748,6 +950,22 @@ def get_tts_backend_status() -> str:
     active_profile = get_active_voice_profile()
 
     if configured_backend == "auto":
+        if TTS_RUNTIME_MODE == "quality" and active_backend == "piper":
+            return (
+                "TTS backend: piper fallback (CosyVoice quality mode is unavailable; "
+                "check COSYVOICE_REPO_DIR, COSYVOICE_MODEL_DIR, COSYVOICE_PYTHON, and prompt wav)"
+            )
+        if active_profile.backend == "cosyvoice" and active_backend == "piper":
+            return (
+                f"TTS backend: piper fallback (CosyVoice profile '{active_profile.label}' is unavailable; "
+                "check CosyVoice settings)"
+            )
+        if active_backend == "cosyvoice":
+            model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+            model_name = model_dir.name if model_dir is not None else "missing model"
+            if TTS_RUNTIME_MODE == "quality":
+                return f"TTS backend: cosyvoice quality mode ({model_name})"
+            return f"TTS backend: cosyvoice profile ({active_profile.label}, {model_name})"
         if active_profile.backend == "xtts" and active_backend == "piper":
             return (
                 f"TTS backend: piper fallback (XTTS profile '{active_profile.label}' is unavailable; "
@@ -783,6 +1001,11 @@ def get_tts_backend_status() -> str:
                 f"'{active_profile.label}' is not configured"
             )
         return f"TTS backend: xtts is selected, but command '{XTTS_COMMAND}' was not found"
+    if configured_backend == "cosyvoice" and not is_cosyvoice_available():
+        return (
+            "TTS backend: cosyvoice is selected, but local CosyVoice is not fully configured "
+            "(check repo, model, python, and prompt wav)"
+        )
 
     if active_backend == "hybrid":
         speaker = get_profile_speaker_wav(active_profile)
@@ -796,6 +1019,10 @@ def get_tts_backend_status() -> str:
         speaker = get_profile_speaker_wav(active_profile)
         speaker_name = speaker.name if speaker is not None else "missing speaker wav"
         return f"TTS backend: xtts ({active_profile.label}, speaker={speaker_name})"
+    if active_backend == "cosyvoice":
+        model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+        model_name = model_dir.name if model_dir is not None else "missing model"
+        return f"TTS backend: cosyvoice quality mode ({active_profile.label}, {model_name})"
     if active_backend == "say":
         return f"TTS backend: say ({active_profile.label})"
     return f"TTS backend: {active_backend}"
@@ -811,6 +1038,25 @@ def reset_tts_backend() -> None:
 
 def _resolve_piper_command() -> str | None:
     return _resolve_command(PIPER_COMMAND)
+
+
+def _resolve_python_command(configured_python: str) -> str | None:
+    if not configured_python:
+        return sys.executable
+    candidate = Path(configured_python).expanduser()
+    if candidate.exists():
+        return str(candidate)
+    return shutil.which(configured_python)
+
+
+def _cosyvoice_prompt_wav() -> Path | None:
+    for configured_path in (COSYVOICE_PROMPT_WAV, XTTS_SPEAKER_WAV):
+        if not configured_path:
+            continue
+        candidate = Path(configured_path).expanduser()
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def _resolve_command(command_name: str) -> str | None:

@@ -5,7 +5,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from assistant.child_mode import child_mode_store
-from config.settings import PIPER_MODEL_PATH, TTS_PROFILE, TTS_STATE_FILE, XTTS_SPEAKER_WAV
+from config.settings import (
+    COSYVOICE_MODEL_DIR,
+    COSYVOICE_PROMPT_WAV,
+    COSYVOICE_REPO_DIR,
+    PIPER_MODEL_PATH,
+    TTS_PROFILE,
+    TTS_STATE_FILE,
+    XTTS_SPEAKER_WAV,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +62,15 @@ VOICE_PROFILES: tuple[VoiceProfile, ...] = (
         character="более живой, мягкий, разговорный",
         xtts_speaker_wav=XTTS_SPEAKER_WAV or None,
         xtts_language="ru",
+        say_voice="Milena",
+        say_rate=195,
+    ),
+    VoiceProfile(
+        profile_id="vasya_quality_cosyvoice",
+        label="Вася — красивый CosyVoice3",
+        backend="cosyvoice",
+        gender="мужской",
+        character="самый натуральный quality mode, медленный локальный синтез",
         say_voice="Milena",
         say_rate=195,
     ),
@@ -128,6 +145,19 @@ def is_profile_installed(profile: VoiceProfile | None = None) -> bool:
         return get_profile_model_path(resolved_profile) is not None
     if resolved_profile.backend == "xtts":
         return get_profile_speaker_wav(resolved_profile) is not None
+    if resolved_profile.backend == "cosyvoice":
+        repo_dir = Path(COSYVOICE_REPO_DIR).expanduser() if COSYVOICE_REPO_DIR else None
+        model_dir = Path(COSYVOICE_MODEL_DIR).expanduser() if COSYVOICE_MODEL_DIR else None
+        prompt_value = (COSYVOICE_PROMPT_WAV or XTTS_SPEAKER_WAV).strip()
+        prompt_wav = Path(prompt_value).expanduser() if prompt_value else None
+        return (
+            repo_dir is not None
+            and repo_dir.exists()
+            and model_dir is not None
+            and model_dir.exists()
+            and prompt_wav is not None
+            and prompt_wav.exists()
+        )
     return True
 
 

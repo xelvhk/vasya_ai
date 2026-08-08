@@ -100,6 +100,19 @@ The benchmark reports backend status, time-to-first-audio, total synthesis time,
 
 CosyVoice3 is the current best-sounding local quality candidate, but it stays opt-in through `--profile quality` because short replies can take tens of seconds on local CPU/runtime. Use it for quality-mode experiments, long-form narration, demos, or future prewarmed/background synthesis. Chatterbox and macOS `say` are intentionally not benchmark candidates: Chatterbox adds heavy cache/setup friction, and `say` produced header-only artifacts in local benchmark validation. MisoTTS is tracked as a placeholder slot only.
 
+Runtime voice modes:
+```bash
+TTS_RUNTIME_MODE=fast
+TTS_BACKEND=auto
+
+# Opt-in quality mode. Requires COSYVOICE_* paths and a prompt WAV.
+TTS_RUNTIME_MODE=quality
+TTS_BACKEND=auto
+python -m voice.tts --profile vasya_quality_cosyvoice --text "Привет, это красивый голос Васи."
+```
+
+`fast` keeps Piper as the default assistant voice. `quality` selects the local CosyVoice backend when it is fully configured and falls back to Piper when it is not.
+
 Optional API mode:
 ```bash
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload

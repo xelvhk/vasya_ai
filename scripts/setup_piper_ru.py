@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 from shutil import copy2
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
 from huggingface_hub import hf_hub_download
+
+from config.settings import APP_PATHS
 
 
 REPO_ID = "rhasspy/piper-voices"
@@ -28,7 +34,7 @@ def main() -> None:
     if "all" in requested_voices:
         requested_voices = list(RUSSIAN_VOICES.keys())
 
-    target_dir = Path("storage/voices")
+    target_dir = APP_PATHS.data_dir / "voices"
     target_dir.mkdir(parents=True, exist_ok=True)
 
     for voice_id in requested_voices:

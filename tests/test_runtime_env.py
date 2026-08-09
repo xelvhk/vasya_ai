@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import stat
 import tempfile
 import unittest
 
@@ -27,6 +29,8 @@ class RuntimeEnvTests(unittest.TestCase):
             self.assertEqual(result.status, "OK")
             self.assertIn("created .env", result.message)
             self.assertIn("VASYA_API_AUTH_TOKEN=generated-token", (root / ".env").read_text(encoding="utf-8"))
+            if os.name != "nt":
+                self.assertEqual(stat.S_IMODE((root / ".env").stat().st_mode), 0o600)
 
     def test_ensure_runtime_env_file_preserves_existing_env(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

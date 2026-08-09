@@ -223,6 +223,7 @@ python scripts/doctor.py --quiet
 Детальный roadmap и release timeline:
 - [ROADMAP.md](ROADMAP.md)
 - [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
+- [docs/APP_DATA.md](docs/APP_DATA.md)
 - [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 - [docs/WHATS_NEW.md](docs/WHATS_NEW.md)
 

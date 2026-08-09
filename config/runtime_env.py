@@ -31,6 +31,7 @@ def ensure_runtime_env_file(
         content = default_env_content(token_factory=token_factory)
 
     env_path.write_text(content, encoding="utf-8")
+    env_path.chmod(0o600)
     return RuntimeEnvResult("OK", "created .env with generated VASYA_API_AUTH_TOKEN")
 
 
@@ -60,5 +61,4 @@ def default_env_content(*, token_factory: Callable[[], str] = lambda: secrets.to
         "GOOGLE_CALENDAR_ENABLED=false\n"
         f"VASYA_API_AUTH_TOKEN={token_factory()}\n"
         "VASYA_API_REQUIRE_AUTH=true\n"
-        "MEMORY_WIKI_DIR=storage/memory_wiki\n"
     )

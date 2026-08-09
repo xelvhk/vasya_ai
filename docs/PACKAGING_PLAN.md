@@ -19,10 +19,11 @@ Expected shape:
 
 ## Pre-Release Foundation
 
-Before general distribution, move writable runtime state behind a platform
-app-data path resolver as defined by
-`docs/adr/ADR-003-public-app-and-private-user-data.md`. Implement and verify
-that migration as its own slice, not as an incidental packaging change.
+Completed: writable runtime state now resolves through `config/app_paths.py` as
+defined by `docs/adr/ADR-003-public-app-and-private-user-data.md`. Source
+checkouts retain an explicit compatibility layout, while packaged builds use the
+platform profile. The copy-only migration command and recovery guidance live in
+`docs/APP_DATA.md`.
 
 ## Non-Goals For The First Artifact
 

@@ -9,11 +9,15 @@ from pathlib import Path
 
 from config import settings as _settings
 
-VOICE_LOG_FILE = getattr(_settings, "VOICE_LOG_FILE", "storage/voice.log")
+VOICE_LOG_FILE = getattr(
+    _settings,
+    "VOICE_LOG_FILE",
+    str(_settings.APP_PATHS.log_file("voice.log")),
+)
 INTERACTION_LOG_FILE = getattr(
     _settings,
     "INTERACTION_LOG_FILE",
-    "storage/interactions.log",
+    str(_settings.APP_PATHS.log_file("interactions.log")),
 )
 LOG_REDACT_SENSITIVE = getattr(_settings, "LOG_REDACT_SENSITIVE", True)
 LOG_INCLUDE_TEXT_CONTENT = getattr(_settings, "LOG_INCLUDE_TEXT_CONTENT", False)

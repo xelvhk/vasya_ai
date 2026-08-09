@@ -8,6 +8,10 @@ from pathlib import Path
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from config.settings import APP_PATHS  # noqa: E402
+
 LAUNCH_AGENT_LABEL = "com.vasya.ai"
 
 
@@ -22,6 +26,7 @@ def is_autostart_enabled() -> bool:
 def install_autostart() -> None:
     plist_path = launch_agent_path()
     plist_path.parent.mkdir(parents=True, exist_ok=True)
+    APP_PATHS.logs_dir.mkdir(parents=True, exist_ok=True)
 
     payload = {
         "Label": LAUNCH_AGENT_LABEL,
@@ -29,8 +34,8 @@ def install_autostart() -> None:
         "WorkingDirectory": str(ROOT_DIR),
         "RunAtLoad": True,
         "KeepAlive": False,
-        "StandardOutPath": str(ROOT_DIR / "storage" / "launchagent.out.log"),
-        "StandardErrorPath": str(ROOT_DIR / "storage" / "launchagent.err.log"),
+        "StandardOutPath": str(APP_PATHS.log_file("launchagent.out.log")),
+        "StandardErrorPath": str(APP_PATHS.log_file("launchagent.err.log")),
     }
     with plist_path.open("wb") as handle:
         plistlib.dump(payload, handle)

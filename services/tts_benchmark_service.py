@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from config.settings import (
+    APP_PATHS,
     COSYVOICE_MODEL_DIR,
     COSYVOICE_PYTHON,
     COSYVOICE_PROMPT_TEXT,
@@ -99,7 +100,7 @@ def run_tts_benchmark(
     runner = process_runner or _execute_plan
     with tempfile.TemporaryDirectory(prefix="vasya-tts-benchmark-") as tmp:
         if save_artifacts:
-            output_dir = artifact_dir or Path("storage/tts_benchmarks")
+            output_dir = artifact_dir or APP_PATHS.cache_path("benchmarks")
         else:
             output_dir = Path(tmp)
         output_dir.mkdir(parents=True, exist_ok=True)

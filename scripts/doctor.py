@@ -16,6 +16,7 @@ import requests
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
+from config.app_paths import resolve_app_paths  # noqa: E402
 from config.settings import (  # noqa: E402
     GOOGLE_CALENDAR_CREDENTIALS_FILE,
     GOOGLE_CALENDAR_ENABLED,
@@ -134,7 +135,7 @@ def check_python_version() -> CheckResult:
 
 
 def check_env_file() -> CheckResult:
-    env_path = _runtime_root() / ".env"
+    env_path = _runtime_env_path()
     if env_path.exists():
         return report("env file", "OK", f"found .env at {env_path}")
     if _is_ci_environment():
@@ -397,10 +398,11 @@ def _is_packaged_runtime() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
-def _runtime_root() -> Path:
-    if _is_packaged_runtime():
-        return Path.cwd()
-    return ROOT_DIR
+def _runtime_env_path() -> Path:
+    return resolve_app_paths(
+        packaged=_is_packaged_runtime(),
+        source_root=ROOT_DIR,
+    ).env_file
 
 
 if __name__ == "__main__":

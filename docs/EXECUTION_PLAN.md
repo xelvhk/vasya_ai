@@ -24,8 +24,8 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 
 ## Current Checkpoint
 
-- Last completed Project OS slice: voice project summaries and dashboard navigation targets.
-- Next implementation slice: platform app-data paths and compatibility migration.
+- Last completed foundation slice: platform app-data paths and copy-only compatibility migration.
+- Next implementation slice: user-owned project registry and Control Center management UI.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.
@@ -50,7 +50,7 @@ Verification:
 - Existing orchestrator, voice pipeline, project registry, and API tests.
 - Full unit suite, scoped `compileall`, `git diff --check`, push, and green CI.
 
-### 2. NEXT: Introduce Platform App-Data Paths
+### 2. DONE: Introduce Platform App-Data Paths
 
 Scope: add one resolver for config, databases, logs, caches, project registry,
 and Memory Center data outside the application bundle.
@@ -64,7 +64,7 @@ Acceptance:
 
 Reference: `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 
-### 3. QUEUED: Add The User Project Registry
+### 3. NEXT: Add The User Project Registry
 
 Scope: replace source-level personal presets as the normal workflow with a
 local user-owned registry and Control Center management UI.

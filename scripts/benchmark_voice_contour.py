@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config.settings import APP_PATHS
 from services.benchmark_service import build_benchmark_snapshot, build_benchmark_text_report
 
 
@@ -68,7 +69,7 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
     parser.add_argument(
         "--baseline-file",
-        default="storage/benchmark_baseline.json",
+        default=str(APP_PATHS.state_file("benchmark_baseline.json")),
         help="Path to benchmark baseline JSON file.",
     )
     parser.add_argument(

@@ -182,6 +182,7 @@ Detailed roadmap and release timeline:
 - [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
 - [docs/UI_REFACTOR_PLAN.md](docs/UI_REFACTOR_PLAN.md)
 - [docs/PACKAGING_PLAN.md](docs/PACKAGING_PLAN.md)
+- [docs/APP_DATA.md](docs/APP_DATA.md)
 - [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 - [docs/WHATS_NEW.md](docs/WHATS_NEW.md)
 - [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)

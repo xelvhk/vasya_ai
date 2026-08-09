@@ -3,20 +3,51 @@ import os
 from pathlib import Path
 import sys
 
+from config.app_paths import ensure_app_directories, resolve_app_paths
 from config.runtime_env import ensure_runtime_env_file
 
+_BASE_DIR = Path(__file__).resolve().parent.parent
 
-def _dotenv_path_for_runtime() -> Path | None:
-    if getattr(sys, "frozen", False):
-        root = Path.cwd()
-        ensure_runtime_env_file(root)
-        return root / ".env"
-    return None
+
+def _dotenv_path_for_runtime() -> Path:
+    paths = resolve_app_paths(
+        packaged=getattr(sys, "frozen", False),
+        source_root=_BASE_DIR,
+    )
+    if not paths.source_compat:
+        ensure_app_directories(paths)
+        ensure_runtime_env_file(paths.config_dir)
+    return paths.env_file
 
 
 load_dotenv(dotenv_path=_dotenv_path_for_runtime())
 
-_BASE_DIR = Path(__file__).resolve().parent.parent
+APP_PATHS = resolve_app_paths(
+    packaged=getattr(sys, "frozen", False),
+    source_root=_BASE_DIR,
+)
+if not APP_PATHS.source_compat:
+    ensure_app_directories(APP_PATHS)
+
+
+def _runtime_path(
+    env_name: str,
+    default: Path,
+    *,
+    legacy_default: str | None = None,
+) -> str:
+    raw_value = os.getenv(env_name)
+    if raw_value is None or not raw_value.strip():
+        return str(default)
+    value = raw_value.strip()
+    if not APP_PATHS.source_compat and legacy_default and value == legacy_default:
+        return str(default)
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return str(path)
+    base = _BASE_DIR if APP_PATHS.source_compat else APP_PATHS.root
+    return str(base / path)
+
 
 APP_VERSION = os.getenv("APP_VERSION", "0.6.0")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
@@ -43,7 +74,11 @@ OLLAMA_CHAT_QUICK_ENABLED = os.getenv("OLLAMA_CHAT_QUICK_ENABLED", "true").lower
 OLLAMA_CHAT_QUICK_MAX_WORDS = int(os.getenv("OLLAMA_CHAT_QUICK_MAX_WORDS", "10"))
 OLLAMA_CHAT_QUICK_NUM_PREDICT = int(os.getenv("OLLAMA_CHAT_QUICK_NUM_PREDICT", "96"))
 OLLAMA_CHAT_QUICK_MODEL = os.getenv("OLLAMA_CHAT_QUICK_MODEL", "fast").strip().lower()
-AUDIO_FILENAME = os.getenv("AUDIO_FILENAME", "input.wav")
+AUDIO_FILENAME = _runtime_path(
+    "AUDIO_FILENAME",
+    APP_PATHS.cache_path("audio") / "input.wav",
+    legacy_default="input.wav",
+)
 RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "3"))
 VOICE_ULTRA_FAST_MODE = os.getenv("VOICE_ULTRA_FAST_MODE", "true").lower() == "true"
 VOICE_ULTRA_FAST_SKIP_CONFIRM_FOR_FAST_INTENTS = os.getenv(
@@ -93,10 +128,11 @@ MORNING_SHOW_PREWARM_ENABLED = os.getenv(
 MORNING_SHOW_WEATHER_CACHE_MINUTES = int(
     os.getenv("MORNING_SHOW_WEATHER_CACHE_MINUTES", "30")
 )
-MORNING_SHOW_STATE_FILE = os.getenv(
+MORNING_SHOW_STATE_FILE = _runtime_path(
     "MORNING_SHOW_STATE_FILE",
-    "storage/morning_show_state.json",
-).strip()
+    APP_PATHS.state_file("morning_show_state.json"),
+    legacy_default="storage/morning_show_state.json",
+)
 VOICE_START_TIMEOUT_SECONDS = float(os.getenv("VOICE_START_TIMEOUT_SECONDS", "2.5"))
 CHAT_FOLLOWUP_MAX_TURNS = int(os.getenv("CHAT_FOLLOWUP_MAX_TURNS", "3"))
 VOICE_SMART_FOLLOWUP_ENABLED = os.getenv("VOICE_SMART_FOLLOWUP_ENABLED", "true").lower() == "true"
@@ -201,8 +237,14 @@ STT_CONFIRMATION_LOGPROB_THRESHOLD = float(
 STT_CONFIRMATION_NO_SPEECH_THRESHOLD = float(
     os.getenv("STT_CONFIRMATION_NO_SPEECH_THRESHOLD", "0.45")
 )
-VOICE_LOG_FILE = os.getenv("VOICE_LOG_FILE", "storage/voice.log")
-INTERACTION_LOG_FILE = os.getenv("INTERACTION_LOG_FILE", "storage/interactions.log")
+VOICE_LOG_FILE = _runtime_path(
+    "VOICE_LOG_FILE", APP_PATHS.log_file("voice.log"), legacy_default="storage/voice.log"
+)
+INTERACTION_LOG_FILE = _runtime_path(
+    "INTERACTION_LOG_FILE",
+    APP_PATHS.log_file("interactions.log"),
+    legacy_default="storage/interactions.log",
+)
 LOG_REDACT_SENSITIVE = os.getenv("LOG_REDACT_SENSITIVE", "true").lower() == "true"
 LOG_INCLUDE_TEXT_CONTENT = os.getenv("LOG_INCLUDE_TEXT_CONTENT", "false").lower() == "true"
 LOG_MAX_FIELD_LENGTH = int(os.getenv("LOG_MAX_FIELD_LENGTH", "240"))
@@ -219,15 +261,24 @@ AVATAR_PACK_SKINS = [
     if item.strip()
 ]
 AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "210"))
-AVATAR_STATE_FILE = os.getenv("AVATAR_STATE_FILE", "storage/avatar_widget.json")
-AVATAR_CUSTOM_SKIN_FILE = os.getenv(
+AVATAR_STATE_FILE = _runtime_path(
+    "AVATAR_STATE_FILE",
+    APP_PATHS.state_file("avatar_widget.json"),
+    legacy_default="storage/avatar_widget.json",
+)
+AVATAR_CUSTOM_SKIN_FILE = _runtime_path(
     "AVATAR_CUSTOM_SKIN_FILE",
-    "storage/avatar_custom_skin.json",
-).strip()
+    APP_PATHS.state_file("avatar_custom_skin.json"),
+    legacy_default="storage/avatar_custom_skin.json",
+)
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
 TTS_PROFILE = os.getenv("TTS_PROFILE", "ruslan_direct")
-TTS_STATE_FILE = os.getenv("TTS_STATE_FILE", "storage/tts_settings.json")
+TTS_STATE_FILE = _runtime_path(
+    "TTS_STATE_FILE",
+    APP_PATHS.state_file("tts_settings.json"),
+    legacy_default="storage/tts_settings.json",
+)
 COSYVOICE_REPO_DIR = os.getenv("COSYVOICE_REPO_DIR", "").strip()
 COSYVOICE_MODEL_DIR = os.getenv("COSYVOICE_MODEL_DIR", "").strip()
 COSYVOICE_SPEAKER = os.getenv("COSYVOICE_SPEAKER", "").strip()
@@ -236,13 +287,24 @@ COSYVOICE_PROMPT_TEXT = os.getenv(
     "COSYVOICE_PROMPT_TEXT",
     "Привет, это голосовой ассистент Вася.<|endofprompt|>",
 ).strip()
-TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", "storage/cache").strip()
+TTS_CACHE_DIR = _runtime_path(
+    "TTS_CACHE_DIR", APP_PATHS.cache_path("tts"), legacy_default="storage/cache"
+)
 COSYVOICE_PYTHON = os.getenv("COSYVOICE_PYTHON", "").strip()
-CHILD_MODE_STATE_FILE = os.getenv("CHILD_MODE_STATE_FILE", "storage/child_mode.json")
-DICTATION_MODE_STATE_FILE = os.getenv("DICTATION_MODE_STATE_FILE", "storage/dictation_mode.json")
-USER_PROFILE_STATE_FILE = os.getenv(
+CHILD_MODE_STATE_FILE = _runtime_path(
+    "CHILD_MODE_STATE_FILE",
+    APP_PATHS.state_file("child_mode.json"),
+    legacy_default="storage/child_mode.json",
+)
+DICTATION_MODE_STATE_FILE = _runtime_path(
+    "DICTATION_MODE_STATE_FILE",
+    APP_PATHS.state_file("dictation_mode.json"),
+    legacy_default="storage/dictation_mode.json",
+)
+USER_PROFILE_STATE_FILE = _runtime_path(
     "USER_PROFILE_STATE_FILE",
-    "storage/user_profile.json",
+    APP_PATHS.state_file("user_profile.json"),
+    legacy_default="storage/user_profile.json",
 )
 OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "").strip()
 OBSIDIAN_EXPORT_NOTES_DIR = os.getenv(
@@ -280,10 +342,11 @@ NOTION_UPDATES_PAGE_ID = os.getenv("NOTION_UPDATES_PAGE_ID", "").strip()
 GITHUB_API_TOKEN = os.getenv("GITHUB_API_TOKEN", "").strip()
 GITHUB_API_BASE_URL = os.getenv("GITHUB_API_BASE_URL", "https://api.github.com").strip()
 GITHUB_DEFAULT_REPO = os.getenv("GITHUB_DEFAULT_REPO", "").strip()
-GITHUB_SYNC_STATE_FILE = os.getenv(
+GITHUB_SYNC_STATE_FILE = _runtime_path(
     "GITHUB_SYNC_STATE_FILE",
-    "storage/github_notion_sync_state.json",
-).strip()
+    APP_PATHS.state_file("github_notion_sync_state.json"),
+    legacy_default="storage/github_notion_sync_state.json",
+)
 GITHUB_SYNC_DEFAULT_HOURS = int(os.getenv("GITHUB_SYNC_DEFAULT_HOURS", "24"))
 OS_ACTIONS_ENABLED = os.getenv("OS_ACTIONS_ENABLED", "true").lower() == "true"
 OS_ALLOWED_URL_DOMAINS = os.getenv(
@@ -315,14 +378,16 @@ API_RATE_LIMIT_PIPELINE_MAX = int(os.getenv("API_RATE_LIMIT_PIPELINE_MAX", "20")
 API_RATE_LIMIT_MORNING_BRIEF_MAX = int(os.getenv("API_RATE_LIMIT_MORNING_BRIEF_MAX", "10"))
 API_RATE_LIMIT_WS_MESSAGES_MAX = int(os.getenv("API_RATE_LIMIT_WS_MESSAGES_MAX", "40"))
 API_RATE_LIMIT_WS_CONNECTIONS_MAX = int(os.getenv("API_RATE_LIMIT_WS_CONNECTIONS_MAX", "3"))
-INTEGRATIONS_STATE_FILE = os.getenv(
+INTEGRATIONS_STATE_FILE = _runtime_path(
     "INTEGRATIONS_STATE_FILE",
-    "storage/integrations.json",
-).strip()
-MEMORY_WIKI_DIR = os.getenv(
+    APP_PATHS.state_file("integrations.json"),
+    legacy_default="storage/integrations.json",
+)
+MEMORY_WIKI_DIR = _runtime_path(
     "MEMORY_WIKI_DIR",
-    "storage/memory_wiki",
-).strip()
+    APP_PATHS.memory_dir,
+    legacy_default="storage/memory_wiki",
+)
 MEMORY_BACKGROUND_SYNC_ENABLED = os.getenv(
     "MEMORY_BACKGROUND_SYNC_ENABLED",
     "true",
@@ -331,18 +396,20 @@ MEMORY_BACKGROUND_SYNC_TICK_SECONDS = int(
     os.getenv("MEMORY_BACKGROUND_SYNC_TICK_SECONDS", "1200")
 )
 MEMORY_SYNC_INTERVAL_SECONDS = int(os.getenv("MEMORY_SYNC_INTERVAL_SECONDS", "1200"))
-INTEGRATIONS_SECRETS_FILE = os.getenv(
+INTEGRATIONS_SECRETS_FILE = _runtime_path(
     "INTEGRATIONS_SECRETS_FILE",
-    "storage/integration_secrets.json",
-).strip()
+    APP_PATHS.state_file("integration_secrets.json"),
+    legacy_default="storage/integration_secrets.json",
+)
 DICTATION_API_ALLOWED_HOSTS = os.getenv(
     "DICTATION_API_ALLOWED_HOSTS",
     "127.0.0.1,localhost",
 ).strip()
 PIPER_COMMAND = os.getenv("PIPER_COMMAND", "piper")
-PIPER_MODEL_PATH = os.getenv(
+PIPER_MODEL_PATH = _runtime_path(
     "PIPER_MODEL_PATH",
-    str(_BASE_DIR / "storage" / "voices" / "ru_RU-ruslan-medium.onnx"),
+    APP_PATHS.data_dir / "voices" / "ru_RU-ruslan-medium.onnx",
+    legacy_default="storage/voices/ru_RU-ruslan-medium.onnx",
 )
 PIPER_SPEAKER = os.getenv("PIPER_SPEAKER", "")
 PIPER_LENGTH_SCALE = os.getenv("PIPER_LENGTH_SCALE", "1.0")
@@ -355,23 +422,44 @@ XTTS_LANGUAGE = os.getenv("XTTS_LANGUAGE", "ru").strip()
 XTTS_SPEAKER_WAV = os.getenv("XTTS_SPEAKER_WAV", "").strip()
 XTTS_SPEED = float(os.getenv("XTTS_SPEED", "1.0"))
 XTTS_TIMEOUT_SECONDS = int(os.getenv("XTTS_TIMEOUT_SECONDS", "600"))
-XTTS_CACHE_DIR = os.getenv("XTTS_CACHE_DIR", "storage/xtts_cache").strip()
-XTTS_MPLCONFIGDIR = os.getenv("XTTS_MPLCONFIGDIR", "storage/mpl_cache").strip()
+XTTS_CACHE_DIR = _runtime_path(
+    "XTTS_CACHE_DIR", APP_PATHS.cache_path("xtts"), legacy_default="storage/xtts_cache"
+)
+XTTS_MPLCONFIGDIR = _runtime_path(
+    "XTTS_MPLCONFIGDIR",
+    APP_PATHS.cache_path("matplotlib"),
+    legacy_default="storage/mpl_cache",
+)
 XTTS_TRUST_LOCAL_CHECKPOINT = os.getenv("XTTS_TRUST_LOCAL_CHECKPOINT", "true").lower() == "true"
 TTS_HYBRID_SHORT_TEXT_MAX_WORDS = int(os.getenv("TTS_HYBRID_SHORT_TEXT_MAX_WORDS", "6"))
 
-STORAGE_DB_FILE = os.getenv("STORAGE_DB_FILE", "storage/vasya.db")
-CALENDAR_STORAGE_FILE = os.getenv("CALENDAR_STORAGE_FILE", "storage/calendar.json")
-TASK_STORAGE_FILE = os.getenv("TASK_STORAGE_FILE", "storage/tasks.json")
+STORAGE_DB_FILE = _runtime_path(
+    "STORAGE_DB_FILE", APP_PATHS.state_file("vasya.db"), legacy_default="storage/vasya.db"
+)
+CALENDAR_STORAGE_FILE = _runtime_path(
+    "CALENDAR_STORAGE_FILE",
+    APP_PATHS.state_file("calendar.json"),
+    legacy_default="storage/calendar.json",
+)
+TASK_STORAGE_FILE = _runtime_path(
+    "TASK_STORAGE_FILE", APP_PATHS.state_file("tasks.json"), legacy_default="storage/tasks.json"
+)
+PROJECT_REGISTRY_FILE = _runtime_path(
+    "PROJECT_REGISTRY_FILE",
+    APP_PATHS.state_file("project_registry.json"),
+    legacy_default="storage/project_registry.json",
+)
 
 GOOGLE_CALENDAR_ENABLED = os.getenv("GOOGLE_CALENDAR_ENABLED", "false").lower() == "true"
-GOOGLE_CALENDAR_CREDENTIALS_FILE = os.getenv(
+GOOGLE_CALENDAR_CREDENTIALS_FILE = _runtime_path(
     "GOOGLE_CALENDAR_CREDENTIALS_FILE",
-    "credentials.json",
+    APP_PATHS.config_file("credentials.json"),
+    legacy_default="credentials.json",
 )
-GOOGLE_CALENDAR_TOKEN_FILE = os.getenv(
+GOOGLE_CALENDAR_TOKEN_FILE = _runtime_path(
     "GOOGLE_CALENDAR_TOKEN_FILE",
-    "storage/google_token.json",
+    APP_PATHS.state_file("google_token.json"),
+    legacy_default="storage/google_token.json",
 )
 GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
 GOOGLE_CALENDAR_TIMEZONE = os.getenv("GOOGLE_CALENDAR_TIMEZONE", "Europe/Moscow")

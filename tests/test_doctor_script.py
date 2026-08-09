@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -90,15 +91,18 @@ class DoctorScriptTests(unittest.TestCase):
         self.assertEqual(result.status, "OK")
         self.assertIn("CI", result.message)
 
-    def test_env_file_check_uses_working_directory_in_packaged_runtime(self) -> None:
-        with patch.object(doctor.sys, "frozen", True, create=True):
-            with patch.object(doctor.Path, "cwd", return_value=doctor.Path("/tmp/Vasya AI")):
-                with patch.object(doctor.Path, "exists", return_value=False):
-                    with patch.object(doctor, "_is_ci_environment", return_value=False):
-                        result = doctor.check_env_file()
+    def test_env_file_check_uses_app_data_in_packaged_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            profile = doctor.Path(tmp) / "profile"
+            with patch.object(doctor.sys, "frozen", True, create=True), patch.dict(
+                doctor.os.environ,
+                {"VASYA_APP_DATA_DIR": str(profile)},
+                clear=False,
+            ), patch.object(doctor, "_is_ci_environment", return_value=False):
+                result = doctor.check_env_file()
 
         self.assertEqual(result.status, "WARN")
-        self.assertIn("/tmp/Vasya AI/.env", result.message)
+        self.assertIn(str(profile / "config" / ".env"), result.message)
 
     def test_virtualenv_check_returns_result(self) -> None:
         result = doctor.check_virtualenv()

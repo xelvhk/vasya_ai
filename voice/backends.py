@@ -35,8 +35,10 @@ from config.settings import (
     VOICE_SILENCE_RMS,
     VOICE_START_TIMEOUT_SECONDS,
     VOICE_INPUT_BACKEND,
+    XTTS_CACHE_DIR,
     XTTS_COMMAND,
     XTTS_LANGUAGE,
+    XTTS_MPLCONFIGDIR,
     XTTS_MODEL_NAME,
     XTTS_TIMEOUT_SECONDS,
     XTTS_SPEED,
@@ -335,8 +337,8 @@ class XTTSBackend(BaseTTSBackend):
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             output_path = Path(temp_file.name)
-        xtts_cache_dir = Path("storage/xtts_cache").resolve()
-        mpl_cache_dir = Path("storage/mpl_cache").resolve()
+        xtts_cache_dir = Path(XTTS_CACHE_DIR).expanduser()
+        mpl_cache_dir = Path(XTTS_MPLCONFIGDIR).expanduser()
         xtts_cache_dir.mkdir(parents=True, exist_ok=True)
         mpl_cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -366,7 +368,7 @@ class XTTSBackend(BaseTTSBackend):
         }
         # Coqui XTTS + newer PyTorch requires explicit opt-out from weights-only load.
         xtts_env.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
-        # Keep HuggingFace cache inside project storage to avoid permission issues.
+        # Keep HuggingFace cache inside Vasya runtime storage for offline reuse.
         xtts_env.setdefault("HF_HOME", str(hf_cache_dir))
 
         tts_process = subprocess.Popen(

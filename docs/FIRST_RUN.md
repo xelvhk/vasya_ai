@@ -15,7 +15,11 @@ python main.py
 - `.venv` virtual environment
 - Python dependencies from `requirements.txt`
 - `.env` from `.env.example` with a generated `VASYA_API_AUTH_TOKEN`
-- local `storage/`, `storage/memory_wiki`, and `storage/voices` directories
+- source-checkout `storage/`, `storage/memory_wiki`, and `storage/voices` directories
+- packaged app-data profile under the platform path documented in `docs/APP_DATA.md`
+
+## Existing Data Migration
+Packaged builds do not write into the application bundle or launch directory. Before removing an old checkout, migrate its `.env` and `storage/` data with the copy-only command in `docs/APP_DATA.md`.
 
 ## First-Run Checks
 - Ollama is installed and the configured model is available

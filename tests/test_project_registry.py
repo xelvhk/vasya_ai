@@ -11,6 +11,7 @@ from config.projects import (
     configured_project_configs,
 )
 from services.project_registry_service import list_project_registry, list_project_status
+from services.project_registry_store import ProjectRegistryStore, UserProject
 
 
 class ProjectRegistryTests(unittest.TestCase):
@@ -44,6 +45,31 @@ class ProjectRegistryTests(unittest.TestCase):
             projects = configured_project_configs()
 
         self.assertEqual(projects, PERSONAL_PROJECT_PRESETS)
+
+    def test_default_registry_loads_only_active_user_projects(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            registry_path = root / "project_registry.json"
+            store = ProjectRegistryStore(registry_path)
+            store.add(UserProject("active", "Active", str(root / "active"), "python", 10))
+            store.add(
+                UserProject(
+                    "paused",
+                    "Paused",
+                    str(root / "paused"),
+                    "web",
+                    20,
+                    enabled=False,
+                )
+            )
+
+            with patch(
+                "services.project_registry_service.PROJECT_REGISTRY_FILE",
+                str(registry_path),
+            ):
+                projects = list_project_registry()
+
+        self.assertEqual([project.id for project in projects], ["active"])
 
     def test_registry_marks_existing_project_ok(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

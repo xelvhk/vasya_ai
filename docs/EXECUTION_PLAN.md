@@ -25,7 +25,8 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 ## Current Checkpoint
 
 - Last completed foundation slice: platform app-data paths and copy-only compatibility migration.
-- Next implementation slice: user-owned project registry and Control Center management UI.
+- Current implementation item: user-owned project registry and Control Center management UI.
+- Next slice: expose validated project registry CRUD through the local API.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.
@@ -64,7 +65,7 @@ Acceptance:
 
 Reference: `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 
-### 3. NEXT: Add The User Project Registry
+### 3. IN PROGRESS: Add The User Project Registry
 
 Scope: replace source-level personal presets as the normal workflow with a
 local user-owned registry and Control Center management UI.

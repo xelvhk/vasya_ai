@@ -6,6 +6,8 @@ import subprocess
 from typing import Iterable
 
 from config.projects import ProjectConfig, configured_project_configs
+from config.settings import PROJECT_REGISTRY_FILE
+from services.project_registry_store import ProjectRegistryStore
 
 
 @dataclass(frozen=True)
@@ -40,7 +42,7 @@ def list_project_registry(
     projects: Iterable[ProjectConfig] | None = None,
 ) -> list[RegisteredProject]:
     if projects is None:
-        projects = configured_project_configs()
+        projects = _default_project_configs()
     registered = [_to_registered_project(project) for project in projects]
     return sorted(registered, key=lambda project: (project.priority, project.name.lower(), project.id))
 
@@ -90,6 +92,16 @@ def resolve_project_reference(
 def project_dashboard_target(project_id: str) -> str:
     normalized_id = re.sub(r"[^a-zA-Z0-9_-]", "", project_id.strip())
     return f"/control-center#project-{normalized_id}"
+
+
+def _default_project_configs() -> tuple[ProjectConfig, ...]:
+    configured = configured_project_configs()
+    if configured:
+        return configured
+    return tuple(
+        project.to_project_config()
+        for project in ProjectRegistryStore(PROJECT_REGISTRY_FILE).list()
+    )
 
 
 def _to_registered_project(project: ProjectConfig) -> RegisteredProject:

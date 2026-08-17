@@ -25,8 +25,9 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 ## Current Checkpoint
 
 - Last completed foundation slice: platform app-data paths and copy-only compatibility migration.
+- Last completed registry slice: validated local CRUD API with explicit error semantics.
 - Current implementation item: user-owned project registry and Control Center management UI.
-- Next slice: expose validated project registry CRUD through the local API.
+- Next slice: add project management controls to Control Center.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.

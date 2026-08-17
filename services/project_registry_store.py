@@ -19,6 +19,14 @@ class ProjectRegistryFormatError(ValueError):
     """Raised when a registry file cannot be read without risking data loss."""
 
 
+class ProjectAlreadyExistsError(ValueError):
+    """Raised when a project id is already present in the registry."""
+
+
+class ProjectNotFoundError(KeyError):
+    """Raised when a requested project id is not present in the registry."""
+
+
 @dataclass(frozen=True)
 class UserProject:
     id: str
@@ -54,7 +62,7 @@ class ProjectRegistryStore:
         normalized = _validate_project(project)
         projects = self._load()
         if any(item.id == normalized.id for item in projects):
-            raise ValueError(f"project id already exists: {normalized.id}")
+            raise ProjectAlreadyExistsError(normalized.id)
         projects.append(normalized)
         self._save(projects)
         return normalized
@@ -85,7 +93,7 @@ class ProjectRegistryStore:
             projects[index] = normalized
             self._save(projects)
             return normalized
-        raise KeyError(f"unknown project id: {project_id}")
+        raise ProjectNotFoundError(project_id)
 
     def remove(self, project_id: str) -> UserProject:
         projects = self._load()
@@ -94,7 +102,7 @@ class ProjectRegistryStore:
                 removed = projects.pop(index)
                 self._save(projects)
                 return removed
-        raise KeyError(f"unknown project id: {project_id}")
+        raise ProjectNotFoundError(project_id)
 
     def export(self, destination: str | Path) -> Path:
         destination_path = Path(destination).expanduser()

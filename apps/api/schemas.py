@@ -76,3 +76,33 @@ class ProjectStatusItem(BaseModel):
 
 class ProjectStatusResponse(BaseModel):
     items: list[ProjectStatusItem]
+
+
+class ProjectRegistryItem(BaseModel):
+    id: str
+    name: str
+    path: str
+    kind: str
+    priority: int
+    enabled: bool
+
+
+class ProjectRegistryResponse(BaseModel):
+    items: list[ProjectRegistryItem]
+
+
+class CreateProjectRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    name: str = Field(min_length=1, max_length=120)
+    path: str = Field(min_length=1, max_length=4096)
+    kind: str = Field(min_length=1, max_length=64)
+    priority: int = Field(ge=0, le=100_000)
+    enabled: bool = True
+
+
+class UpdateProjectRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    path: str | None = Field(default=None, min_length=1, max_length=4096)
+    kind: str | None = Field(default=None, min_length=1, max_length=64)
+    priority: int | None = Field(default=None, ge=0, le=100_000)
+    enabled: bool | None = None

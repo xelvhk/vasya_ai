@@ -25,9 +25,9 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 ## Current Checkpoint
 
 - Last completed foundation slice: platform app-data paths and copy-only compatibility migration.
-- Last completed registry slice: validated local CRUD API with explicit error semantics.
-- Current implementation item: user-owned project registry and Control Center management UI.
-- Next slice: add project management controls to Control Center.
+- Last completed registry slice: user-owned registry with Control Center CRUD management.
+- Current implementation item: backup and restore for non-secret user state.
+- Next slice: define the versioned backup archive and exclusion policy.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.
@@ -66,7 +66,7 @@ Acceptance:
 
 Reference: `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 
-### 3. IN PROGRESS: Add The User Project Registry
+### 3. DONE: Add The User Project Registry
 
 Scope: replace source-level personal presets as the normal workflow with a
 local user-owned registry and Control Center management UI.
@@ -78,7 +78,7 @@ Acceptance:
 - Paths are validated without scanning the machine or mutating repositories.
 - Registry data survives app upgrades and can be exported for backup.
 
-### 4. QUEUED: Add Backup And Restore For User State
+### 4. NEXT: Add Backup And Restore For User State
 
 Scope: export and restore non-secret settings, project mappings, and local
 Vasya records.

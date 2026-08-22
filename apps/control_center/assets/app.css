@@ -248,6 +248,12 @@ h1 {
   gap: 8px;
 }
 
+.auth-form {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
 .device-toolbar span {
   width: 10px;
   height: 10px;
@@ -476,6 +482,22 @@ h1 {
     font-size: 0.78rem;
   }
 
+  .nav-links {
+    display: grid;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .nav-links a {
+    text-align: center;
+  }
+
+  .floating-nav button {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
   .nav-links a,
   .floating-nav button {
     padding-inline: 10px;
@@ -489,5 +511,367 @@ h1 {
   .empty-state,
   .error-state {
     padding-inline: 20px;
+  }
+}
+
+.project-management {
+  margin-bottom: 44px;
+  padding: 32px 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.section-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.section-header > div {
+  max-width: 720px;
+}
+
+.section-header h2,
+.section-heading h2,
+.dialog-header h2,
+.delete-dialog h2 {
+  color: var(--color-snow-white);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.section-header .eyebrow,
+.dialog-header .eyebrow,
+.delete-dialog .eyebrow {
+  margin-bottom: 8px;
+}
+
+.section-copy,
+.section-heading p {
+  margin-top: 8px;
+  color: var(--color-ash);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.section-heading {
+  margin-bottom: 18px;
+}
+
+.primary-action {
+  display: inline-flex;
+  min-width: 134px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.primary-action span {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.registry-feedback {
+  min-height: 22px;
+  margin-top: 20px;
+  color: var(--color-ash);
+  font-size: 0.86rem;
+}
+
+.registry-feedback.is-error,
+.form-error {
+  color: #ffb4b4;
+}
+
+.registry-feedback.is-success {
+  color: var(--color-bone);
+}
+
+.registry-list {
+  margin-top: 4px;
+  border-top: 1px solid var(--hairline);
+}
+
+.registry-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.72fr) minmax(220px, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  min-height: 76px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 0;
+}
+
+.registry-identity {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.registry-name {
+  overflow-wrap: anywhere;
+  color: var(--color-bone);
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.registry-kind {
+  color: var(--color-slate);
+  font-size: 0.82rem;
+}
+
+.registry-path {
+  overflow: hidden;
+  color: var(--color-ash);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.registry-row.is-disabled .registry-identity,
+.registry-row.is-disabled .registry-path {
+  opacity: 0.54;
+}
+
+.registry-controls,
+.enabled-control,
+.dialog-actions {
+  display: flex;
+  align-items: center;
+}
+
+.registry-controls {
+  justify-content: end;
+  gap: 8px;
+}
+
+.enabled-control {
+  gap: 8px;
+  color: var(--color-ash);
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.enabled-control input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-snow-white);
+}
+
+.secondary-button,
+.danger-button,
+.icon-button {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-bone);
+}
+
+.danger-button {
+  color: #ffb4b4;
+}
+
+.danger-solid {
+  border-color: #ffb4b4;
+  background: #ffb4b4;
+  color: #161616;
+}
+
+.registry-message {
+  display: grid;
+  gap: 6px;
+  padding: 24px 0;
+}
+
+.registry-message strong {
+  color: var(--color-bone);
+  font-size: 0.98rem;
+}
+
+.registry-message p {
+  color: var(--color-ash);
+  line-height: 1.5;
+}
+
+.registry-message.is-error strong,
+.registry-message.is-error p {
+  color: #ffb4b4;
+}
+
+.project-dialog {
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  overflow: auto;
+  border: 1px solid rgba(229, 229, 229, 0.28);
+  border-radius: 12px;
+  background: var(--color-graphite);
+  color: var(--color-bone);
+  padding: 0;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+}
+
+.project-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  place-items: center;
+  padding: 0;
+  font-size: 1.35rem;
+}
+
+.project-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 24px;
+}
+
+.form-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.form-field label {
+  color: var(--color-ash);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(229, 229, 229, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-snow-white);
+  padding: 0 12px;
+}
+
+.form-field input:disabled {
+  color: var(--color-slate);
+  cursor: not-allowed;
+}
+
+.form-field small {
+  color: var(--color-slate);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.form-enabled,
+.form-error {
+  margin: 0 24px 20px;
+}
+
+.form-error {
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 24px 24px;
+  border-top: 1px solid var(--hairline);
+}
+
+.delete-dialog {
+  width: min(460px, calc(100vw - 24px));
+}
+
+.delete-dialog-content {
+  padding: 24px;
+}
+
+.delete-dialog-content > p:not(.eyebrow) {
+  margin-top: 12px;
+  color: var(--color-ash);
+  line-height: 1.5;
+}
+
+.delete-dialog .dialog-actions {
+  margin-top: 24px;
+  padding: 18px 0 0;
+}
+
+@media (max-width: 900px) {
+  .registry-row {
+    grid-template-columns: minmax(180px, 0.65fr) minmax(220px, 1fr);
+  }
+
+  .registry-controls {
+    grid-column: 1 / -1;
+    justify-content: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .section-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .primary-action {
+    align-self: start;
+  }
+
+  .registry-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 18px 0;
+  }
+
+  .registry-controls {
+    grid-column: auto;
+    flex-wrap: wrap;
+  }
+
+  .project-form-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .field-wide {
+    grid-column: auto;
+  }
+
+  .dialog-header {
+    padding: 20px;
+  }
+
+  .form-enabled,
+  .form-error {
+    margin-inline: 20px;
+  }
+
+  .dialog-actions {
+    padding: 16px 20px 20px;
   }
 }

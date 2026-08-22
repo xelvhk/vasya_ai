@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Vasya Project OS</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/control-center/assets/app.css" />
   </head>
   <body>
@@ -21,6 +22,7 @@
         </a>
         <div class="nav-links">
           <a href="#project-grid">Projects</a>
+          <a href="#project-management">Manage</a>
           <a href="#status-summary">Status</a>
         </div>
         <button id="refresh-projects" type="button">Refresh</button>
@@ -39,16 +41,18 @@
         </div>
 
         <aside class="device-frame" aria-label="Control Center authentication">
-          <div class="device-toolbar">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-          <label class="token-field">
-            <span>API token</span>
-            <input id="api-token" type="password" autocomplete="off" spellcheck="false" />
-          </label>
-          <p>With auth enabled, store the local token here for project status requests.</p>
+          <form id="api-token-form" class="auth-form">
+            <div class="device-toolbar">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <label class="token-field">
+              <span>API token</span>
+              <input id="api-token" type="password" autocomplete="off" spellcheck="false" />
+            </label>
+            <p>With auth enabled, use the local token for project status and registry changes.</p>
+          </form>
         </aside>
       </section>
 
@@ -67,7 +71,29 @@
         </article>
       </section>
 
-      <section id="project-grid" class="project-grid" aria-live="polite"></section>
+      <section id="project-management" class="project-management" aria-labelledby="registry-title">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Local registry</p>
+            <h2 id="registry-title">Manage projects</h2>
+            <p class="section-copy">
+              Add folders you want Vasya Project OS to track. Paths are saved locally and are never scanned automatically.
+            </p>
+          </div>
+          <button id="add-project" class="primary-action" type="button">
+            <span aria-hidden="true">+</span>
+            Add project
+          </button>
+        </header>
+        <p id="registry-feedback" class="registry-feedback" role="status" aria-live="polite"></p>
+        <div id="registry-list" class="registry-list" aria-live="polite"></div>
+      </section>
+
+      <div class="section-heading">
+        <h2 id="project-status-title">Project status</h2>
+        <p>Current Git state and the next useful action for every enabled project.</p>
+      </div>
+      <section id="project-grid" class="project-grid" aria-labelledby="project-status-title" aria-live="polite"></section>
     </main>
 
     <template id="project-card-template">
@@ -102,6 +128,94 @@
         </footer>
       </article>
     </template>
+
+    <template id="registry-row-template">
+      <article class="registry-row">
+        <div class="registry-identity">
+          <strong class="registry-name"></strong>
+          <span class="registry-kind"></span>
+        </div>
+        <code class="registry-path"></code>
+        <div class="registry-controls">
+          <label class="enabled-control">
+            <input class="registry-enabled" type="checkbox" />
+            <span>Enabled</span>
+          </label>
+          <button class="secondary-button edit-project" type="button">Edit</button>
+          <button class="danger-button remove-project" type="button">Remove</button>
+        </div>
+      </article>
+    </template>
+
+    <dialog id="project-dialog" class="project-dialog" aria-labelledby="project-dialog-title">
+      <form id="project-form">
+        <header class="dialog-header">
+          <div>
+            <p class="eyebrow">Project registry</p>
+            <h2 id="project-dialog-title">Add project</h2>
+          </div>
+          <button id="close-project-dialog" class="icon-button" type="button" aria-label="Close dialog" title="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <div class="project-form-grid">
+          <div class="form-field">
+            <label for="project-id">Project ID</label>
+            <input
+              id="project-id"
+              name="id"
+              type="text"
+              pattern="[a-z0-9][a-z0-9_\-]*"
+              maxlength="64"
+              autocomplete="off"
+              required
+            />
+            <small>Lowercase letters, numbers, hyphens, or underscores.</small>
+          </div>
+          <div class="form-field">
+            <label for="project-name">Name</label>
+            <input id="project-name" name="name" type="text" maxlength="120" autocomplete="off" required />
+          </div>
+          <div class="form-field field-wide">
+            <label for="project-path">Absolute folder path</label>
+            <input id="project-path" name="path" type="text" maxlength="4096" autocomplete="off" required />
+          </div>
+          <div class="form-field">
+            <label for="project-kind">Kind</label>
+            <input id="project-kind" name="kind" type="text" maxlength="64" autocomplete="off" required />
+          </div>
+          <div class="form-field">
+            <label for="project-priority">Priority</label>
+            <input id="project-priority" name="priority" type="number" min="0" max="100000" step="1" required />
+          </div>
+        </div>
+
+        <label class="enabled-control form-enabled">
+          <input id="project-enabled" name="enabled" type="checkbox" checked />
+          <span>Include this project in Project OS status</span>
+        </label>
+        <p id="project-form-error" class="form-error" role="alert" hidden></p>
+
+        <footer class="dialog-actions">
+          <button id="cancel-project-dialog" class="secondary-button" type="button">Cancel</button>
+          <button id="save-project" type="submit">Save project</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="delete-project-dialog" class="project-dialog delete-dialog" aria-labelledby="delete-dialog-title">
+      <div class="delete-dialog-content">
+        <p class="eyebrow">Remove from registry</p>
+        <h2 id="delete-dialog-title">Remove project?</h2>
+        <p id="delete-project-copy"></p>
+        <p>This removes only the Vasya registry entry. The project folder and Git repository stay untouched.</p>
+        <div class="dialog-actions">
+          <button id="cancel-delete-project" class="secondary-button" type="button">Cancel</button>
+          <button id="confirm-delete-project" class="danger-button danger-solid" type="button">Remove project</button>
+        </div>
+      </div>
+    </dialog>
 
     <script src="/control-center/assets/app.js" defer></script>
   </body>

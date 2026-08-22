@@ -26,8 +26,9 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 
 - Last completed foundation slice: platform app-data paths and copy-only compatibility migration.
 - Last completed registry slice: user-owned registry with Control Center CRUD management.
+- Last completed backup slice: versioned allowlist export with explicit secret and payload exclusions.
 - Current implementation item: backup and restore for non-secret user state.
-- Next slice: define the versioned backup archive and exclusion policy.
+- Next slice: validate archives and preview import changes without writing state.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.
@@ -78,7 +79,7 @@ Acceptance:
 - Paths are validated without scanning the machine or mutating repositories.
 - Registry data survives app upgrades and can be exported for backup.
 
-### 4. NEXT: Add Backup And Restore For User State
+### 4. IN PROGRESS: Add Backup And Restore For User State
 
 Scope: export and restore non-secret settings, project mappings, and local
 Vasya records.
@@ -88,6 +89,8 @@ Acceptance:
 - Secrets and large model/cache files are excluded.
 - Import previews changes and never silently overwrites newer data.
 - The archive format is versioned and documented.
+
+Reference: `docs/adr/ADR-004-versioned-user-backups.md`.
 
 ### 5. QUEUED: Define The Read-Only Connector Contract
 

@@ -26,9 +26,9 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 
 - Last completed foundation slice: platform app-data paths and copy-only compatibility migration.
 - Last completed registry slice: user-owned registry with Control Center CRUD management.
-- Last completed backup slice: versioned allowlist export with explicit secret and payload exclusions.
+- Last completed backup slice: strict archive validation and read-only import preview.
 - Current implementation item: backup and restore for non-secret user state.
-- Next slice: validate archives and preview import changes without writing state.
+- Next slice: apply validated backups atomically with explicit conflict confirmation.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.

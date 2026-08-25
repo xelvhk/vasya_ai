@@ -98,9 +98,25 @@ following categories are excluded even if they are present:
 SQLite and Memory Center data may be added later as logical, versioned records.
 They must not be added by copying live storage files into the archive.
 
+### Import Preview
+
+Import preview is read-only. It validates the complete archive before comparing
+entries with local state and returns one status per declared file:
+
+- `create`: the local state file does not exist;
+- `unchanged`: local bytes and archive bytes are identical;
+- `conflict`: local state differs, cannot be read, is not a regular file, or is
+  a symbolic link.
+
+Preview rejects malformed manifests, unsupported versions or policies,
+undeclared and unknown entries, duplicate paths, path traversal, symbolic
+links, encrypted entries, expansion beyond size limits, checksum mismatches,
+invalid JSON, and secret-like keys. It does not create the target directory or
+write any state.
+
 ### Restore Safety Contract
 
-Restore is a later slice. Before it can write any state, it must:
+Applying a restore is a later slice. Before it can write any state, it must:
 
 1. Reject unsupported format ids and future versions.
 2. Reject duplicate entries, absolute paths, path traversal, links, and entries

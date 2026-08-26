@@ -27,6 +27,18 @@ class BackupArchiveError(ValueError):
     """Raised when an import archive cannot be previewed safely."""
 
 
+class BackupRestoreError(ValueError):
+    """Raised when a validated backup cannot be applied safely."""
+
+
+class BackupConflictError(BackupRestoreError):
+    """Raised when restore requires explicit conflict confirmation."""
+
+    def __init__(self, conflicts: tuple[str, ...]) -> None:
+        self.conflicts = conflicts
+        super().__init__(f"backup restore has conflicts: {', '.join(conflicts)}")
+
+
 @dataclass(frozen=True)
 class UserBackupResult:
     path: Path
@@ -54,6 +66,14 @@ class UserBackupPreview:
 
 
 @dataclass(frozen=True)
+class UserBackupRestoreResult:
+    archive_path: Path
+    created: tuple[str, ...]
+    replaced: tuple[str, ...]
+    unchanged: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class _ManifestEntry:
     path: str
     size: int
@@ -64,6 +84,19 @@ class _ManifestEntry:
 class _BackupEntry:
     archive_path: str
     payload: bytes
+
+
+@dataclass(frozen=True)
+class _ValidatedEntry:
+    manifest: _ManifestEntry
+    payload: bytes
+
+
+@dataclass(frozen=True)
+class _ValidatedBackup:
+    archive_path: Path
+    created_at: str
+    entries: tuple[_ValidatedEntry, ...]
 
 
 PORTABLE_STATE_FILES = (
@@ -128,10 +161,79 @@ def preview_user_backup(
 ) -> UserBackupPreview:
     """Validate a user backup and classify changes without writing local state."""
 
+    backup = _load_validated_backup(
+        archive_path,
+        max_file_bytes=max_file_bytes,
+        max_archive_bytes=max_archive_bytes,
+    )
+    target_dir = Path(data_dir).expanduser()
+    return UserBackupPreview(
+        archive_path=backup.archive_path,
+        created_at=backup.created_at,
+        items=tuple(
+            _preview_entry(entry.manifest, payload=entry.payload, data_dir=target_dir)
+            for entry in backup.entries
+        ),
+    )
+
+
+def restore_user_backup(
+    archive_path: str | Path,
+    *,
+    data_dir: str | Path,
+    allow_conflicts: bool = False,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    max_archive_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
+) -> UserBackupRestoreResult:
+    """Validate and restore portable state, requiring opt-in conflict replacement."""
+
+    if not isinstance(allow_conflicts, bool):
+        raise ValueError("allow_conflicts must be a boolean")
+    backup = _load_validated_backup(
+        archive_path,
+        max_file_bytes=max_file_bytes,
+        max_archive_bytes=max_archive_bytes,
+    )
+    target_dir = Path(data_dir).expanduser()
+    preview_items = tuple(
+        _preview_entry(entry.manifest, payload=entry.payload, data_dir=target_dir)
+        for entry in backup.entries
+    )
+    conflicts = tuple(item.path for item in preview_items if item.status == "conflict")
+    unsafe_conflicts = tuple(
+        item.path
+        for item in preview_items
+        if item.status == "conflict" and item.detail != "archive and local state differ"
+    )
+    if unsafe_conflicts or (conflicts and not allow_conflicts):
+        raise BackupConflictError(conflicts)
+
+    created = tuple(item.path for item in preview_items if item.status == "create")
+    replaced = tuple(item.path for item in preview_items if item.status == "conflict")
+    unchanged = tuple(item.path for item in preview_items if item.status == "unchanged")
+    if created or replaced:
+        _apply_validated_backup(
+            backup.entries,
+            preview_items=preview_items,
+            data_dir=target_dir,
+        )
+    return UserBackupRestoreResult(
+        archive_path=backup.archive_path,
+        created=created,
+        replaced=replaced,
+        unchanged=unchanged,
+    )
+
+
+def _load_validated_backup(
+    archive_path: str | Path,
+    *,
+    max_file_bytes: int,
+    max_archive_bytes: int,
+) -> _ValidatedBackup:
     _validate_positive_limit(max_file_bytes, field="max_file_bytes")
     _validate_positive_limit(max_archive_bytes, field="max_archive_bytes")
     source_path = Path(archive_path).expanduser()
-    target_dir = Path(data_dir).expanduser()
     if source_path.is_symlink() or not source_path.is_file():
         raise BackupArchiveError("backup archive must be a regular file")
     try:
@@ -163,7 +265,7 @@ def preview_user_backup(
             if declared_paths != archived_paths:
                 raise BackupArchiveError("backup entries do not match the manifest")
 
-            preview_items: list[BackupPreviewItem] = []
+            validated_entries: list[_ValidatedEntry] = []
             for entry in manifest_entries:
                 payload = _read_archive_entry(archive, info_by_path[entry.path])
                 if len(payload) != entry.size:
@@ -183,17 +285,108 @@ def preview_user_backup(
                     raise BackupArchiveError(
                         f"backup entry contains a sensitive key: {entry.path}:{sensitive_key}"
                     )
-                preview_items.append(_preview_entry(entry, payload=payload, data_dir=target_dir))
+                validated_entries.append(_ValidatedEntry(manifest=entry, payload=payload))
     except BackupArchiveError:
         raise
     except (BadZipFile, OSError, RuntimeError) as exc:
         raise BackupArchiveError("backup archive could not be read safely") from exc
 
-    return UserBackupPreview(
+    return _ValidatedBackup(
         archive_path=source_path,
         created_at=created_at,
-        items=tuple(preview_items),
+        entries=tuple(validated_entries),
     )
+
+
+def _apply_validated_backup(
+    entries: tuple[_ValidatedEntry, ...],
+    *,
+    preview_items: tuple[BackupPreviewItem, ...],
+    data_dir: Path,
+) -> None:
+    if data_dir.is_symlink() or (data_dir.exists() and not data_dir.is_dir()):
+        raise BackupRestoreError("backup target must be a regular directory")
+
+    data_dir_existed = data_dir.exists()
+    try:
+        data_dir.parent.mkdir(parents=True, exist_ok=True)
+        data_dir.mkdir(mode=0o700, exist_ok=True)
+    except OSError as exc:
+        raise BackupRestoreError("backup target directory could not be created") from exc
+
+    entry_by_path = {entry.manifest.path: entry for entry in entries}
+    changed_items = tuple(item for item in preview_items if item.status != "unchanged")
+    try:
+        with tempfile.TemporaryDirectory(
+            dir=data_dir.parent,
+            prefix=".vasya-restore.",
+        ) as temporary_name:
+            temporary_dir = Path(temporary_name)
+            staged_dir = temporary_dir / "staged"
+            rollback_dir = temporary_dir / "rollback"
+            staged_dir.mkdir(mode=0o700)
+            rollback_dir.mkdir(mode=0o700)
+
+            for item in changed_items:
+                staged_path = staged_dir / PurePosixPath(item.path).name
+                staged_path.write_bytes(entry_by_path[item.path].payload)
+                os.chmod(staged_path, 0o600)
+
+            current_items = tuple(
+                _preview_entry(
+                    entry_by_path[item.path].manifest,
+                    payload=entry_by_path[item.path].payload,
+                    data_dir=data_dir,
+                )
+                for item in preview_items
+            )
+            if current_items != preview_items:
+                raise BackupRestoreError("local state changed during backup restore")
+
+            applied_targets: list[Path] = []
+            moved_originals: list[tuple[Path, Path]] = []
+            try:
+                for item in changed_items:
+                    file_name = PurePosixPath(item.path).name
+                    target_path = data_dir / file_name
+                    staged_path = staged_dir / file_name
+                    if item.status == "conflict":
+                        rollback_path = rollback_dir / file_name
+                        os.replace(target_path, rollback_path)
+                        moved_originals.append((rollback_path, target_path))
+                    elif target_path.is_symlink() or target_path.exists():
+                        raise OSError(f"restore target appeared unexpectedly: {file_name}")
+                    os.replace(staged_path, target_path)
+                    applied_targets.append(target_path)
+                    os.chmod(target_path, 0o600)
+            except OSError as exc:
+                rollback_errors: list[OSError] = []
+                for target_path in reversed(applied_targets):
+                    try:
+                        if target_path.is_symlink() or target_path.exists():
+                            target_path.unlink()
+                    except OSError as rollback_exc:
+                        rollback_errors.append(rollback_exc)
+                for rollback_path, target_path in reversed(moved_originals):
+                    try:
+                        os.replace(rollback_path, target_path)
+                    except OSError as rollback_exc:
+                        rollback_errors.append(rollback_exc)
+                message = "backup restore failed and rollback was incomplete"
+                if not rollback_errors:
+                    message = "backup restore failed; local state was rolled back"
+                raise BackupRestoreError(message) from exc
+    except BackupRestoreError:
+        raise
+    except OSError as exc:
+        raise BackupRestoreError("backup restore staging failed") from exc
+    finally:
+        if not data_dir_existed:
+            try:
+                if data_dir.exists() and not any(data_dir.iterdir()):
+                    data_dir.rmdir()
+            except OSError:
+                pass
 
 
 def _validate_positive_limit(value: int, *, field: str) -> None:

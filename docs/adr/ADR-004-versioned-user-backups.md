@@ -116,7 +116,8 @@ write any state.
 
 ### Restore Safety Contract
 
-Applying a restore is a later slice. Before it can write any state, it must:
+Restore reuses the same complete archive validation as preview before it writes
+any state. Its contract is:
 
 1. Reject unsupported format ids and future versions.
 2. Reject duplicate entries, absolute paths, path traversal, links, and entries
@@ -127,6 +128,19 @@ Applying a restore is a later slice. Before it can write any state, it must:
    excluded content.
 6. Require explicit confirmation before replacing newer or conflicting data.
 7. Apply accepted changes atomically and preserve `0600` permissions.
+
+`restore_user_backup(..., allow_conflicts=False)` is the safe default. It
+raises `BackupConflictError` with every conflicting archive path before
+creating or replacing any state file. Setting `allow_conflicts=True` permits
+replacement only when the local target is a regular readable file whose bytes
+differ. Symbolic links, directories, and unreadable targets remain blocked.
+
+Changed payloads are first written to a private staging directory on the same
+filesystem. Existing regular files are moved into a rollback directory before
+staged files are installed with `os.replace`. If an operational error occurs,
+all files already applied by that restore are removed and every original is
+put back. This gives the restore batch rollback semantics for handled failures;
+each installed file is atomically replaced and receives `0600` permissions.
 
 An archive is private user data. It is never committed to the repository,
 attached to diagnostics, or uploaded automatically.
@@ -139,5 +153,5 @@ attached to diagnostics, or uploaded automatically.
   producing a potentially unsafe archive.
 - Version 1 initially protects project mappings and portable UI preferences,
   but it is not yet a complete backup of tasks, notes, or Memory Center data.
-- Import preview and conflict-safe restore remain required before backup/restore
-  is considered complete.
+- Import preview, explicit conflict confirmation, rollback, and synthetic
+  round-trip coverage now complete the version 1 backup/restore slice.

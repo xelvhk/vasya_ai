@@ -40,7 +40,7 @@ Project OS, а обновление приложения не затрагива
 
 ## 4. Подготовить интеграции и единое представление проектов
 
-- [ ] Зафиксировать read-only connector contract и capability model.
+- [x] Зафиксировать read-only connector contract и capability model.
 - [ ] Добавить permission-aware Eva bridge через Reminders и Calendar на macOS.
 - [ ] Сохранять provenance, source id, sync cursor и health status.
 - [ ] Собрать задачи, события, заметки и Git-статус в unified project read model.

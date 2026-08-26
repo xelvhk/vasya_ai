@@ -28,9 +28,11 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
 - Last completed registry slice: user-owned registry with Control Center CRUD management.
 - Last completed backup slice: conflict-safe restore with rollback and synthetic
   export/import round-trip coverage.
-- Current implementation item: read-only connector contract and capability model.
-- Next slice: define connector identity, availability, capabilities, permissions,
-  provenance, sync cursor, and health status.
+- Last completed connector slice: read-only connector contract, capability
+  policy, provenance, cursor, and lightweight readiness registry.
+- Current implementation item: Eva ingestion through Apple Reminders and Calendar.
+- Next slice: add the Eva connector descriptor and platform availability
+  adapter before EventKit reads.
 - Personal/public data separation is accepted in
   `docs/adr/ADR-003-public-app-and-private-user-data.md`.
 - The existing unsigned macOS ZIP is a tester artifact, not a general release.
@@ -94,7 +96,7 @@ Acceptance:
 
 Reference: `docs/adr/ADR-004-versioned-user-backups.md`.
 
-### 5. NEXT: Define The Read-Only Connector Contract
+### 5. DONE: Define The Read-Only Connector Contract
 
 Scope: define connector identity, availability, capabilities, permissions,
 source provenance, sync cursor, and health status.
@@ -106,7 +108,9 @@ Acceptance:
 - Project OS can list connector readiness without running a sync.
 - External writes cannot bypass the future approval queue.
 
-### 6. QUEUED: Add Eva Via Apple Reminders And Calendar
+Reference: `docs/adr/ADR-005-project-connector-contract.md`.
+
+### 6. NEXT: Add Eva Via Apple Reminders And Calendar
 
 Scope: implement a macOS read-only EventKit connector for selected Eva-synced
 lists and calendars.

@@ -51,6 +51,13 @@ QComboBox QAbstractItemView {
 QWidget#settingsTabPage {
     background: #0f173b;
 }
+QScrollArea {
+    background: #0f173b;
+    border: none;
+}
+QScrollArea > QWidget > QWidget {
+    background: #0f173b;
+}
 QTabWidget#settingsTabs {
     background: transparent;
 }

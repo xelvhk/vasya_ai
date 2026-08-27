@@ -23,18 +23,22 @@ from voice.tts import set_voice_profile, speak
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import (
+    QAbstractScrollArea,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFrame,
     QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSlider,
     QSpinBox,
     QTabWidget,
@@ -164,11 +168,23 @@ class SettingsDialog(QDialog):
         tabs.tabBar().setDrawBase(False)
 
         tab_pages = {}
+        tab_views = {}
         for tab_spec in SETTINGS_TABS:
-            tab_page = QWidget(self)
+            tab_scroll = QScrollArea(tabs)
+            tab_scroll.setWidgetResizable(True)
+            tab_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            tab_scroll.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
+            tab_scroll.setSizeAdjustPolicy(
+                QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored
+            )
+            tab_page = QWidget(tab_scroll)
             tab_page.setObjectName(SETTINGS_DIALOG_OBJECT_NAMES.tab_page)
-            tabs.addTab(tab_page, tab_spec.label)
+            tab_scroll.setWidget(tab_page)
+            tabs.addTab(tab_scroll, tab_spec.label)
             tab_pages[tab_spec.tab_id] = tab_page
+            tab_views[tab_spec.tab_id] = tab_scroll
         appearance_tab = tab_pages["appearance"]
         behavior_tab = tab_pages["behavior"]
         integrations_tab = tab_pages["integrations"]
@@ -187,7 +203,13 @@ class SettingsDialog(QDialog):
         self._build_behavior_section(behavior_form, widget)
         self._build_integrations_section(integrations_form, widget)
 
-        layout.addWidget(tabs)
+        tabs.setMinimumHeight(320)
+        tabs.setMaximumHeight(520)
+        tabs.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+        layout.addWidget(tabs, 1)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
@@ -196,10 +218,31 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        self._fit_to_available_screen(widget)
 
         if widget._settings_focus == "voice":
-            tabs.setCurrentWidget(behavior_tab)
+            tabs.setCurrentWidget(tab_views["behavior"])
             self._voice_profile_combo.setFocus()
+
+    def _fit_to_available_screen(self, widget: "AvatarWidget") -> None:
+        screen = QGuiApplication.screenAt(widget.frameGeometry().center())
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+
+        available = screen.availableGeometry()
+        maximum_width = max(1, available.width() - 32)
+        maximum_height = max(1, available.height() - 48)
+        self.setMinimumWidth(min(400, maximum_width))
+        self.setMaximumWidth(maximum_width)
+        self.setMaximumHeight(maximum_height)
+
+        hint = self.sizeHint()
+        self.resize(
+            min(max(hint.width(), self.minimumWidth()), maximum_width),
+            min(hint.height(), maximum_height),
+        )
 
     def _build_appearance_section(self, appearance_form: QFormLayout, widget: "AvatarWidget") -> None:
         self._size_combo = QComboBox(self)

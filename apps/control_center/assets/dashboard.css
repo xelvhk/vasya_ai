@@ -1,0 +1,382 @@
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 11, 11, 0.94);
+  backdrop-filter: blur(12px);
+}
+
+.topbar {
+  display: grid;
+  width: min(var(--content-width), calc(100vw - 32px));
+  min-height: 68px;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.brand,
+.main-nav {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  min-height: 44px;
+  gap: 10px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--text);
+  color: #111111;
+}
+
+.main-nav {
+  gap: 4px;
+}
+
+.main-nav a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  padding: 0 12px;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.main-nav a:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.shell {
+  width: min(var(--content-width), calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.dashboard-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 8px 0 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-intro .eyebrow {
+  margin-bottom: 8px;
+}
+
+#dashboard-summary {
+  margin-top: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.primary-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.primary-action span {
+  font-size: 1.1rem;
+}
+
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 40px;
+}
+
+.status-strip article {
+  display: flex;
+  min-height: 82px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px 18px;
+}
+
+.status-strip strong {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.project-status,
+.project-management {
+  scroll-margin-top: 92px;
+}
+
+.project-status {
+  margin-bottom: 48px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.section-header .eyebrow {
+  margin-bottom: 6px;
+}
+
+.section-header p:not(.eyebrow) {
+  max-width: 720px;
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 0.925rem;
+  line-height: 1.5;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(286px, 1fr));
+  gap: 12px;
+}
+
+.project-card,
+.empty-state,
+.error-state {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.project-card {
+  display: grid;
+  min-height: 278px;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+
+.project-card header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 12px;
+}
+
+.project-name {
+  overflow-wrap: anywhere;
+}
+
+.project-kind {
+  margin-top: 5px;
+  color: var(--text-quiet);
+  font-size: 0.825rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-pill::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.status-pill.ok {
+  color: var(--status-ok);
+}
+
+.status-pill.warn {
+  color: var(--status-warn);
+}
+
+.project-details {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 18px 16px;
+}
+
+.project-details div {
+  display: grid;
+  gap: 3px;
+}
+
+.project-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.42;
+}
+
+.project-card footer {
+  border-top: 1px solid var(--border);
+  padding: 14px 18px 16px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.empty-state,
+.error-state {
+  grid-column: 1 / -1;
+  padding: 22px;
+}
+
+.empty-state h3,
+.error-state h3 {
+  margin-bottom: 6px;
+}
+
+.empty-state p,
+.error-state p {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.error-state {
+  border-color: var(--status-danger);
+}
+
+.project-management {
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+}
+
+.registry-feedback {
+  min-height: 22px;
+  color: var(--text-muted);
+  font-size: 0.825rem;
+}
+
+.registry-feedback.is-error,
+.form-error {
+  color: var(--status-danger);
+}
+
+.registry-feedback.is-success {
+  color: var(--status-ok);
+}
+
+.registry-list {
+  border-top: 1px solid var(--border);
+}
+
+.registry-row {
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: minmax(180px, 0.72fr) minmax(220px, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+}
+
+.registry-identity {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.registry-name {
+  overflow-wrap: anywhere;
+}
+
+.registry-kind {
+  color: var(--text-quiet);
+  font-size: 0.8rem;
+}
+
+.registry-path {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.registry-row.is-disabled .registry-identity,
+.registry-row.is-disabled .registry-path {
+  opacity: 0.58;
+}
+
+.registry-controls,
+.enabled-control {
+  display: flex;
+  align-items: center;
+}
+
+.registry-controls {
+  justify-content: end;
+  gap: 8px;
+}
+
+.enabled-control {
+  min-height: 44px;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 0.825rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.enabled-control input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--status-ok);
+}
+
+.registry-message {
+  display: grid;
+  gap: 5px;
+  padding: 22px 0;
+}
+
+.registry-message p {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.registry-message.is-error strong,
+.registry-message.is-error p {
+  color: var(--status-danger);
+}
+

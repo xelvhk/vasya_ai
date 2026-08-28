@@ -24,6 +24,13 @@ class ControlCenterRoutesTests(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Vasya Project OS", response.text)
         self.assertIn("project-grid", response.text)
+        self.assertIn('href="#main-content"', response.text)
+        self.assertLess(
+            response.text.index('id="project-grid"'),
+            response.text.index('id="project-management"'),
+        )
+        self.assertNotIn("dashboard-hero", response.text)
+        self.assertNotIn("device-frame", response.text)
 
     def test_control_center_serves_project_management_controls(self) -> None:
         with patch("apps.api.main.log_interaction_event"):
@@ -40,6 +47,24 @@ class ControlCenterRoutesTests(unittest.TestCase):
         self.assertIn('aria-live="polite"', response.text)
         self.assertIn('<label for="project-name">', response.text)
         self.assertIn('<label for="project-path">', response.text)
+        self.assertIn('id="project-form-error"', response.text)
+        self.assertIn('tabindex="-1"', response.text)
+        self.assertIn('aria-describedby="project-form-error', response.text)
+
+    def test_control_center_serves_session_scoped_connection_dialog(self) -> None:
+        with patch("apps.api.main.log_interaction_event"):
+            with TestClient(api_main.app) as client:
+                page = client.get("/control-center")
+                script = client.get("/control-center/assets/api-client.js")
+
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('id="connection-dialog"', page.text)
+        self.assertIn('id="open-connection-dialog"', page.text)
+        self.assertIn('autocomplete="current-password"', page.text)
+        self.assertIn('type="module"', page.text)
+        self.assertEqual(script.status_code, 200)
+        self.assertIn("sessionStorage", script.text)
+        self.assertNotIn("localStorage", script.text)
 
     def test_control_center_javascript_fetches_project_status(self) -> None:
         with patch("apps.api.main.log_interaction_event"):
@@ -48,21 +73,30 @@ class ControlCenterRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('/v1/projects/status', response.text)
-        self.assertIn('vasyaApiToken', response.text)
+        self.assertIn('createApiClient', response.text)
 
     def test_control_center_javascript_manages_project_registry(self) -> None:
         with patch("apps.api.main.log_interaction_event"):
             with TestClient(api_main.app) as client:
                 response = client.get("/control-center/assets/app.js")
+                project_actions = client.get(
+                    "/control-center/assets/project-actions.js"
+                )
+                api_client = client.get("/control-center/assets/api-client.js")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('"/v1/projects"', response.text)
-        self.assertIn('"POST"', response.text)
-        self.assertIn('"PATCH"', response.text)
-        self.assertIn('method: "DELETE"', response.text)
-        self.assertIn("showModal()", response.text)
-        self.assertIn("responsePayload.detail", response.text)
-        self.assertNotIn("insertAdjacentHTML", response.text)
+        self.assertEqual(project_actions.status_code, 200)
+        self.assertIn('"/v1/projects"', project_actions.text)
+        self.assertIn('"POST"', project_actions.text)
+        self.assertIn('"PATCH"', project_actions.text)
+        self.assertIn('method: "DELETE"', project_actions.text)
+        self.assertIn("showModal()", project_actions.text)
+        self.assertEqual(api_client.status_code, 200)
+        self.assertIn("responsePayload.detail", api_client.text)
+        self.assertNotIn(
+            "insertAdjacentHTML",
+            response.text + project_actions.text,
+        )
 
     def test_control_center_rejects_missing_asset(self) -> None:
         with patch("apps.api.main.log_interaction_event"):

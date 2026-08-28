@@ -1,0 +1,138 @@
+.project-dialog {
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--text);
+  padding: 0;
+}
+
+.project-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+  padding: 20px 20px 16px;
+}
+
+.dialog-header .eyebrow,
+.delete-dialog .eyebrow {
+  margin-bottom: 6px;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  place-items: center;
+  padding: 0;
+  font-size: 1.25rem;
+}
+
+.project-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+.dialog-body {
+  padding: 20px;
+}
+
+.form-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.form-field label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.form-field input:disabled {
+  color: var(--text-quiet);
+  cursor: not-allowed;
+}
+
+.form-field small {
+  color: var(--text-quiet);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.form-enabled,
+.form-error {
+  margin: 0 20px 16px;
+}
+
+.form-error,
+.form-feedback {
+  min-height: 20px;
+  font-size: 0.825rem;
+  line-height: 1.4;
+}
+
+.form-error:focus {
+  outline-color: var(--status-danger);
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding: 16px 20px 20px;
+}
+
+.connection-dialog {
+  width: min(520px, calc(100vw - 24px));
+}
+
+.delete-dialog {
+  width: min(460px, calc(100vw - 24px));
+}
+
+.delete-dialog-content {
+  padding: 20px;
+}
+
+.delete-dialog-content > p:not(.eyebrow) {
+  margin-top: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.delete-dialog .dialog-actions {
+  margin-top: 20px;
+  padding: 16px 0 0;
+}
+

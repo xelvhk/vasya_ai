@@ -1,0 +1,155 @@
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-columns: auto 1fr;
+    gap: 8px 16px;
+    padding: 8px 0;
+  }
+
+  .main-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow-x: auto;
+  }
+
+  .header-actions {
+    justify-self: end;
+  }
+
+  .registry-row {
+    grid-template-columns: minmax(180px, 0.65fr) minmax(220px, 1fr);
+  }
+
+  .registry-controls {
+    grid-column: 1 / -1;
+    justify-content: start;
+  }
+}
+
+@media (max-width: 680px) {
+  html {
+    scroll-padding-top: 132px;
+  }
+
+  .topbar,
+  .shell {
+    width: min(100vw - 20px, 640px);
+  }
+
+  .header-actions button {
+    padding-inline: 10px;
+  }
+
+  .shell {
+    padding-top: 20px;
+  }
+
+  .dashboard-intro {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .primary-action {
+    align-self: start;
+  }
+
+  .status-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+
+  .status-strip article {
+    min-height: 76px;
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .status-strip strong {
+    font-size: 1.5rem;
+  }
+
+  .registry-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 16px 0;
+  }
+
+  .registry-controls {
+    grid-column: auto;
+    flex-wrap: wrap;
+  }
+
+  .project-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar,
+  .shell {
+    width: calc(100vw - 16px);
+  }
+
+  .brand > span:last-child {
+    display: none;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .main-nav {
+    justify-content: space-between;
+  }
+
+  .main-nav a {
+    padding-inline: 9px;
+  }
+
+  .dashboard-intro {
+    padding-top: 4px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .status-strip .metric-label {
+    font-size: 0.68rem;
+  }
+
+  .project-card header,
+  .project-details,
+  .project-card footer,
+  .empty-state,
+  .error-state {
+    padding-inline: 16px;
+  }
+
+  .dialog-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .dialog-actions button {
+    width: 100%;
+  }
+
+  .delete-dialog .dialog-actions {
+    flex-direction: column-reverse;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+

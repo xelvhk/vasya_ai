@@ -69,5 +69,6 @@ normalizes them before constructing contract records.
   contract used on macOS.
 - Repeated reads can retain provider cursors and source provenance.
 - External writes remain blocked until the action queue exists.
-- The contract does not yet persist cursor state, implement EventKit, expose an
-  API route, or add connector UI.
+- The Eva descriptor and platform availability adapter now exist, but the
+  connector does not yet request EventKit permission, read records, persist
+  cursor state, expose an API route, or add connector UI.

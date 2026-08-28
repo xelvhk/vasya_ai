@@ -90,8 +90,8 @@ from .settings_styles import SETTINGS_DIALOG_STYLESHEET
 from .settings_tabs import SETTINGS_TABS
 from .settings_values import applied_noisy_rms_threshold, minimum_noisy_rms_threshold
 
-BRAND_ACCENT_ALT = "#7b3dff"
-BRAND_MUTED = "#9fb8ec"
+PRIMARY_TEXT = "#f1f1f1"
+MUTED_TEXT = "#b3b3b3"
 
 
 if get_platform_name() == "macos":
@@ -131,10 +131,10 @@ class SettingsDialog(QDialog):
         layout.setSpacing(14)
 
         title = QLabel(SETTINGS_DIALOG_HEADER_TEXTS.title, self)
-        title.setStyleSheet(f"font-size: 18px; font-weight: 800; color: {BRAND_ACCENT_ALT};")
+        title.setStyleSheet(f"font-size: 18px; font-weight: 700; color: {PRIMARY_TEXT};")
         subtitle = QLabel(SETTINGS_DIALOG_HEADER_TEXTS.subtitle, self)
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet(f"font-size: 12px; color: {BRAND_MUTED};")
+        subtitle.setStyleSheet(f"font-size: 12px; color: {MUTED_TEXT};")
         layout.addWidget(title)
         layout.addWidget(subtitle)
 
@@ -142,13 +142,9 @@ class SettingsDialog(QDialog):
         preview_wrap.setStyleSheet(
             """
             QWidget {
-                background: qradialgradient(cx:0.5, cy:0.4, radius:0.8,
-                    fx:0.5, fy:0.4,
-                    stop:0 #17295f,
-                    stop:0.55 #111b45,
-                    stop:1 #070b1f);
-                border: 1px solid #2e489c;
-                border-radius: 16px;
+                background: #151515;
+                border: 1px solid #363636;
+                border-radius: 8px;
             }
             """
         )
@@ -156,7 +152,7 @@ class SettingsDialog(QDialog):
         preview_layout.setContentsMargins(12, 10, 12, 12)
         preview_layout.setSpacing(8)
         preview_title = QLabel("Превью", self)
-        preview_title.setStyleSheet(f"font-size: 12px; color: {BRAND_MUTED}; font-weight: 600;")
+        preview_title.setStyleSheet(f"font-size: 12px; color: {MUTED_TEXT}; font-weight: 600;")
         preview_layout.addWidget(preview_title)
         self._preview = AvatarPreview(widget, self)
         preview_layout.addWidget(self._preview, alignment=Qt.AlignmentFlag.AlignHCenter)

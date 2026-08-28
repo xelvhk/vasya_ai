@@ -3,16 +3,16 @@ from __future__ import annotations
 
 SETTINGS_DIALOG_STYLESHEET = """
 QDialog {
-    background-color: #070b1f;
-    border: 1px solid #2e489c;
-    border-radius: 18px;
+    background-color: #0b0b0b;
+    border: 1px solid #363636;
+    border-radius: 8px;
 }
 QLabel {
-    color: #edf4ff;
+    color: #f1f1f1;
     font-size: 13px;
 }
 QCheckBox {
-    color: #eef5ff;
+    color: #f1f1f1;
     spacing: 8px;
     font-size: 13px;
 }
@@ -20,104 +20,107 @@ QCheckBox::indicator {
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    border: 1px solid #4b67cb;
-    background: #121c47;
+    border: 1px solid #505050;
+    background: #151515;
 }
 QCheckBox::indicator:checked {
-    background: #7b3dff;
-    border: 1px solid #22b8ff;
+    background: #f1f1f1;
+    border: 1px solid #f1f1f1;
 }
 QComboBox, QLineEdit {
-    background: #121c47;
-    color: #f4f8ff;
-    border: 1px solid #3d61c9;
-    border-radius: 10px;
+    min-height: 20px;
+    border: 1px solid #505050;
+    border-radius: 8px;
+    background: #151515;
+    color: #f1f1f1;
     padding: 8px 10px;
-    min-height: 18px;
 }
 QComboBox::drop-down {
     border: none;
     width: 22px;
 }
 QComboBox QAbstractItemView {
-    background: #121c47;
-    color: #f4f8ff;
-    border: 1px solid #3d61c9;
-    border-radius: 10px;
-    selection-background-color: #224ebd;
+    border: 1px solid #505050;
+    border-radius: 8px;
+    background: #1c1c1c;
+    color: #f1f1f1;
+    selection-background-color: #363636;
     selection-color: #ffffff;
     outline: 0;
 }
-QWidget#settingsTabPage {
-    background: #0f173b;
+QWidget#settingsTabPage,
+QScrollArea,
+QScrollArea > QWidget > QWidget {
+    background: #151515;
 }
 QScrollArea {
-    background: #0f173b;
     border: none;
-}
-QScrollArea > QWidget > QWidget {
-    background: #0f173b;
 }
 QTabWidget#settingsTabs {
     background: transparent;
 }
 QTabWidget#settingsTabs::pane {
-    border: 1px solid #2e489c;
-    border-radius: 12px;
-    background: #0f173b;
     margin-top: 6px;
+    border: 1px solid #363636;
+    border-radius: 8px;
+    background: #151515;
 }
 QTabWidget#settingsTabs::tab-bar {
     alignment: left;
 }
 QTabWidget#settingsTabs > QWidget#qt_tabwidget_stackedwidget {
-    background: #0f173b;
-    border-radius: 10px;
+    border-radius: 8px;
+    background: #151515;
 }
 QTabWidget#settingsTabs QTabBar {
-    background: #0a112c;
+    background: #0b0b0b;
 }
 QTabWidget#settingsTabs QTabBar::tab {
-    background: #142454;
-    color: #bfd3fb;
-    border: 1px solid #355dbf;
+    margin-right: 4px;
+    border: 1px solid #363636;
     border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    padding: 7px 12px;
-    margin-right: 6px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    background: #151515;
+    color: #b3b3b3;
+    padding: 8px 12px;
 }
 QTabWidget#settingsTabs QTabBar::tab:selected {
-    background: #1b2f73;
+    border-color: #7a7a7a;
+    background: #242424;
     color: #ffffff;
-    border: 1px solid #7b3dff;
 }
 QTabWidget#settingsTabs QTabBar::tab:!selected {
     margin-top: 2px;
 }
 QSlider::groove:horizontal {
-    border: 0;
     height: 6px;
-    background: #1a2f67;
+    border: 0;
     border-radius: 3px;
+    background: #363636;
 }
 QSlider::handle:horizontal {
-    background: #22b8ff;
-    border: 1px solid #8ee2ff;
     width: 16px;
     margin: -6px 0;
+    border: 1px solid #ffffff;
     border-radius: 8px;
+    background: #f1f1f1;
 }
 QPushButton {
-    background: #1a2a66;
-    color: #f5f9ff;
-    border: 1px solid #3f5fc7;
-    border-radius: 10px;
+    border: 1px solid #505050;
+    border-radius: 8px;
+    background: #242424;
+    color: #f1f1f1;
     padding: 8px 14px;
 }
 QPushButton:hover {
-    background: #213985;
-    border: 1px solid #22b8ff;
+    border-color: #7a7a7a;
+    background: #303030;
+}
+QPushButton:default {
+    border-color: #f1f1f1;
+    background: #f1f1f1;
+    color: #111111;
 }
 QDialogButtonBox QPushButton {
     min-width: 100px;

@@ -1,59 +1,66 @@
-# vasya_ai
+# Vasya AI
 
-Local-first voice AI assistant for desktop productivity.
+Local-first voice assistant and project control center for desktop.
 
-`vasya_ai` is a product-oriented assistant that helps manage tasks, events, notes, and integrations through voice and text, with local-first storage and optional external sync.
+Vasya combines a PySide desktop companion with **Vasya Project OS**, a browser-based
+dashboard for local projects, tasks, status, and context. Core data stays on the
+user's machine; external services are optional.
 
-Current version: **0.6.0**
+**Current tagged release:** `v0.6.0`
 
-Language: **English** | [Русский](README.ru.md)
+**Current development track:** `v0.7.0` macOS tester artifact
 
-## Product Value
-- Local-first workflow: core data stays on your machine (SQLite + local files)
-- Voice-first UX with fast command loop
-- Practical integrations: Google Calendar, Notion, GitHub
-- API layer for future web/mobile clients (`FastAPI`)
+**Language:** English | [Русский](README.ru.md)
 
-## Use Cases
-- Personal planner: add/list/complete tasks and schedule events by voice
-- Daily assistant: morning briefing (weather + quote), reminders, quick notes
-- Integration assistant: sync GitHub updates to Notion, export notes to Obsidian
-- Memory assistant: search local Memory Center context and open matched files/URLs from desktop actions
-- Automation sandbox: test local agent orchestration and routing policies
+## Product preview
 
-## Voice Typing
-Vasya can send dictated text either to the currently focused field (OS actions) or to a custom HTTP API endpoint.
+### Vasya Project OS
 
-Examples:
-- `Type text ...`
-- `Add text ...`
-- `Dictate ...`
-- `Paste ...`
-- `Start dictation mode`
-- `Stop dictation mode`
+![Vasya Project OS empty dashboard on a fresh profile](docs/screenshots/project-os-dashboard.png)
 
-Punctuation helpers in dictation mode:
-- `comma`, `period`, `question mark`, `exclamation mark`
-- `new line`
+A fresh installation starts with an empty project registry. Vasya does not ship
+with the maintainer's projects or local paths.
 
-API dictation mode:
-- Open `Settings -> Integrations -> Dictation mode`
-- Select `Via API`
-- Set `Dictation API URL` and optional token
-- Vasya sends `POST` JSON payload: `{"text":"...","source":"vasya_dictation_mode"}`
-- If token is set, `Authorization: Bearer ...` header is sent
-- For safety, API dictation host is checked against `DICTATION_API_ALLOWED_HOSTS` (default: localhost only)
+### Desktop assistant
 
-## Stack
-- Python 3.11+
-- FastAPI
-- Ollama (local LLM)
-- faster-whisper (STT)
-- SQLite
-- sounddevice + scipy
+![Vasya desktop assistant settings with avatar preview](docs/screenshots/desktop-settings.png)
 
-## Setup
-Fast macOS path:
+The desktop shell provides the avatar, tray controls, global hotkeys, voice
+activation, dictation, and local settings.
+
+## What works today
+
+- Voice and text commands for tasks, events, notes, and assistant chat.
+- Local speech recognition, Ollama-based routing/chat, and configurable TTS.
+- Desktop avatar states, tray menu, hotkeys, response bubbles, and settings.
+- Morning Brief and local Memory Center search.
+- Vasya Project OS with a user-owned project registry, Git status, and next-step
+  summaries.
+- Versioned backup preview and conflict-safe restore for non-secret user state.
+- Optional Google Calendar, Notion, GitHub, and Obsidian integrations.
+- A local FastAPI service for chat, tasks, events, notes, memory, and Project OS.
+- A read-only connector contract and macOS EventKit availability foundation.
+
+## Current boundaries
+
+These capabilities are planned or still being completed:
+
+- There is no signed or notarized DMG yet. The current macOS build is an unsigned
+  tester ZIP.
+- Eva ingestion through Apple Reminders and Calendar does not read records yet.
+  Permission handling, selection, normalization, and sync remain in progress.
+- Voice-triggered task creation in external systems, commits, and pushes are not
+  enabled. Mutating agent actions will require an approval queue.
+- Windows and Linux installers are not available.
+
+See the [ordered execution plan](docs/EXECUTION_PLAN.md) for the exact current
+slice and acceptance criteria.
+
+## Quick start on macOS
+
+Prerequisites: Python 3.11+, [Ollama](https://ollama.com/), and a working
+microphone.
+
 ```bash
 git clone https://github.com/xelvhk/vasya_ai.git
 cd vasya_ai
@@ -64,10 +71,9 @@ python scripts/doctor.py
 python main.py
 ```
 
-Manual path:
+For a manual environment setup:
+
 ```bash
-git clone https://github.com/xelvhk/vasya_ai.git
-cd vasya_ai
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -76,126 +82,136 @@ python scripts/doctor.py
 python main.py
 ```
 
-First-run checklist: [docs/FIRST_RUN.md](docs/FIRST_RUN.md)
+The maintained first-run procedure is in
+[docs/FIRST_RUN.md](docs/FIRST_RUN.md).
 
-Doctor flags:
+## Open Project OS
+
+Start the local API:
+
 ```bash
-python scripts/doctor.py --json
-python scripts/doctor.py --strict
-python scripts/doctor.py --quiet
-```
-
-TTS benchmark:
-```bash
-python scripts/benchmark_tts.py
-python scripts/benchmark_tts.py --profile quality --include-heavy --save-artifacts
-python scripts/benchmark_tts.py --profile full --save-artifacts
-python scripts/benchmark_tts.py --json
-python scripts/benchmark_tts.py --include-heavy --save-artifacts
-python scripts/benchmark_tts.py --include-experimental
-python scripts/benchmark_tts.py --backend piper --backend cosyvoice --save-artifacts
-```
-
-The benchmark reports backend status, time-to-first-audio, total synthesis time, and failure/skip reasons. The default benchmark profile is `fast` and measures Piper, because Piper is the current production/default assistant voice: local, reliable, and fast enough for command confirmations and short replies.
-
-CosyVoice3 is the current best-sounding local quality candidate, but it stays opt-in through `--profile quality` because short replies can take tens of seconds on local CPU/runtime. Use it for quality-mode experiments, long-form narration, demos, or future prewarmed/background synthesis. Chatterbox and macOS `say` are intentionally not benchmark candidates: Chatterbox adds heavy cache/setup friction, and `say` produced header-only artifacts in local benchmark validation. MisoTTS is tracked as a placeholder slot only.
-
-Optional API mode:
-```bash
+source .venv/bin/activate
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
 ```
 
-API protection defaults:
-- API key auth is required by default for `/v1/*` (`VASYA_API_REQUIRE_AUTH=true`)
-- HTTP throttling is enabled for `/v1/chat` and `/v1/pipeline`
-- WebSocket throttling is enabled for `/v1/ws/voice` (connection + message limits)
+Open [http://127.0.0.1:8787/control-center](http://127.0.0.1:8787/control-center).
+API authentication is enabled by default. Use the **Connection** control with
+the `VASYA_API_AUTH_TOKEN` from your local `.env`.
 
-## Environment
-Copy `.env.example` to `.env` and adjust values for your machine.
+## Voice typing
 
-Key groups:
-- LLM and voice: `OLLAMA_*`, `WHISPER_*`, `VOICE_*`
-- UI and hotkeys: `HOTKEY_*`, `AVATAR_*`, `TTS_*`
-- Integrations: `GOOGLE_CALENDAR_*`, `NOTION_*`, `GITHUB_*`
-- API/security: `VASYA_API_AUTH_TOKEN`, `VASYA_API_REQUIRE_AUTH`, `VASYA_API_ALLOW_QUERY_TOKEN`, `LOG_*`, `DICTATION_API_ALLOWED_HOSTS`
+Vasya can send dictated text to the active OS field or to an allowlisted HTTP
+endpoint. Open **Settings > Integrations > Dictation mode** to choose the target.
+API mode sends:
 
-Security note:
-- Integration tokens from settings are stored in OS keyring when available.
-- Legacy token fields are migrated out of `storage/integrations.json` on first read/write.
+```json
+{"text": "Your dictated text", "source": "vasya_dictation_mode"}
+```
 
-## Limitations / Responsible Use
-- Vasya is a local productivity assistant, not a medical, legal, or emergency system.
-- Voice recognition may be imperfect in noisy environments; verify important actions.
-- OS-level actions can affect active applications; keep confirmations enabled for risky operations.
-- External integrations (Google/Notion/GitHub) depend on your credentials, API limits, and network availability.
-- Store and use personal/sensitive data according to your own security and compliance requirements.
+When configured, the token is sent as a Bearer token. API dictation is restricted
+by `DICTATION_API_ALLOWED_HOSTS`, which defaults to localhost.
+
+## Data and privacy
+
+- Core records live in SQLite and local files under the platform app-data
+  directory.
+- A fresh profile contains no maintainer projects or paths.
+- Integration secrets use the OS keyring when available and are excluded from
+  backups.
+- Model caches and large generated files are also excluded from user backups.
+- External integrations run only when the user configures them.
+
+Path layout, migration behavior, and backup scope are documented in
+[docs/APP_DATA.md](docs/APP_DATA.md).
 
 ## Architecture
+
 ```text
-Input Layer
-  voice/recorder.py, voice/stt.py, voice/pipeline.py
-
-Orchestration Layer
-  core/orchestrator.py, core/router.py, core/intent_parser.py
-
-Domain Agents
-  agents/task_agent.py, agents/calendar_agent.py, agents/note_agent.py, agents/chat_agent.py, agents/game_agent.py
-
-Services + Repositories
-  services/* + repositories/*
-
-Storage + Integrations
-  storage/vasya.db + external adapters (Google Calendar / Notion / GitHub)
-
-API Layer
-  apps/api/* (FastAPI endpoints for chat/tasks/events/notes)
+Desktop UI                 Project OS
+scripts/avatar_widget.py   apps/control_center/*
+          \                  /
+           apps/api/* (FastAPI)
+                    |
+       core orchestration and routing
+                    |
+             domain agents
+                    |
+       services and repositories
+                    |
+ local app data + optional external connectors
 ```
 
-```mermaid
-flowchart LR
-    User["User (Voice/Text)"] --> Input["Input Layer\nvoice/*"]
-    Input --> Orchestrator["Orchestration Layer\ncore/orchestrator.py + router + intent_parser"]
-    Orchestrator --> Agents["Domain Agents\ntask / calendar / note / chat / game"]
-    Agents --> Services["Services + Repositories\nservices/* + repositories/*"]
-    Services --> Storage["Local Storage\nSQLite + local state files"]
-    Services --> Integrations["Integrations\nGoogle Calendar / Notion / GitHub"]
-    Orchestrator --> Api["FastAPI Layer\napps/api/*"]
+Primary technology:
+
+- Python 3.11+ and PySide6
+- FastAPI
+- Ollama
+- faster-whisper
+- SQLite
+- sounddevice and scipy
+
+## macOS tester artifact
+
+The repository can build an unsigned local `.app` and ZIP containing
+`Vasya AI.app` plus `Vasya AI Doctor`:
+
+```bash
+.venv/bin/python -m pip install -r requirements-build.txt
+.venv/bin/python scripts/build_macos_app.py
+.venv/bin/python scripts/smoke_macos_app.py
+.venv/bin/python scripts/build_macos_doctor.py
+.venv/bin/python scripts/package_macos_app.py
+.venv/bin/python scripts/smoke_macos_zip.py
+.venv/bin/python scripts/smoke_macos_unpacked_zip.py
 ```
 
-## Demo / Screenshots
-Current previews:
+This is a tester artifact, not a public signed release. See
+[docs/PACKAGING_PROTOTYPE.md](docs/PACKAGING_PROTOTYPE.md) and
+[docs/PACKAGING_PLAN.md](docs/PACKAGING_PLAN.md).
 
-- Avatar widget concept  
-![Avatar widget preview](docs/screenshots/avatar-widget.png)
-- Source concept component: `examples/ui/vasya_ai_widget_concept.jsx` (prototype, not connected to runtime by default).
+## Configuration and security
 
-## Roadmap
-Short roadmap:
-- [ ] Stabilize voice quality profiles and recovery flow
-- [ ] Add test coverage for critical services and routers
-- [x] Improve onboarding script for zero-friction local setup
-- [ ] Ship first macOS installable artifact after desktop shell stabilization
-- [ ] Prepare API for web/mobile thin clients
+Copy `.env.example` to `.env` and adjust only the integrations and local
+runtime options you need.
 
-Detailed roadmap and release timeline:
-- [ROADMAP.md](ROADMAP.md)
-- [docs/MOBILE_MONOREPO_PLAN.md](docs/MOBILE_MONOREPO_PLAN.md)
-- [docs/UI_REFACTOR_PLAN.md](docs/UI_REFACTOR_PLAN.md)
-- [docs/PACKAGING_PLAN.md](docs/PACKAGING_PLAN.md)
-- [docs/APP_DATA.md](docs/APP_DATA.md)
-- [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
-- [docs/WHATS_NEW.md](docs/WHATS_NEW.md)
-- [docs/SECURITY_ISSUES.md](docs/SECURITY_ISSUES.md)
+Key groups:
 
-## CI
-CI is configured in `.github/workflows/ci.yml`:
-- install dependencies
-- run source syntax checks (`python -m compileall ...`)
-- run the unit test suite
-- run `python scripts/doctor.py --strict --quiet` as a first-run smoke gate
+- LLM and voice: `OLLAMA_*`, `WHISPER_*`, `VOICE_*`, `TTS_*`
+- Desktop UI: `HOTKEY_*`, `AVATAR_*`
+- Integrations: `GOOGLE_CALENDAR_*`, `NOTION_*`, `GITHUB_*`
+- API: `VASYA_API_AUTH_TOKEN`, `VASYA_API_REQUIRE_AUTH`,
+  `VASYA_API_ALLOW_QUERY_TOKEN`
 
-## Status
-Active development
+The local API requires authentication for `/v1/*` by default and applies
+rate limits to chat, pipeline, and voice WebSocket traffic.
+
+## Documentation map
+
+- [Execution plan](docs/EXECUTION_PLAN.md): the single ordered implementation queue.
+- [Project OS plan](docs/PROJECT_OS_PLAN.md): dashboard and connector architecture.
+- [Packaging plan](docs/PACKAGING_PLAN.md): installer and release milestones.
+- [App-data guide](docs/APP_DATA.md): local storage and migration.
+- [Release notes](docs/RELEASE_NOTES.md): current release-facing changes.
+- [UI design system](docs/UI_DESIGN_SYSTEM.md): shared desktop and web UI rules.
+- [Security issues](docs/SECURITY_ISSUES.md): known security work and mitigations.
+- [Product roadmap](ROADMAP.md): longer-term direction.
+
+## Verification
+
+```bash
+COSYVOICE_PYTHON= .venv/bin/python -m unittest discover tests
+.venv/bin/python -m compileall agents apps assistant config core interfaces repositories scripts services tests utils voice main.py
+git diff --check
+```
+
+CI runs syntax checks, the unit suite, and the strict first-run doctor smoke.
+
+## Responsible use
+
+Vasya is a productivity assistant, not a medical, legal, or emergency system.
+Review important voice-recognized actions, especially actions affecting other
+applications or external services.
 
 ## License
+
 GNU AGPLv3. See [LICENSE](LICENSE).

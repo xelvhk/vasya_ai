@@ -29,6 +29,16 @@ class KnowledgeHit:
 class KnowledgeSearchResult:
     hits: tuple[KnowledgeHit, ...]
     error: str | None = None
+    stale: bool = False
+    observed_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class AllowedNote:
+    relative_path: str
+    title: str
+    content: str
+    modified_at: datetime
 
 
 def resolve_knowledge_vault_path() -> Path:
@@ -45,17 +55,18 @@ def search_allowed_notes(
     query: str, *, vault_path: Path | None = None, limit: int = 3
 ) -> KnowledgeSearchResult:
     vault = (vault_path or resolve_knowledge_vault_path()).expanduser()
-    if not vault.is_dir():
-        return KnowledgeSearchResult((), "Obsidian vault недоступен.")
+    notes, error = collect_allowed_notes(vault)
+    if error:
+        return KnowledgeSearchResult((), error)
+    return KnowledgeSearchResult(rank_allowed_notes(query, notes, vault=vault, limit=limit))
 
-    terms = tuple(
-        word for word in _WORDS.findall(query.casefold()) if word not in _STOP_WORDS
-    )
-    if not terms:
-        return KnowledgeSearchResult(())
+
+def collect_allowed_notes(vault: Path) -> tuple[tuple[AllowedNote, ...], str | None]:
+    if not vault.is_dir():
+        return (), "Obsidian vault недоступен."
 
     vault_real = vault.resolve()
-    ranked: list[tuple[int, KnowledgeHit]] = []
+    notes: list[AllowedNote] = []
     found_folder = False
     for folder_name in ALLOWED_FOLDERS:
         folder = vault / folder_name
@@ -76,37 +87,55 @@ def search_allowed_notes(
                     continue
                 content = path.read_text(encoding="utf-8", errors="replace")
             except OSError:
-                continue
-            lowered = content.casefold()
-            title = path.stem
-            title_lower = title.casefold()
-            matched = [term for term in terms if term in title_lower or term in lowered]
-            if not matched:
-                continue
-            score = sum(3 * (term in title_lower) + (term in lowered) for term in matched)
-            excerpt = _best_excerpt(content, matched)
-            relative_path = path.relative_to(vault).as_posix()
-            url = (
-                "obsidian://open?vault="
-                f"{quote(vault.name, safe='')}&file={quote(relative_path, safe='')}"
-            )
-            ranked.append(
-                (
-                    score,
-                    KnowledgeHit(
-                        relative_path=relative_path,
-                        title=title,
-                        excerpt=excerpt,
-                        url=url,
-                        modified_at=datetime.fromtimestamp(stat.st_mtime, timezone.utc),
-                    ),
+                return (), "Не удалось прочитать разрешённую заметку."
+            notes.append(
+                AllowedNote(
+                    relative_path=path.relative_to(vault).as_posix(),
+                    title=path.stem,
+                    content=content,
+                    modified_at=datetime.fromtimestamp(stat.st_mtime, timezone.utc),
                 )
             )
 
     if not found_folder:
-        return KnowledgeSearchResult((), "Разрешённые папки Obsidian недоступны.")
+        return (), "Разрешённые папки Obsidian недоступны."
+    return tuple(notes), None
+
+
+def rank_allowed_notes(
+    query: str, notes: tuple[AllowedNote, ...], *, vault: Path, limit: int = 3
+) -> tuple[KnowledgeHit, ...]:
+    terms = tuple(
+        word for word in _WORDS.findall(query.casefold()) if word not in _STOP_WORDS
+    )
+    if not terms:
+        return ()
+    ranked: list[tuple[int, KnowledgeHit]] = []
+    for note in notes:
+        lowered = note.content.casefold()
+        title_lower = note.title.casefold()
+        matched = [term for term in terms if term in title_lower or term in lowered]
+        if not matched:
+            continue
+        score = sum(3 * (term in title_lower) + (term in lowered) for term in matched)
+        url = (
+            "obsidian://open?vault="
+            f"{quote(vault.name, safe='')}&file={quote(note.relative_path, safe='')}"
+        )
+        ranked.append(
+            (
+                score,
+                KnowledgeHit(
+                    relative_path=note.relative_path,
+                    title=note.title,
+                    excerpt=_best_excerpt(note.content, matched),
+                    url=url,
+                    modified_at=note.modified_at,
+                ),
+            )
+        )
     ranked.sort(key=lambda item: (-item[0], item[1].relative_path))
-    return KnowledgeSearchResult(tuple(hit for _score, hit in ranked[: max(1, min(limit, 5))]))
+    return tuple(hit for _score, hit in ranked[: max(1, min(limit, 5))])
 
 
 def _best_excerpt(content: str, terms: tuple[str, ...] | list[str]) -> str:

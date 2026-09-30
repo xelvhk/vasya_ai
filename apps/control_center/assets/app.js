@@ -50,6 +50,12 @@ const elements = {
   closeConnection: document.querySelector("#close-connection-dialog"),
   cancelConnection: document.querySelector("#cancel-connection-dialog"),
   clearToken: document.querySelector("#clear-api-token"),
+  chatForm: document.querySelector("#agent-chat-form"),
+  chatInput: document.querySelector("#agent-chat-input"),
+  chatSubmit: document.querySelector("#agent-chat-submit"),
+  chatResult: document.querySelector("#agent-chat-result"),
+  chatAnswer: document.querySelector("#agent-chat-answer"),
+  chatSources: document.querySelector("#agent-chat-sources"),
 };
 
 function errorMessage(error) {
@@ -133,6 +139,46 @@ const projectActions = createProjectActions({
 });
 registryView = createRegistryView(elements, projectActions);
 projectActions.bind();
+
+elements.chatForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = elements.chatInput.value.trim();
+  if (!question) {
+    return;
+  }
+  elements.chatSubmit.disabled = true;
+  elements.chatResult.hidden = false;
+  elements.chatAnswer.textContent = "Проверяю проекты...";
+  elements.chatSources.replaceChildren();
+  try {
+    const payload = await api.requestJson("/v1/chat", {
+      method: "POST",
+      body: JSON.stringify({ text: question, agent: "projects" }),
+    });
+    elements.chatAnswer.textContent = payload.response || "Ответ пуст.";
+    for (const source of payload.sources || []) {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = source.url;
+      link.textContent = source.title;
+      item.append(link);
+      if (source.observed_at) {
+        const checkedAt = new Date(source.observed_at);
+        if (!Number.isNaN(checkedAt.getTime())) {
+          const time = document.createElement("time");
+          time.dateTime = source.observed_at;
+          time.textContent = ` · проверено ${checkedAt.toLocaleString("ru-RU")}`;
+          item.append(time);
+        }
+      }
+      elements.chatSources.append(item);
+    }
+  } catch (error) {
+    elements.chatAnswer.textContent = errorMessage(error);
+  } finally {
+    elements.chatSubmit.disabled = false;
+  }
+});
 
 elements.token.value = loadApiToken();
 elements.refresh.addEventListener("click", refreshDashboard);

@@ -139,6 +139,7 @@ class ChatRouteSmokeTests(unittest.TestCase):
         @dataclass
         class ChatRequest:
             text: str
+            agent: str = "auto"
 
         @dataclass
         class ChatResponse:
@@ -147,8 +148,16 @@ class ChatRouteSmokeTests(unittest.TestCase):
             needs_followup: bool
             navigation_target: str | None = None
 
+        @dataclass
+        class ChatSource:
+            id: str
+            title: str
+            url: str
+            observed_at: object
+
         schemas_module.ChatRequest = ChatRequest
         schemas_module.ChatResponse = ChatResponse
+        schemas_module.ChatSource = ChatSource
 
         orchestrator_module = types.ModuleType("core.orchestrator")
         orchestrator_module.process_text_detailed = Mock(

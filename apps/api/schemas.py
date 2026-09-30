@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
-    agent: Literal["auto", "projects"] = "auto"
+    agent: Literal["auto", "projects", "knowledge"] = "auto"
 
 
 class ChatSource(BaseModel):
@@ -16,6 +16,7 @@ class ChatSource(BaseModel):
     title: str
     url: str
     observed_at: datetime
+    modified_at: datetime | None = None
 
 
 class ChatResponse(BaseModel):

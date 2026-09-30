@@ -180,6 +180,15 @@ elements.chatForm.addEventListener("submit", async (event) => {
           item.append(time);
         }
       }
+      if (source.modified_at && source.observed_at) {
+        const indexedAt = new Date(source.observed_at);
+        if (!Number.isNaN(indexedAt.getTime())) {
+          const time = document.createElement("time");
+          time.dateTime = source.observed_at;
+          time.textContent = ` · индекс от ${indexedAt.toLocaleString("ru-RU")}`;
+          item.append(time);
+        }
+      }
       elements.chatSources.append(item);
     }
   } catch (error) {

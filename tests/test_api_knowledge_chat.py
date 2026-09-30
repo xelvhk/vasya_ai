@@ -26,7 +26,10 @@ class KnowledgeChatTests(unittest.TestCase):
             (private / "Secret.md").write_text(
                 "Локальный контекст содержит секретный пароль.\n", encoding="utf-8"
             )
-            with patch.dict(os.environ, {"VASYA_KNOWLEDGE_VAULT_PATH": str(vault)}), patch(
+            with patch.dict(os.environ, {
+                "VASYA_KNOWLEDGE_VAULT_PATH": str(vault),
+                "VASYA_KNOWLEDGE_INDEX_FILE": str(vault / "knowledge.db"),
+            }), patch(
                 "apps.api.deps.VASYA_API_REQUIRE_AUTH", False
             ), patch("apps.api.main.log_interaction_event"), patch(
                 "apps.api.routes.chat.log_interaction_event"
@@ -36,6 +39,7 @@ class KnowledgeChatTests(unittest.TestCase):
                         "/v1/chat",
                         json={"text": "Где хранится локальный контекст?", "agent": "knowledge"},
                     )
+                index_created = (vault / "knowledge.db").is_file()
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -44,12 +48,16 @@ class KnowledgeChatTests(unittest.TestCase):
         self.assertNotIn("секретный пароль", payload["response"])
         self.assertEqual(payload["sources"][0]["id"], "obsidian:30_Knowledge/Context.md")
         self.assertTrue(payload["sources"][0]["observed_at"])
+        self.assertTrue(index_created)
 
     def test_no_match_does_not_invent_answer(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             vault = Path(directory)
             (vault / "10_Projects" / "Active").mkdir(parents=True)
-            with patch.dict(os.environ, {"VASYA_KNOWLEDGE_VAULT_PATH": str(vault)}), patch(
+            with patch.dict(os.environ, {
+                "VASYA_KNOWLEDGE_VAULT_PATH": str(vault),
+                "VASYA_KNOWLEDGE_INDEX_FILE": str(vault / "knowledge.db"),
+            }), patch(
                 "apps.api.deps.VASYA_API_REQUIRE_AUTH", False
             ), patch("apps.api.main.log_interaction_event"), patch(
                 "apps.api.routes.chat.log_interaction_event"

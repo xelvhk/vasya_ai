@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from apps.api.schemas import ChatRequest, ChatResponse, ChatSource
 from core.orchestrator import process_text_detailed
-from services.allowed_knowledge_service import search_allowed_notes
+from services.allowed_knowledge_index_service import search_indexed_notes
 from services.project_registry_service import (
     build_project_status_summary,
     list_project_status,
@@ -48,27 +48,32 @@ def chat(payload: ChatRequest) -> ChatResponse:
             ],
         )
     if payload.agent == "knowledge":
-        result = search_allowed_notes(text)
+        result = search_indexed_notes(text)
         if result.error:
             return ChatResponse(
                 intent="knowledge_search",
                 response=result.error,
                 needs_followup=True,
             )
+        freshness = (
+            f"Источник сейчас недоступен; показываю снимок от {result.observed_at:%d.%m.%Y %H:%M} UTC.\n"
+            if result.stale and result.observed_at
+            else ""
+        )
         if not result.hits:
             return ChatResponse(
                 intent="knowledge_search",
-                response="Не нашёл подтверждения в разрешённых папках Obsidian. Уточните запрос.",
+                response=freshness + "Не нашёл подтверждения в разрешённых папках Obsidian. Уточните запрос.",
                 needs_followup=True,
             )
-        observed_at = datetime.now(timezone.utc)
+        observed_at = result.observed_at or datetime.now(timezone.utc)
         excerpts = [
             f"[{index}] {hit.title}: {hit.excerpt or 'Совпадение найдено в заголовке.'}"
             for index, hit in enumerate(result.hits, start=1)
         ]
         return ChatResponse(
             intent="knowledge_search",
-            response="Найденные фрагменты:\n" + "\n".join(excerpts),
+            response=freshness + "Найденные фрагменты:\n" + "\n".join(excerpts),
             needs_followup=False,
             sources=[
                 ChatSource(

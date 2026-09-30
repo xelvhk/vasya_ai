@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from apps.api.schemas import ChatRequest, ChatResponse, ChatSource
 from core.orchestrator import process_text_detailed
+from services.allowed_knowledge_service import search_allowed_notes
 from services.project_registry_service import (
     build_project_status_summary,
     list_project_status,
@@ -44,6 +45,40 @@ def chat(payload: ChatRequest) -> ChatResponse:
                     observed_at=observed_at,
                 )
                 for project in statuses[:4]
+            ],
+        )
+    if payload.agent == "knowledge":
+        result = search_allowed_notes(text)
+        if result.error:
+            return ChatResponse(
+                intent="knowledge_search",
+                response=result.error,
+                needs_followup=True,
+            )
+        if not result.hits:
+            return ChatResponse(
+                intent="knowledge_search",
+                response="Не нашёл подтверждения в разрешённых папках Obsidian. Уточните запрос.",
+                needs_followup=True,
+            )
+        observed_at = datetime.now(timezone.utc)
+        excerpts = [
+            f"[{index}] {hit.title}: {hit.excerpt or 'Совпадение найдено в заголовке.'}"
+            for index, hit in enumerate(result.hits, start=1)
+        ]
+        return ChatResponse(
+            intent="knowledge_search",
+            response="Найденные фрагменты:\n" + "\n".join(excerpts),
+            needs_followup=False,
+            sources=[
+                ChatSource(
+                    id=f"obsidian:{hit.relative_path}",
+                    title=hit.relative_path,
+                    url=hit.url,
+                    observed_at=observed_at,
+                    modified_at=hit.modified_at,
+                )
+                for hit in result.hits
             ],
         )
     result = process_text_detailed(text)

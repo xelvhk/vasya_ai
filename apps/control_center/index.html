@@ -47,14 +47,18 @@
       <section id="agent-chat" class="agent-chat" aria-labelledby="agent-chat-title">
         <header class="section-header">
           <div>
-            <p class="eyebrow">Первый агент</p>
-            <h2 id="agent-chat-title">Сводка проектов</h2>
-            <p>Сейчас агент показывает общую сводку добавленных проектов и ссылки на их карточки. Ответы на другие вопросы появятся на следующих этапах.</p>
+            <p class="eyebrow">Первые агенты</p>
+            <h2 id="agent-chat-title">Чат с агентами</h2>
+            <p>«Проекты» показывает общую сводку. «Заметки» ищет точные фрагменты только в разрешённых папках Obsidian и показывает источники.</p>
           </div>
         </header>
         <form id="agent-chat-form" class="agent-chat-form">
-          <label for="agent-chat-input">Запрос общей сводки</label>
+          <label for="agent-chat-input">Запрос</label>
           <div class="agent-chat-controls">
+            <select id="agent-chat-agent" aria-label="Агент">
+              <option value="projects">Проекты</option>
+              <option value="knowledge">Заметки</option>
+            </select>
             <input id="agent-chat-input" name="question" type="text" maxlength="2000" autocomplete="off" placeholder="Покажи сводку проектов" required />
             <button id="agent-chat-submit" type="submit">Показать</button>
           </div>
@@ -263,6 +267,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/control-center/assets/app.js?v=project-chat-1"></script>
+    <script type="module" src="/control-center/assets/app.js?v=knowledge-chat-1"></script>
   </body>
 </html>

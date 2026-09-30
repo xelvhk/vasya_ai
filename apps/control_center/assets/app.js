@@ -51,6 +51,7 @@ const elements = {
   cancelConnection: document.querySelector("#cancel-connection-dialog"),
   clearToken: document.querySelector("#clear-api-token"),
   chatForm: document.querySelector("#agent-chat-form"),
+  chatAgent: document.querySelector("#agent-chat-agent"),
   chatInput: document.querySelector("#agent-chat-input"),
   chatSubmit: document.querySelector("#agent-chat-submit"),
   chatResult: document.querySelector("#agent-chat-result"),
@@ -140,6 +141,12 @@ const projectActions = createProjectActions({
 registryView = createRegistryView(elements, projectActions);
 projectActions.bind();
 
+elements.chatAgent.addEventListener("change", () => {
+  elements.chatInput.placeholder = elements.chatAgent.value === "knowledge"
+    ? "Что известно о локальном индексе?"
+    : "Покажи сводку проектов";
+});
+
 elements.chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const question = elements.chatInput.value.trim();
@@ -148,12 +155,13 @@ elements.chatForm.addEventListener("submit", async (event) => {
   }
   elements.chatSubmit.disabled = true;
   elements.chatResult.hidden = false;
-  elements.chatAnswer.textContent = "Проверяю проекты...";
+  const agent = elements.chatAgent.value;
+  elements.chatAnswer.textContent = agent === "knowledge" ? "Ищу в заметках..." : "Проверяю проекты...";
   elements.chatSources.replaceChildren();
   try {
     const payload = await api.requestJson("/v1/chat", {
       method: "POST",
-      body: JSON.stringify({ text: question, agent: "projects" }),
+      body: JSON.stringify({ text: question, agent }),
     });
     elements.chatAnswer.textContent = payload.response || "Ответ пуст.";
     for (const source of payload.sources || []) {
@@ -162,12 +170,13 @@ elements.chatForm.addEventListener("submit", async (event) => {
       link.href = source.url;
       link.textContent = source.title;
       item.append(link);
-      if (source.observed_at) {
-        const checkedAt = new Date(source.observed_at);
+      const timestamp = source.modified_at || source.observed_at;
+      if (timestamp) {
+        const checkedAt = new Date(timestamp);
         if (!Number.isNaN(checkedAt.getTime())) {
           const time = document.createElement("time");
-          time.dateTime = source.observed_at;
-          time.textContent = ` · проверено ${checkedAt.toLocaleString("ru-RU")}`;
+          time.dateTime = timestamp;
+          time.textContent = ` · ${source.modified_at ? "изменено" : "проверено"} ${checkedAt.toLocaleString("ru-RU")}`;
           item.append(time);
         }
       }

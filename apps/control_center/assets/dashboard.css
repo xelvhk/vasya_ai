@@ -136,11 +136,20 @@
   flex: 1;
 }
 
+.agent-chat-controls select {
+  min-width: 140px;
+}
+
 .agent-chat-result {
   margin-top: 16px;
   border-top: 1px solid var(--border);
   padding-top: 16px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.agent-chat-result p {
+  white-space: pre-wrap;
 }
 
 .agent-chat-result ul {

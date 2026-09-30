@@ -1,10 +1,21 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
+    agent: Literal["auto", "projects"] = "auto"
+
+
+class ChatSource(BaseModel):
+    id: str
+    title: str
+    url: str
+    observed_at: datetime
 
 
 class ChatResponse(BaseModel):
@@ -12,6 +23,7 @@ class ChatResponse(BaseModel):
     response: str
     needs_followup: bool
     navigation_target: str | None = None
+    sources: list[ChatSource] = Field(default_factory=list)
 
 
 class PipelineRequest(BaseModel):

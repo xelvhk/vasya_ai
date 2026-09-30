@@ -111,6 +111,52 @@
   margin: 20px 0 40px;
 }
 
+.agent-chat {
+  scroll-margin-top: 92px;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 20px;
+}
+
+.agent-chat-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.agent-chat-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.agent-chat-controls input {
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-chat-result {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  line-height: 1.5;
+}
+
+.agent-chat-result ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+@media (max-width: 600px) {
+  .agent-chat-controls {
+    flex-direction: column;
+  }
+}
+
 .status-strip article {
   display: flex;
   min-height: 82px;
@@ -379,4 +425,3 @@
 .registry-message.is-error p {
   color: var(--status-danger);
 }
-

@@ -17,6 +17,7 @@
           <span>Project OS</span>
         </a>
         <nav class="main-nav" aria-label="Разделы Control Center">
+          <a href="#agent-chat">Чат</a>
           <a href="#status-summary">Сводка</a>
           <a href="#project-grid">Проекты</a>
           <a href="#project-management">Управление</a>
@@ -41,6 +42,27 @@
           <span aria-hidden="true">+</span>
           Добавить проект
         </button>
+      </section>
+
+      <section id="agent-chat" class="agent-chat" aria-labelledby="agent-chat-title">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Первый агент</p>
+            <h2 id="agent-chat-title">Сводка проектов</h2>
+            <p>Сейчас агент показывает общую сводку добавленных проектов и ссылки на их карточки. Ответы на другие вопросы появятся на следующих этапах.</p>
+          </div>
+        </header>
+        <form id="agent-chat-form" class="agent-chat-form">
+          <label for="agent-chat-input">Запрос общей сводки</label>
+          <div class="agent-chat-controls">
+            <input id="agent-chat-input" name="question" type="text" maxlength="2000" autocomplete="off" placeholder="Покажи сводку проектов" required />
+            <button id="agent-chat-submit" type="submit">Показать</button>
+          </div>
+        </form>
+        <div id="agent-chat-result" class="agent-chat-result" role="status" aria-live="polite" aria-atomic="true" hidden>
+          <p id="agent-chat-answer"></p>
+          <ul id="agent-chat-sources" aria-label="Источники ответа"></ul>
+        </div>
       </section>
 
       <section id="status-summary" class="status-strip" aria-label="Сводка по проектам">
@@ -241,6 +263,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/control-center/assets/app.js"></script>
+    <script type="module" src="/control-center/assets/app.js?v=project-chat-1"></script>
   </body>
 </html>

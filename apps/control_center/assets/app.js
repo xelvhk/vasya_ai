@@ -57,7 +57,11 @@ const elements = {
   chatResult: document.querySelector("#agent-chat-result"),
   chatAnswer: document.querySelector("#agent-chat-answer"),
   chatSources: document.querySelector("#agent-chat-sources"),
+  videoUpload: document.querySelector("#agent-video-upload"),
+  videoFile: document.querySelector("#agent-video-file"),
+  videoSubtitles: document.querySelector("#agent-video-subtitles"),
 };
+let subtitleObjectUrl = null;
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : "Неизвестная ошибка";
@@ -141,29 +145,67 @@ const projectActions = createProjectActions({
 registryView = createRegistryView(elements, projectActions);
 projectActions.bind();
 
-elements.chatAgent.addEventListener("change", () => {
-  elements.chatInput.placeholder = elements.chatAgent.value === "knowledge"
+function updateChatControls() {
+  const agent = elements.chatAgent.value;
+  elements.videoUpload.hidden = agent !== "video";
+  elements.chatInput.required = agent !== "video" || !elements.videoFile.files?.length;
+  elements.chatInput.placeholder = agent === "knowledge"
     ? "Что известно о локальном индексе?"
-    : "Покажи сводку проектов";
-});
+    : agent === "video"
+      ? "Ссылка на Reel или вопрос к выбранному файлу"
+      : "Покажи сводку проектов";
+}
+
+elements.chatAgent.addEventListener("change", updateChatControls);
+elements.videoFile.addEventListener("change", updateChatControls);
+updateChatControls();
 
 elements.chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const question = elements.chatInput.value.trim();
-  if (!question) {
+  const agent = elements.chatAgent.value;
+  const file = agent === "video" ? elements.videoFile.files?.[0] : null;
+  if (!question && !file) {
     return;
   }
   elements.chatSubmit.disabled = true;
   elements.chatResult.hidden = false;
-  const agent = elements.chatAgent.value;
-  elements.chatAnswer.textContent = agent === "knowledge" ? "Ищу в заметках..." : "Проверяю проекты...";
+  elements.chatAnswer.textContent = agent === "knowledge"
+    ? "Ищу в заметках..."
+    : agent === "video" ? "Обрабатываю видео. Это может занять несколько минут..." : "Проверяю проекты...";
   elements.chatSources.replaceChildren();
+  if (subtitleObjectUrl) {
+    URL.revokeObjectURL(subtitleObjectUrl);
+    subtitleObjectUrl = null;
+  }
+  elements.videoSubtitles.hidden = true;
   try {
-    const payload = await api.requestJson("/v1/chat", {
-      method: "POST",
-      body: JSON.stringify({ text: question, agent }),
-    });
+    if (file && file.size > 100 * 1024 * 1024) {
+      throw new Error("Видео больше 100 МиБ.");
+    }
+    const payload = file
+      ? await api.requestJson("/v1/video/upload", {
+          method: "POST", body: file,
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "x-video-extension": file.name.split(".").pop().toLowerCase(),
+            "x-video-question": encodeURIComponent(question),
+          },
+        })
+      : await api.requestJson("/v1/chat", {
+          method: "POST", body: JSON.stringify({ text: question, agent }),
+        });
     elements.chatAnswer.textContent = payload.response || "Ответ пуст.";
+    if (payload.subtitle_srt) {
+      subtitleObjectUrl = URL.createObjectURL(new Blob([payload.subtitle_srt], {
+        type: "application/x-subrip;charset=utf-8",
+      }));
+      elements.videoSubtitles.href = subtitleObjectUrl;
+      elements.videoSubtitles.textContent = payload.subtitle_origin === "original"
+        ? "Скачать субтитры из видео (.srt)"
+        : "Скачать распознанные субтитры (.srt)";
+      elements.videoSubtitles.hidden = false;
+    }
     for (const source of payload.sources || []) {
       const item = document.createElement("li");
       const link = document.createElement("a");

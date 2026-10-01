@@ -13,6 +13,7 @@ from services.project_registry_service import (
     list_project_status,
     project_dashboard_target,
 )
+from services.video_analysis_service import VideoAnalysisError, analyze_instagram_request, render_srt
 from utils.logger import log_interaction_event
 
 
@@ -91,6 +92,22 @@ def chat(payload: ChatRequest) -> ChatResponse:
                 )
                 for hit in result.hits
             ],
+        )
+    if payload.agent == "video":
+        try:
+            analysis = analyze_instagram_request(text)
+        except VideoAnalysisError as exc:
+            return ChatResponse(
+                intent="video_analysis", response=str(exc), needs_followup=True,
+            )
+        return ChatResponse(
+            intent="video_analysis", response=analysis.response, needs_followup=False,
+            subtitle_srt=render_srt(analysis.segments), subtitle_origin=analysis.subtitle_origin,
+            sources=[ChatSource(
+                id=f"instagram:{analysis.source_url.rsplit('/', 2)[-2]}",
+                title="Видео Instagram", url=analysis.source_url,
+                observed_at=datetime.now(timezone.utc),
+            )] if analysis.source_url else [],
         )
     result = process_text_detailed(text)
     return ChatResponse(

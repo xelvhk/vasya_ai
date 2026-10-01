@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
-    agent: Literal["auto", "projects", "knowledge"] = "auto"
+    agent: Literal["auto", "projects", "knowledge", "video"] = "auto"
 
 
 class ChatSource(BaseModel):
@@ -25,6 +25,8 @@ class ChatResponse(BaseModel):
     needs_followup: bool
     navigation_target: str | None = None
     sources: list[ChatSource] = Field(default_factory=list)
+    subtitle_srt: str | None = None
+    subtitle_origin: Literal["original", "transcribed"] | None = None
 
 
 class PipelineRequest(BaseModel):

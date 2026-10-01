@@ -49,7 +49,7 @@
           <div>
             <p class="eyebrow">Первые агенты</p>
             <h2 id="agent-chat-title">Чат с агентами</h2>
-            <p>«Проекты» показывает общую сводку. «Заметки» отвечает по найденным фрагментам из разрешённых папок Obsidian с цитатой и ссылкой на источник.</p>
+            <p>«Проекты» показывает общую сводку. «Заметки» отвечает по разрешённым заметкам. «Видео» расшифровывает публичный ролик Instagram или загруженный файл и отмечает время фрагментов.</p>
           </div>
         </header>
         <form id="agent-chat-form" class="agent-chat-form">
@@ -58,14 +58,20 @@
             <select id="agent-chat-agent" aria-label="Агент">
               <option value="projects">Проекты</option>
               <option value="knowledge">Заметки</option>
+              <option value="video">Видео</option>
             </select>
             <input id="agent-chat-input" name="question" type="text" maxlength="2000" autocomplete="off" placeholder="Покажи сводку проектов" required />
             <button id="agent-chat-submit" type="submit">Показать</button>
+          </div>
+          <div id="agent-video-upload" class="agent-video-upload" hidden>
+            <label for="agent-video-file">Или выберите видеофайл до 100 МиБ и 15 минут</label>
+            <input id="agent-video-file" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv" />
           </div>
         </form>
         <div id="agent-chat-result" class="agent-chat-result" role="status" aria-live="polite" aria-atomic="true" hidden>
           <p id="agent-chat-answer"></p>
           <ul id="agent-chat-sources" aria-label="Источники ответа"></ul>
+          <a id="agent-video-subtitles" download="vasya-video.srt" hidden>Скачать субтитры (.srt)</a>
         </div>
       </section>
 
@@ -267,6 +273,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/control-center/assets/app.js?v=knowledge-index-1"></script>
+    <script type="module" src="/control-center/assets/app.js?v=video-agent-1"></script>
   </body>
 </html>

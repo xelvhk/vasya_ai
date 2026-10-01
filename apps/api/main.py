@@ -47,7 +47,7 @@ async def rate_limit_middleware(request: Request, call_next):
     )
     path = str(request.url.path)
     method = str(request.method).upper()
-    if method == "POST" and path in {"/v1/chat", "/v1/video/upload", "/v1/voice/transcribe", "/v1/pipeline", "/v1/morning-brief"}:
+    if method == "POST" and path in {"/v1/chat", "/v1/video/upload", "/v1/video/save-note", "/v1/voice/transcribe", "/v1/pipeline", "/v1/morning-brief"}:
         client_id = resolve_client_id_from_request(request)
         decision = check_http_rate_limit(path, client_id)
         if not decision.allowed:

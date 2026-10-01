@@ -8,7 +8,21 @@
 percent-encoded `x-video-question` headers). Both return the existing `ChatResponse` shape with a
 timestamped transcript, a concise answer when the local model is available,
 and a source URL for link inputs. No account cookies or cloud transcription are
-used. A Telegram attachment can later call the same upload service.
+used. The Telegram bridge uses the same upload service for private attachments.
+
+## Save a reviewed transcript
+
+The response includes `video_id`, derived from the canonical Instagram URL or
+uploaded file bytes. After reviewing the result in Control Center, the user can
+choose **Save to Obsidian**. Authenticated `POST /v1/video/save-note` accepts the
+ID, optional source URL, brief answer, SRT and subtitle origin. It writes one
+Markdown note under `30_Knowledge/Video`; saving the same video again replaces
+that note. The writer checks vault boundaries, rejects symlinked destinations,
+uses an atomic rename and returns an Obsidian link. The existing knowledge index
+can search the new note. Real vault contents and media stay outside Git.
+
+This first save action requires the vault to be available to Vasya at request
+time. The planned server-to-Mac pending-save queue is not implemented yet.
 
 ## Processing
 

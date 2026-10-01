@@ -27,6 +27,20 @@ class ChatResponse(BaseModel):
     sources: list[ChatSource] = Field(default_factory=list)
     subtitle_srt: str | None = None
     subtitle_origin: Literal["original", "transcribed"] | None = None
+    video_id: str | None = None
+
+
+class VideoSaveRequest(BaseModel):
+    video_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_url: str | None = Field(default=None, max_length=500)
+    summary: str = Field(max_length=5000)
+    subtitle_srt: str = Field(min_length=1, max_length=220_000)
+    subtitle_origin: Literal["original", "transcribed"]
+
+
+class VideoSaveResponse(BaseModel):
+    relative_path: str
+    url: str
 
 
 class PipelineRequest(BaseModel):

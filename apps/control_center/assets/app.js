@@ -60,8 +60,12 @@ const elements = {
   videoUpload: document.querySelector("#agent-video-upload"),
   videoFile: document.querySelector("#agent-video-file"),
   videoSubtitles: document.querySelector("#agent-video-subtitles"),
+  videoSave: document.querySelector("#agent-video-save"),
+  videoSaveFeedback: document.querySelector("#agent-video-save-feedback"),
+  videoSavedLink: document.querySelector("#agent-video-saved-link"),
 };
 let subtitleObjectUrl = null;
+let pendingVideoNote = null;
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : "Неизвестная ошибка";
@@ -179,6 +183,11 @@ elements.chatForm.addEventListener("submit", async (event) => {
     subtitleObjectUrl = null;
   }
   elements.videoSubtitles.hidden = true;
+  elements.videoSave.hidden = true;
+  elements.videoSave.disabled = false;
+  elements.videoSaveFeedback.hidden = true;
+  elements.videoSavedLink.hidden = true;
+  pendingVideoNote = null;
   try {
     if (file && file.size > 100 * 1024 * 1024) {
       throw new Error("Видео больше 100 МиБ.");
@@ -205,6 +214,16 @@ elements.chatForm.addEventListener("submit", async (event) => {
         ? "Скачать субтитры из видео (.srt)"
         : "Скачать распознанные субтитры (.srt)";
       elements.videoSubtitles.hidden = false;
+      if (agent === "video" && payload.video_id) {
+        pendingVideoNote = {
+          video_id: payload.video_id,
+          source_url: payload.sources?.find((source) => source.url?.startsWith("https://www.instagram.com/"))?.url || null,
+          summary: (payload.response || "").split("\n\nРасшифровка:")[0].slice(0, 5000),
+          subtitle_srt: payload.subtitle_srt,
+          subtitle_origin: payload.subtitle_origin,
+        };
+        elements.videoSave.hidden = false;
+      }
     }
     for (const source of payload.sources || []) {
       const item = document.createElement("li");
@@ -237,6 +256,25 @@ elements.chatForm.addEventListener("submit", async (event) => {
     elements.chatAnswer.textContent = errorMessage(error);
   } finally {
     elements.chatSubmit.disabled = false;
+  }
+});
+
+elements.videoSave.addEventListener("click", async () => {
+  if (!pendingVideoNote) return;
+  elements.videoSave.disabled = true;
+  elements.videoSaveFeedback.hidden = false;
+  elements.videoSaveFeedback.textContent = "Сохраняю заметку...";
+  try {
+    const saved = await api.requestJson("/v1/video/save-note", {
+      method: "POST", body: JSON.stringify(pendingVideoNote),
+    });
+    elements.videoSaveFeedback.textContent = `Сохранено: ${saved.relative_path}`;
+    elements.videoSavedLink.href = saved.url;
+    elements.videoSavedLink.hidden = false;
+    elements.videoSave.hidden = true;
+  } catch (error) {
+    elements.videoSaveFeedback.textContent = errorMessage(error);
+    elements.videoSave.disabled = false;
   }
 });
 

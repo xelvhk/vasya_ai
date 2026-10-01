@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 
 from fastapi import APIRouter, HTTPException
 
@@ -103,6 +104,8 @@ def chat(payload: ChatRequest) -> ChatResponse:
         return ChatResponse(
             intent="video_analysis", response=analysis.response, needs_followup=False,
             subtitle_srt=render_srt(analysis.segments), subtitle_origin=analysis.subtitle_origin,
+            video_id=hashlib.sha256(analysis.source_url.encode("utf-8")).hexdigest()
+                if analysis.source_url else None,
             sources=[ChatSource(
                 id=f"instagram:{analysis.source_url.rsplit('/', 2)[-2]}",
                 title="Видео Instagram", url=analysis.source_url,

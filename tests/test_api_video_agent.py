@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 import unittest
 from unittest.mock import patch
 
@@ -34,6 +35,7 @@ class VideoAgentApiTests(unittest.TestCase):
         self.assertEqual(response.json()["intent"], "video_analysis")
         self.assertEqual(response.json()["sources"][0]["url"], self.analysis.source_url)
         self.assertIn("00:00:01,000 --> 00:00:02,000", response.json()["subtitle_srt"])
+        self.assertEqual(response.json()["video_id"], hashlib.sha256(self.analysis.source_url.encode()).hexdigest())
         analyze.assert_called_once()
 
     @patch("apps.api.routes.video.analyze_media")
@@ -58,6 +60,7 @@ class VideoAgentApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["intent"], "video_analysis")
         self.assertEqual(response.json()["sources"], [])
+        self.assertEqual(response.json()["video_id"], hashlib.sha256(b"fake-video").hexdigest())
         self.assertIsNotNone(observed_path)
         self.assertFalse(observed_path.exists())
 

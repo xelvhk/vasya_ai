@@ -149,6 +149,16 @@
   display: none;
 }
 
+#agent-video-save[hidden],
+#agent-video-save-feedback[hidden],
+#agent-video-saved-link[hidden] {
+  display: none;
+}
+
+#agent-video-save {
+  margin-left: 12px;
+}
+
 .agent-video-upload input {
   display: block;
   max-width: 100%;

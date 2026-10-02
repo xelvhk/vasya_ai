@@ -7,14 +7,21 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
-from apps.api.schemas import ChatResponse, VideoSaveRequest, VideoSaveResponse
+from apps.api.deps import require_video_note_sync_key
+from apps.api.schemas import (
+    ChatResponse, VideoCompleteRequest, VideoPendingResponse, VideoSaveRequest, VideoSaveResponse,
+)
 from services.video_analysis_service import (
     ALLOWED_MEDIA_EXTENSIONS, MAX_VIDEO_BYTES, VideoAnalysisError, analyze_media, render_srt,
 )
 from services.video_note_service import VideoNoteError, save_video_note
+from services.video_note_queue_service import (
+    VideoNoteQueueConflict, complete_video_note, enqueue_video_note,
+    list_pending_video_notes, queue_enabled,
+)
 
 
 router = APIRouter(prefix="/v1/video", tags=["video"])
@@ -58,8 +65,17 @@ async def upload_video(
 
 
 @router.post("/save-note", response_model=VideoSaveResponse)
-def save_video_note_route(payload: VideoSaveRequest) -> VideoSaveResponse:
+def save_video_note_route(
+    payload: VideoSaveRequest, response: Response,
+    x_api_key: str | None = Header(default=None),
+) -> VideoSaveResponse:
     try:
+        if queue_enabled():
+            require_video_note_sync_key(x_api_key)
+            queued = enqueue_video_note(payload.model_dump())
+            if queued["status"] == "queued":
+                response.status_code = 202
+            return VideoSaveResponse(**queued)
         saved = save_video_note(
             video_id=payload.video_id, source_url=payload.source_url,
             summary=payload.summary, subtitle_srt=payload.subtitle_srt,
@@ -67,4 +83,32 @@ def save_video_note_route(payload: VideoSaveRequest) -> VideoSaveResponse:
         )
     except VideoNoteError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return VideoSaveResponse(relative_path=saved.relative_path, url=saved.url)
+    return VideoSaveResponse(
+        video_id=payload.video_id, status="saved",
+        relative_path=saved.relative_path, url=saved.url,
+    )
+
+
+@router.get(
+    "/pending-notes", response_model=VideoPendingResponse,
+    dependencies=[Depends(require_video_note_sync_key)],
+)
+def pending_video_notes() -> VideoPendingResponse:
+    if not queue_enabled():
+        raise HTTPException(status_code=404, detail="Video note queue is disabled.")
+    return VideoPendingResponse(items=list_pending_video_notes())
+
+
+@router.post(
+    "/pending-notes/{video_id}/complete", response_model=VideoSaveResponse,
+    dependencies=[Depends(require_video_note_sync_key)],
+)
+def complete_pending_video_note(video_id: str, payload: VideoCompleteRequest) -> VideoSaveResponse:
+    if not queue_enabled():
+        raise HTTPException(status_code=404, detail="Video note queue is disabled.")
+    try:
+        return VideoSaveResponse(**complete_video_note(
+            video_id, payload.revision, payload.relative_path, payload.url,
+        ))
+    except VideoNoteQueueConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

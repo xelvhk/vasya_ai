@@ -268,9 +268,14 @@ elements.videoSave.addEventListener("click", async () => {
     const saved = await api.requestJson("/v1/video/save-note", {
       method: "POST", body: JSON.stringify(pendingVideoNote),
     });
-    elements.videoSaveFeedback.textContent = `Сохранено: ${saved.relative_path}`;
-    elements.videoSavedLink.href = saved.url;
-    elements.videoSavedLink.hidden = false;
+    if (saved.status === "queued") {
+      elements.videoSaveFeedback.textContent = "Заметка в очереди. Она появится в Obsidian после синхронизации Mac.";
+      elements.videoSavedLink.hidden = true;
+    } else {
+      elements.videoSaveFeedback.textContent = `Сохранено: ${saved.relative_path}`;
+      elements.videoSavedLink.href = saved.url;
+      elements.videoSavedLink.hidden = false;
+    }
     elements.videoSave.hidden = true;
   } catch (error) {
     elements.videoSaveFeedback.textContent = errorMessage(error);

@@ -39,8 +39,24 @@ class VideoSaveRequest(BaseModel):
 
 
 class VideoSaveResponse(BaseModel):
-    relative_path: str
-    url: str
+    video_id: str | None = None
+    status: Literal["saved", "queued"] = "saved"
+    relative_path: str | None = None
+    url: str | None = None
+
+
+class VideoPendingItem(VideoSaveRequest):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class VideoPendingResponse(BaseModel):
+    items: list[VideoPendingItem]
+
+
+class VideoCompleteRequest(BaseModel):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relative_path: str = Field(max_length=256)
+    url: str = Field(max_length=1000)
 
 
 class PipelineRequest(BaseModel):

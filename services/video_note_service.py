@@ -33,24 +33,10 @@ def save_video_note(
     *, video_id: str, source_url: str | None, summary: str,
     subtitle_srt: str, subtitle_origin: str, vault_path: Path | None = None,
 ) -> SavedVideoNote:
-    if not _VIDEO_ID.fullmatch(video_id):
-        raise VideoNoteError("Некорректный идентификатор видео.")
-    if subtitle_origin not in {"original", "transcribed"}:
-        raise VideoNoteError("Неизвестный источник субтитров.")
-    if not subtitle_srt.strip():
-        raise VideoNoteError("Нет расшифровки для сохранения.")
-    if len(summary) > 5000 or len(subtitle_srt.encode("utf-8")) > 220_000:
-        raise VideoNoteError("Расшифровка слишком велика для одной заметки.")
-
-    canonical_url = None
-    if source_url:
-        try:
-            canonical_url, _ = extract_instagram_request(source_url)
-        except VideoAnalysisError as exc:
-            raise VideoNoteError("Некорректная ссылка на источник видео.") from exc
-        expected_id = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
-        if expected_id != video_id:
-            raise VideoNoteError("Идентификатор и ссылка на видео не совпадают.")
+    canonical_url = validate_video_note_input(
+        video_id=video_id, source_url=source_url, summary=summary,
+        subtitle_srt=subtitle_srt, subtitle_origin=subtitle_origin,
+    )
 
     vault = (vault_path or resolve_knowledge_vault_path()).expanduser()
     knowledge = vault / "30_Knowledge"
@@ -99,3 +85,28 @@ def save_video_note(
         f"&file={quote(relative_path, safe='')}"
     )
     return SavedVideoNote(relative_path=relative_path, url=url)
+
+
+def validate_video_note_input(
+    *, video_id: str, source_url: str | None, summary: str,
+    subtitle_srt: str, subtitle_origin: str,
+) -> str | None:
+    if not _VIDEO_ID.fullmatch(video_id):
+        raise VideoNoteError("Некорректный идентификатор видео.")
+    if subtitle_origin not in {"original", "transcribed"}:
+        raise VideoNoteError("Неизвестный источник субтитров.")
+    if not subtitle_srt.strip():
+        raise VideoNoteError("Нет расшифровки для сохранения.")
+    if len(summary) > 5000 or len(subtitle_srt.encode("utf-8")) > 220_000:
+        raise VideoNoteError("Расшифровка слишком велика для одной заметки.")
+
+    canonical_url = None
+    if source_url:
+        try:
+            canonical_url, _ = extract_instagram_request(source_url)
+        except VideoAnalysisError as exc:
+            raise VideoNoteError("Некорректная ссылка на источник видео.") from exc
+        expected_id = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+        if expected_id != video_id:
+            raise VideoNoteError("Идентификатор и ссылка на видео не совпадают.")
+    return canonical_url

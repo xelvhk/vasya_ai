@@ -27,6 +27,14 @@ def require_api_key(
     raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 
+def require_video_note_sync_key(x_api_key: str | None = Header(default=None)) -> None:
+    """Pending transcripts always require a token, even in local unauthenticated mode."""
+    if not VASYA_API_AUTH_TOKEN:
+        raise HTTPException(status_code=503, detail="API auth token is not configured.")
+    if not x_api_key or not secrets.compare_digest(x_api_key.strip(), VASYA_API_AUTH_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+
+
 def is_ws_authorized(websocket: WebSocket) -> bool:
     if not VASYA_API_REQUIRE_AUTH:
         return True

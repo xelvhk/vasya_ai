@@ -140,6 +140,30 @@
   min-width: 140px;
 }
 
+.agent-video-upload {
+  margin-top: 12px;
+}
+
+.agent-video-upload[hidden],
+#agent-video-subtitles[hidden] {
+  display: none;
+}
+
+#agent-video-save[hidden],
+#agent-video-save-feedback[hidden],
+#agent-video-saved-link[hidden] {
+  display: none;
+}
+
+#agent-video-save {
+  margin-left: 12px;
+}
+
+.agent-video-upload input {
+  display: block;
+  max-width: 100%;
+}
+
 .agent-chat-result {
   margin-top: 16px;
   border-top: 1px solid var(--border);

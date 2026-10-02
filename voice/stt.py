@@ -68,6 +68,22 @@ def transcribe_partial(audio_path: str) -> str:
     return " ".join(words[:STT_PARTIAL_MAX_WORDS]).strip()
 
 
+def transcribe_timed(audio_path: str) -> tuple[tuple[float, float, str], ...]:
+    """Transcribe media audio with timestamps and automatic language detection."""
+    model = _get_model_with_fallback(
+        preferred_model_name=WHISPER_FINAL_MODEL,
+        fallback_model_name=WHISPER_PARTIAL_MODEL,
+        purpose="final",
+    )
+    segments, _ = model.transcribe(
+        audio_path, beam_size=STT_FINAL_BEAM_SIZE, language=None, vad_filter=True,
+    )
+    return tuple(
+        (segment.start, segment.end, segment.text.strip())
+        for segment in segments if segment.text.strip()
+    )
+
+
 def prewarm_stt_models(*, include_final: bool = True) -> None:
     try:
         _get_model_with_fallback(

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
-    agent: Literal["auto", "projects", "knowledge"] = "auto"
+    agent: Literal["auto", "projects", "knowledge", "video"] = "auto"
 
 
 class ChatSource(BaseModel):
@@ -25,6 +25,38 @@ class ChatResponse(BaseModel):
     needs_followup: bool
     navigation_target: str | None = None
     sources: list[ChatSource] = Field(default_factory=list)
+    subtitle_srt: str | None = None
+    subtitle_origin: Literal["original", "transcribed"] | None = None
+    video_id: str | None = None
+
+
+class VideoSaveRequest(BaseModel):
+    video_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_url: str | None = Field(default=None, max_length=500)
+    summary: str = Field(max_length=5000)
+    subtitle_srt: str = Field(min_length=1, max_length=220_000)
+    subtitle_origin: Literal["original", "transcribed"]
+
+
+class VideoSaveResponse(BaseModel):
+    video_id: str | None = None
+    status: Literal["saved", "queued"] = "saved"
+    relative_path: str | None = None
+    url: str | None = None
+
+
+class VideoPendingItem(VideoSaveRequest):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class VideoPendingResponse(BaseModel):
+    items: list[VideoPendingItem]
+
+
+class VideoCompleteRequest(BaseModel):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relative_path: str = Field(max_length=256)
+    url: str = Field(max_length=1000)
 
 
 class PipelineRequest(BaseModel):

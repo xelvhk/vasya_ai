@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 
 from fastapi import APIRouter, HTTPException
 
 from apps.api.schemas import ChatRequest, ChatResponse, ChatSource
 from core.orchestrator import process_text_detailed
 from services.allowed_knowledge_index_service import search_indexed_notes
+from services.grounded_knowledge_answer_service import answer_from_hits
 from services.project_registry_service import (
     build_project_status_summary,
     list_project_status,
     project_dashboard_target,
 )
+from services.video_analysis_service import VideoAnalysisError, analyze_instagram_request, render_srt
 from utils.logger import log_interaction_event
 
 
@@ -71,9 +74,14 @@ def chat(payload: ChatRequest) -> ChatResponse:
             f"[{index}] {hit.title}: {hit.excerpt or 'Совпадение найдено в заголовке.'}"
             for index, hit in enumerate(result.hits, start=1)
         ]
+        grounded_answer = answer_from_hits(text, result.hits)
         return ChatResponse(
-            intent="knowledge_search",
-            response=freshness + "Найденные фрагменты:\n" + "\n".join(excerpts),
+            intent="knowledge_answer" if grounded_answer else "knowledge_search",
+            response=freshness + (
+                grounded_answer if grounded_answer else
+                "Не удалось подготовить ответ с проверенной цитатой. Найденные фрагменты:\n"
+                + "\n".join(excerpts)
+            ),
             needs_followup=False,
             sources=[
                 ChatSource(
@@ -85,6 +93,24 @@ def chat(payload: ChatRequest) -> ChatResponse:
                 )
                 for hit in result.hits
             ],
+        )
+    if payload.agent == "video":
+        try:
+            analysis = analyze_instagram_request(text)
+        except VideoAnalysisError as exc:
+            return ChatResponse(
+                intent="video_analysis", response=str(exc), needs_followup=True,
+            )
+        return ChatResponse(
+            intent="video_analysis", response=analysis.response, needs_followup=False,
+            subtitle_srt=render_srt(analysis.segments), subtitle_origin=analysis.subtitle_origin,
+            video_id=hashlib.sha256(analysis.source_url.encode("utf-8")).hexdigest()
+                if analysis.source_url else None,
+            sources=[ChatSource(
+                id=f"instagram:{analysis.source_url.rsplit('/', 2)[-2]}",
+                title="Видео Instagram", url=analysis.source_url,
+                observed_at=datetime.now(timezone.utc),
+            )] if analysis.source_url else [],
         )
     result = process_text_detailed(text)
     return ChatResponse(

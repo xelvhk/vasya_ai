@@ -194,6 +194,7 @@ rate limits to chat, pipeline, and voice WebSocket traffic.
 - [Release notes](docs/RELEASE_NOTES.md): current release-facing changes.
 - [UI design system](docs/UI_DESIGN_SYSTEM.md): shared desktop and web UI rules.
 - [Security issues](docs/SECURITY_ISSUES.md): known security work and mitigations.
+- [Mac video note sync](docs/VIDEO_NOTE_SYNC_MAC.md): periodically save queued transcripts to Obsidian.
 - [Product roadmap](ROADMAP.md): longer-term direction.
 
 ## Verification

@@ -198,6 +198,18 @@ def available_pack_skin_ids() -> list[str]:
     return result
 
 
+def pack_skin_title(pack_id: str) -> str:
+    fallback = pack_id.replace("_", " ").title()
+    try:
+        payload = json.loads(pack_manifest_path(pack_id).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return fallback
+    if not isinstance(payload, dict):
+        return fallback
+    title = payload.get("title")
+    return title.strip() if isinstance(title, str) and title.strip() else fallback
+
+
 def pack_skin_combo_value(pack_id: str) -> str:
     return f"__pack_skin:{pack_id}"
 

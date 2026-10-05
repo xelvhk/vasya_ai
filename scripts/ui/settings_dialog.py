@@ -54,6 +54,7 @@ from .avatar_skins import (
     delete_custom_skin_spec as _delete_custom_skin_spec,
     exportable_skin_spec as _exportable_skin_spec,
     pack_manifest_path as _pack_manifest_path,
+    pack_skin_title as _pack_skin_title,
     pack_skin_combo_value as _pack_skin_combo_value,
     pack_skin_from_combo_value as _pack_skin_from_combo_value,
     save_custom_skin_spec as _save_custom_skin_spec,
@@ -875,7 +876,7 @@ class SettingsDialog(QDialog):
         for skin_id in _avatar_skin_ids():
             self._skin_combo.addItem(_avatar_skin_spec(skin_id)["label"], skin_id)
         for pack_id in _available_pack_skin_ids():
-            pretty_name = pack_id.replace("_", " ").title()
+            pretty_name = _pack_skin_title(pack_id)
             self._skin_combo.addItem(f"{pretty_name} (персонаж)", _pack_skin_combo_value(pack_id))
         self._skin_combo.blockSignals(current_signal_state)
         active_pack_skin_id = self._active_pack_skin_id()

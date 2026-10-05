@@ -8,6 +8,7 @@ from scripts.ui.avatar_skins import (
     exportable_skin_spec,
     pack_skin_combo_value,
     pack_skin_from_combo_value,
+    pack_skin_title,
 )
 
 
@@ -25,6 +26,10 @@ class AvatarSkinsTests(unittest.TestCase):
         combo_value = pack_skin_combo_value("8-bit-cat")
 
         self.assertEqual(pack_skin_from_combo_value(combo_value), "8-bit-cat")
+
+    def test_pack_skin_title_reads_manifest(self) -> None:
+        self.assertEqual(pack_skin_title("pixel_vasya"), "Пиксельный Вася")
+        self.assertEqual(pack_skin_title("missing_pack"), "Missing Pack")
 
     def test_pack_skin_from_combo_value_rejects_regular_skin_ids(self) -> None:
         self.assertIsNone(pack_skin_from_combo_value("classic"))

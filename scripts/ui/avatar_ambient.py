@@ -48,7 +48,7 @@ def visible_pack_state(
 
 
 class AmbientWalker:
-    """Choose rare short walks; callers decide when movement is permitted."""
+    """Choose short walks; callers decide when movement is permitted."""
 
     def __init__(self, *, rng: random.Random | None = None) -> None:
         self.rng = rng or random.Random()
@@ -60,7 +60,11 @@ class AmbientWalker:
     def stop(self, now: float) -> None:
         self.direction = 0
         self.distance_left = 0
-        self.next_walk_at = now + self.rng.uniform(18.0, 40.0)
+        self.next_walk_at = now + self.rng.uniform(8.0, 18.0)
+
+    def request_walk(self, now: float) -> None:
+        """Start on the next permitted tick, without bypassing motion settings."""
+        self.next_walk_at = now
 
     def advance(
         self, now: float, x: int, left: int, right: int, *, allowed: bool,

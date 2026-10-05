@@ -45,9 +45,15 @@ while gaining a small, recognisable character and purposeful ambient motion.
 
 In the desktop settings, choose the **Пиксельный Вася** character pack and the
 **Компактный** size. The character moves to the bottom of the current screen.
+Click Vasya to open the compact question window. Type and press Enter or the
+orange send button; the microphone button starts the existing voice flow. The
+answer remains readable in the window until it is closed. The dark violet and
+warm amber colors follow the pixel showcase image on the Vasya landing.
+
 Right-click the widget and use **Настройки → Прогулка по экрану** to pause or
-resume short walks. Dragging Vasya away from the bottom leaves him stationary;
-dragging him back allows walking after the next idle delay. macOS Reduce Motion
+resume short walks, or **Погулять сейчас** to start one immediately. Dragging
+Vasya away from the bottom leaves him stationary; dragging him back allows
+walking after the next idle delay. macOS Reduce Motion
 also disables roaming. The chat, microphone, hotkeys, and other skins remain
 available.
 

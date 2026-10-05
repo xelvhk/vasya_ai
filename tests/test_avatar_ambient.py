@@ -57,6 +57,17 @@ class AmbientWalkerTests(unittest.TestCase):
         self.assertEqual(walker.direction, 0)
         self.assertGreater(walker.next_walk_at, 1.06)
 
+    def test_requested_walk_still_obeys_motion_gate(self) -> None:
+        walker = AmbientWalker(rng=random.Random(0))
+        walker.request_walk(2.0)
+        x, state = walker.advance(2.0, 50, 10, 110, allowed=False)
+        self.assertEqual((x, state), (50, None))
+        self.assertEqual(walker.direction, 0)
+        walker.request_walk(3.0)
+        x, state = walker.advance(3.0, 50, 10, 110, allowed=True)
+        self.assertNotEqual(x, 50)
+        self.assertIn(state, {"walk_left", "walk_right"})
+
     def test_macos_reduced_motion_preference_disables_roaming(self) -> None:
         with patch("scripts.ui.avatar_ambient.sys.platform", "darwin"), patch(
             "scripts.ui.avatar_ambient.subprocess.run",

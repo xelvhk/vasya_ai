@@ -140,6 +140,7 @@ def main() -> None:
                 prefers_reduced_motion,
                 visible_pack_state,
             )
+            from scripts.ui.companion_bubble import ResponseBubble
             from scripts.ui.avatar_rendering import (
                 animated_glow as _animated_glow,
                 animation_speed as _animation_speed,
@@ -184,7 +185,6 @@ def main() -> None:
                 bubble_text as _bubble_text,
                 hover_hint_text as _hover_hint_text,
                 tray_tooltip_text as _tray_tooltip_text,
-                visible_response_bubble_text as _visible_response_bubble_text,
             )
             from scripts.ui.avatar_memory_actions import (
                 memory_search_actions as _memory_search_actions,
@@ -212,6 +212,7 @@ def main() -> None:
                 AmbientWalker, bottom_walk_lane, prefers_reduced_motion,
                 visible_pack_state,
             )
+            from ui.companion_bubble import ResponseBubble
             from ui.avatar_rendering import (
                 animated_glow as _animated_glow,
                 animation_speed as _animation_speed,
@@ -256,7 +257,6 @@ def main() -> None:
                 bubble_text as _bubble_text,
                 hover_hint_text as _hover_hint_text,
                 tray_tooltip_text as _tray_tooltip_text,
-                visible_response_bubble_text as _visible_response_bubble_text,
             )
             from ui.avatar_memory_actions import (
                 memory_search_actions as _memory_search_actions,
@@ -330,46 +330,6 @@ def main() -> None:
         exit_requested = Signal()
         text_command_requested = Signal()
 
-    class ResponseBubble(QWidget):
-        def __init__(self) -> None:
-            super().__init__()
-            self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint
-                | Qt.WindowType.WindowStaysOnTopHint
-                | Qt.WindowType.Tool
-            )
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-            self._text = ""
-            self.resize(250, 84)
-
-        def set_text(self, text: str) -> None:
-            self._text = text
-            self.update()
-
-        def paintEvent(self, event) -> None:
-            _ = event
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            bubble_rect = self.rect().adjusted(2, 2, -2, -2)
-            gradient = QLinearGradient(bubble_rect.topLeft(), bubble_rect.bottomRight())
-            gradient.setColorAt(0.0, QColor("#0f1a45"))
-            gradient.setColorAt(0.6, QColor("#111a41"))
-            gradient.setColorAt(1.0, QColor("#1a1642"))
-            painter.setBrush(gradient)
-            painter.setPen(QPen(QColor("#4ea8ff"), 1))
-            painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 18, 18)
-
-            painter.setPen(QPen(QColor("#7d4bff"), 1))
-            painter.drawRoundedRect(self.rect().adjusted(4, 4, -4, -4), 16, 16)
-
-            painter.setPen(QColor("#f4f8ff"))
-            painter.setFont(QFont("Helvetica", 10))
-            painter.drawText(
-                self.rect().adjusted(16, 12, -16, -12),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
-                self._text,
-            )
-
     class HoverBubble(QWidget):
         def __init__(self) -> None:
             super().__init__()
@@ -392,13 +352,13 @@ def main() -> None:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             bubble_rect = self.rect().adjusted(2, 2, -2, -2)
             gradient = QLinearGradient(bubble_rect.topLeft(), bubble_rect.bottomRight())
-            gradient.setColorAt(0.0, QColor("#101a45"))
-            gradient.setColorAt(1.0, QColor("#181b43"))
+            gradient.setColorAt(0.0, QColor("#10122f"))
+            gradient.setColorAt(1.0, QColor("#2a1c4c"))
             painter.setBrush(gradient)
-            painter.setPen(QPen(QColor("#40b5ff"), 1))
+            painter.setPen(QPen(QColor("#ab7ddb"), 1))
             painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 14, 14)
 
-            painter.setPen(QColor("#e8f0ff"))
+            painter.setPen(QColor("#ffffff"))
             painter.setFont(QFont("Helvetica", 9))
             painter.drawText(
                 self.rect().adjusted(12, 8, -12, -8),
@@ -430,10 +390,14 @@ def main() -> None:
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
             text_hotkey_hint = widget._text_hotkey or HOTKEY_TEXT_COMBINATION
+            click_hint = (
+                "Клик — открыть вопрос (текст или голос)\n"
+                if widget._avatar_pack_pixel_art else "Клик — начать говорить\n"
+            )
             commands = (
                 f"Горячая клавиша: {hotkey_hint}\n"
                 f"Текстовая клавиша: {text_hotkey_hint}\n"
-                "Клик — начать говорить\n"
+                f"{click_hint}"
                 "«пока» — закрыть помощника\n"
                 "«замолчи» — остановить речь\n"
                 "«какие у меня задачи» — список задач\n"
@@ -561,11 +525,16 @@ def main() -> None:
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
             text_hotkey_hint = widget._text_hotkey or HOTKEY_TEXT_COMBINATION
+            click_hint = (
+                "Клик по мне — задать вопрос текстом или голосом, правый клик — меню."
+                if widget._avatar_pack_pixel_art else
+                "Клик по мне — начать говорить, правый клик — меню."
+            )
             body = QLabel(
                 "Я рядом и готов помочь.\n"
                 f"Горячая клавиша: {hotkey_hint}\n"
                 f"Текстовая клавиша: {text_hotkey_hint}\n"
-                "Клик по мне — начать говорить, правый клик — меню.",
+                f"{click_hint}",
                 self,
             )
             body.setWordWrap(True)
@@ -885,6 +854,10 @@ def main() -> None:
             self._tray_icon_pixmap = self._build_tray_pixmap()
             self._bridge = StateBridge()
             self._bubble = ResponseBubble()
+            self._bubble_manual_open = False
+            self._bubble.question_submitted.connect(self._start_text_command_thread)
+            self._bubble.voice_requested.connect(self._activate_interaction)
+            self._bubble.dismissed.connect(self._on_bubble_dismissed)
             self._hover_bubble = HoverBubble()
             self._hotkey_listener = None
             self._tray = None
@@ -1112,7 +1085,8 @@ def main() -> None:
                     self._avatar_lottie_frame + frame_step
                 ) % self._avatar_lottie_total_frames
             self.update()
-            self._update_bubble_position()
+            if self._bubble.isVisible():
+                self._update_bubble_position()
             self._update_hover_bubble_position()
 
         def _visible_pack_state_key(self) -> str:
@@ -1172,7 +1146,10 @@ def main() -> None:
                 self._drag_pos = None
                 self._press_pos = None
                 if moved_distance <= 6:
-                    self._activate_interaction()
+                    if self._avatar_pack_pixel_art:
+                        self._show_question_bubble()
+                    else:
+                        self._activate_interaction()
                 else:
                     if self._snap_to_edge_enabled:
                         self.move(_snap_to_nearest_edge(self.pos(), self.width(), self.height()))
@@ -1218,6 +1195,12 @@ def main() -> None:
                 roam_action.setEnabled(
                     self._avatar_pack_pixel_art and not self._ambient_reduced_motion
                 )
+                walk_now_action = settings_menu.addAction("Погулять сейчас")
+                walk_now_action.setEnabled(
+                    self._avatar_pack_pixel_art and self._ambient_roam_enabled
+                    and self._idle_motion_enabled and not self._ambient_reduced_motion
+                    and self._state.name == AssistantStateName.IDLE
+                )
                 clear_memory_action = settings_menu.addAction("Очистить личную память...")
                 menu.addSeparator()
                 quit_action = menu.addAction("Закрыть Васю")
@@ -1238,6 +1221,7 @@ def main() -> None:
                     memory_sync_action: self._sync_memory_center_now,
                     settings_action: self._open_settings_dialog,
                     roam_action: self._toggle_ambient_roam,
+                    walk_now_action: lambda: QTimer.singleShot(0, self._start_ambient_walk_now),
                     clear_memory_action: self._clear_personal_memory,
                     quit_action: self.quit_application,
                 }
@@ -1266,6 +1250,16 @@ def main() -> None:
             )
             self.move(min(max(self.x(), left), right), floor_y)
             self._update_bubble_position()
+
+        def _start_ambient_walk_now(self) -> None:
+            if not (
+                self._avatar_pack_pixel_art and self._ambient_roam_enabled
+                and self._idle_motion_enabled and not self._ambient_reduced_motion
+                and self._state.name == AssistantStateName.IDLE
+            ):
+                return
+            self._place_on_bottom_lane()
+            self._ambient_walker.request_walk(time.monotonic())
 
         def _activate_interaction(self) -> None:
             decision = _voice_activation_decision(
@@ -1924,17 +1918,27 @@ def main() -> None:
         def _bubble_text(self) -> str:
             return _bubble_text(self._state)
 
+        def _show_question_bubble(self) -> None:
+            self._hide_hover_hint()
+            if not self._bubble.isVisible() and self._state.name == AssistantStateName.IDLE:
+                self._bubble.set_text("")
+            self._bubble_manual_open = True
+            self._update_bubble()
+            self._bubble.focus_input()
+
+        def _on_bubble_dismissed(self) -> None:
+            self._bubble_manual_open = False
+
         def _update_bubble(self) -> None:
-            text = _visible_response_bubble_text(
-                self._state,
-                show_response_bubble=self._show_response_bubble,
-                widget_visible=self.isVisible(),
-            )
-            if text is None:
+            if not self.isVisible():
                 self._bubble.hide()
                 return
-
-            self._bubble.set_text(text)
+            active_response = self._state.name != AssistantStateName.IDLE
+            if active_response and (self._show_response_bubble or self._bubble_manual_open):
+                self._bubble.set_text(self._bubble_text())
+            elif not self._bubble_manual_open:
+                self._bubble.hide()
+                return
             self._update_bubble_position()
             self._bubble.show()
             self._bubble.raise_()
@@ -1963,6 +1967,8 @@ def main() -> None:
             self._hover_bubble.hide()
 
         def _hover_hint_text(self) -> str:
+            if self._avatar_pack_pixel_art and self._state.name == AssistantStateName.IDLE:
+                return "Клик — спросить • ПКМ — меню"
             return _hover_hint_text(
                 self._state,
                 thinking_seconds=int(time.monotonic() - self._state_since),
@@ -1986,16 +1992,19 @@ def main() -> None:
             return self._voice_health_cached_text
 
         def _update_bubble_position(self) -> None:
-            if not self._bubble.isVisible():
-                return
-
             bubble_x = self.x() + self.width() + 12
-            bubble_y = self.y() + max(8, (self.height() - self._bubble.height()) // 2)
-            primary = QGuiApplication.primaryScreen()
-            if primary is not None:
-                available = primary.availableGeometry()
+            bubble_y = self.y() + self.height() - self._bubble.height()
+            screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+            if screen is not None:
+                available = screen.availableGeometry()
                 if bubble_x + self._bubble.width() > available.right() - 8:
                     bubble_x = self.x() - self._bubble.width() - 12
+                bubble_x = max(available.left() + 8, min(
+                    bubble_x, available.right() - self._bubble.width() - 7,
+                ))
+                bubble_y = max(available.top() + 8, min(
+                    bubble_y, available.bottom() - self._bubble.height() - 7,
+                ))
             self._bubble.move(bubble_x, bubble_y)
 
         def _update_hover_bubble_position(self) -> None:
@@ -2163,6 +2172,7 @@ def main() -> None:
 
         def hide_avatar(self) -> None:
             self._save_position()
+            self._bubble_manual_open = False
             self._bubble.hide()
             self.hide()
             self._update_toggle_action()
@@ -2526,11 +2536,16 @@ def main() -> None:
                     self.show_avatar()
                 hotkey_hint = self._activation_hotkey or HOTKEY_COMBINATION
                 text_hotkey_hint = self._text_hotkey or HOTKEY_TEXT_COMBINATION
+                click_hint = (
+                    "Клик по мне — задать вопрос текстом или голосом, правый клик — меню.\n"
+                    if self._avatar_pack_pixel_art else
+                    "Клик по мне — начать говорить, правый клик — меню.\n"
+                )
                 message = (
                     "Привет. Я Вася и я рядом.\n"
                     f"Горячая клавиша: {hotkey_hint}\n"
                     f"Текстовая клавиша: {text_hotkey_hint}\n"
-                    "Клик по мне — начать говорить, правый клик — меню.\n"
+                    f"{click_hint}"
                     "Скажи «пока», чтобы закрыть, или «замолчи», чтобы остановить речь.\n"
                     "Настройки — в меню, если нужно."
                 )

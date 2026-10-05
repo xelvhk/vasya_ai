@@ -34,6 +34,7 @@ class SettingsOptionsTests(unittest.TestCase):
         self.assertEqual(
             [(option.label, option.value) for option in AVATAR_SIZE_OPTIONS],
             [
+                ("Компактный", 128),
                 ("Маленький", 180),
                 ("Средний", 210),
                 ("Большой", 270),

@@ -22,6 +22,7 @@ class SettingsOption:
 
 
 AVATAR_SIZE_OPTIONS: tuple[SettingsOption, ...] = (
+    SettingsOption("Компактный", 128),
     SettingsOption("Маленький", 180),
     SettingsOption("Средний", 210),
     SettingsOption("Большой", 270),

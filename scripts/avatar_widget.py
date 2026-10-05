@@ -105,6 +105,7 @@ def main() -> None:
             QPen,
             QPixmap,
             QRadialGradient,
+            QTransform,
         )
         from PySide6.QtWidgets import (
             QApplication,
@@ -132,6 +133,12 @@ def main() -> None:
             from scripts.ui.avatar_geometry import (
                 clamp_to_visible_area as clamp_avatar_to_visible_area,
                 snap_to_nearest_edge as snap_avatar_to_nearest_edge,
+            )
+            from scripts.ui.avatar_ambient import (
+                AmbientWalker,
+                bottom_walk_lane,
+                prefers_reduced_motion,
+                visible_pack_state,
             )
             from scripts.ui.avatar_rendering import (
                 animated_glow as _animated_glow,
@@ -199,6 +206,10 @@ def main() -> None:
             from ui.avatar_geometry import (
                 clamp_to_visible_area as clamp_avatar_to_visible_area,
                 snap_to_nearest_edge as snap_avatar_to_nearest_edge,
+            )
+            from ui.avatar_ambient import (
+                AmbientWalker, bottom_walk_lane, prefers_reduced_motion,
+                visible_pack_state,
             )
             from ui.avatar_rendering import (
                 animated_glow as _animated_glow,
@@ -693,6 +704,13 @@ def main() -> None:
             self._idle_motion_enabled = bool(
                 self._widget_state.get("idle_motion_enabled", True)
             )
+            self._ambient_roam_enabled = bool(
+                self._widget_state.get("ambient_roam_enabled", True)
+            )
+            self._ambient_reduced_motion = prefers_reduced_motion()
+            self._ambient_walker = AmbientWalker()
+            self._ambient_walk_state: str | None = None
+            self._ambient_menu_open = False
             self._snap_to_edge_enabled = bool(
                 self._widget_state.get("snap_to_edge_enabled", True)
             )
@@ -843,6 +861,7 @@ def main() -> None:
             self._smile_bounce = 0.0
             self._avatar_path = self._resolve_avatar_path()
             self._avatar_is_pack = False
+            self._avatar_pack_pixel_art = False
             self._avatar_pack_frames: dict[str, list[QPixmap]] = {}
             self._avatar_pack_timing_ms: dict[str, int] = {}
             self._avatar_pack_frame_index: dict[str, int] = {}
@@ -913,6 +932,7 @@ def main() -> None:
 
         def _load_avatar_pack(self, manifest_path: Path) -> bool:
             self._avatar_is_pack = False
+            self._avatar_pack_pixel_art = False
             self._avatar_pack_frames = {}
             self._avatar_pack_timing_ms = {}
             self._avatar_pack_frame_index = {}
@@ -927,6 +947,7 @@ def main() -> None:
                 return False
 
             self._avatar_pack_frames = result.frames
+            self._avatar_pack_pixel_art = result.pixel_art
             self._avatar_pack_timing_ms = result.timing_ms
             self._avatar_pack_frame_index = result.frame_index
             self._avatar_pack_preloaded_cache[manifest_key] = _avatar_pack_cache_payload(result)
@@ -943,6 +964,7 @@ def main() -> None:
                     continue
                 snapshot = (
                     self._avatar_is_pack,
+                    self._avatar_pack_pixel_art,
                     self._avatar_pack_frames,
                     self._avatar_pack_timing_ms,
                     self._avatar_pack_frame_index,
@@ -955,6 +977,7 @@ def main() -> None:
                 finally:
                     (
                         self._avatar_is_pack,
+                        self._avatar_pack_pixel_art,
                         self._avatar_pack_frames,
                         self._avatar_pack_timing_ms,
                         self._avatar_pack_frame_index,
@@ -1056,6 +1079,7 @@ def main() -> None:
             self._apply_state(pending_state)
 
         def _tick(self) -> None:
+            self._tick_ambient_walk()
             if self._state.name == AssistantStateName.IDLE and not self._idle_motion_enabled:
                 self._pulse = 0.0
                 self._bob = 0.0
@@ -1072,7 +1096,7 @@ def main() -> None:
                     self._tray.setIcon(QIcon(self._tray_icon_pixmap))
             if self._avatar_is_pack and self._avatar_pack_frames:
                 self._avatar_pack_elapsed_ms += 60.0
-                state_key = _avatar_state_key(self._state.name)
+                state_key = self._visible_pack_state_key()
                 state_frames = _pack_frames_for_state(self._avatar_pack_frames, state_key)
                 frame_count = len(state_frames)
                 interval_ms = int(self._avatar_pack_timing_ms.get(state_key, 220))
@@ -1089,8 +1113,44 @@ def main() -> None:
             self._update_bubble_position()
             self._update_hover_bubble_position()
 
+        def _visible_pack_state_key(self) -> str:
+            return visible_pack_state(
+                self._state.name, self._ambient_walk_state,
+                _avatar_state_key(self._state.name),
+            )
+
+        def _tick_ambient_walk(self) -> None:
+            now = time.monotonic()
+            screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+            if screen is None:
+                self._ambient_walk_state = None
+                self._ambient_walker.advance(now, self.x(), 0, 0, allowed=False)
+                return
+            left, right, floor_y = bottom_walk_lane(
+                screen.availableGeometry(), self.width(), self.height()
+            )
+            allowed = (
+                self._avatar_is_pack
+                and self._avatar_pack_pixel_art
+                and self._ambient_roam_enabled
+                and self._idle_motion_enabled
+                and not self._ambient_reduced_motion
+                and self._state.name == AssistantStateName.IDLE
+                and self._drag_pos is None
+                and not self._ambient_menu_open
+                and self.isVisible()
+                and abs(self.y() - floor_y) <= 6
+            )
+            x, self._ambient_walk_state = self._ambient_walker.advance(
+                now, self.x(), left, right, allowed=allowed,
+            )
+            if allowed and x != self.x():
+                self.move(x, self.y())
+
         def mousePressEvent(self, event: QMouseEvent) -> None:
             if event.button() == Qt.MouseButton.LeftButton:
+                self._ambient_walker.stop(time.monotonic())
+                self._ambient_walk_state = None
                 self._press_pos = event.globalPosition().toPoint()
                 self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
 
@@ -1126,6 +1186,7 @@ def main() -> None:
             super().leaveEvent(event)
 
         def contextMenuEvent(self, event) -> None:
+            self._ambient_menu_open = True
             try:
                 menu = QMenu(self)
 
@@ -1147,6 +1208,12 @@ def main() -> None:
 
                 settings_menu = menu.addMenu("Настройки")
                 settings_action = settings_menu.addAction("Открыть настройки...")
+                roam_action = settings_menu.addAction("Прогулка по экрану")
+                roam_action.setCheckable(True)
+                roam_action.setChecked(self._ambient_roam_enabled)
+                roam_action.setEnabled(
+                    self._avatar_pack_pixel_art and not self._ambient_reduced_motion
+                )
                 clear_memory_action = settings_menu.addAction("Очистить личную память...")
                 menu.addSeparator()
                 quit_action = menu.addAction("Закрыть Васю")
@@ -1166,6 +1233,7 @@ def main() -> None:
                     memory_search_action: self._search_memory_center,
                     memory_sync_action: self._sync_memory_center_now,
                     settings_action: self._open_settings_dialog,
+                    roam_action: self._toggle_ambient_roam,
                     clear_memory_action: self._clear_personal_memory,
                     quit_action: self.quit_application,
                 }
@@ -1174,6 +1242,26 @@ def main() -> None:
                     handler()
             except Exception as exc:
                 log(f"Context menu error: {exc}")
+            finally:
+                self._ambient_menu_open = False
+
+        def _toggle_ambient_roam(self) -> None:
+            self._ambient_roam_enabled = not self._ambient_roam_enabled
+            self._ambient_walker.stop(time.monotonic())
+            self._ambient_walk_state = None
+            if self._ambient_roam_enabled and self._avatar_pack_pixel_art:
+                self._place_on_bottom_lane()
+            self._save_position()
+
+        def _place_on_bottom_lane(self) -> None:
+            screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+            if screen is None:
+                return
+            left, right, floor_y = bottom_walk_lane(
+                screen.availableGeometry(), self.width(), self.height()
+            )
+            self.move(min(max(self.x(), left), right), floor_y)
+            self._update_bubble_position()
 
         def _activate_interaction(self) -> None:
             decision = _voice_activation_decision(
@@ -1423,11 +1511,16 @@ def main() -> None:
             self._avatar_lottie_frame = 0.0
             self._avatar_lottie_fps = 30.0
             self._avatar_is_pack = False
+            self._avatar_pack_pixel_art = False
             self._avatar_pack_frames = {}
             self._avatar_pack_timing_ms = {}
             self._avatar_pack_frame_index = {}
             self._avatar_pack_elapsed_ms = 0.0
             self._avatar = self._load_avatar()
+            self._ambient_walker.stop(time.monotonic())
+            self._ambient_walk_state = None
+            if self._avatar_pack_pixel_art and self._ambient_roam_enabled:
+                self._place_on_bottom_lane()
             self._avatar_is_svg = (
                 self._avatar_path is not None and self._avatar_path.suffix.lower() == ".svg"
             )
@@ -1452,9 +1545,9 @@ def main() -> None:
                 state_name=self._state.name,
                 width=width,
                 height=height,
-                pack_renderer=lambda size, state_key: self._render_pack_avatar(
+                pack_renderer=lambda size, _state_key: self._render_pack_avatar(
                     size,
-                    state_key=state_key,
+                    state_key=self._visible_pack_state_key(),
                 ),
                 lottie_renderer=self._render_lottie_avatar,
                 svg_renderer=self._render_svg_avatar,
@@ -1464,15 +1557,24 @@ def main() -> None:
             )
 
         def _render_pack_avatar(self, size: int, *, state_key: str) -> QPixmap:
-            return _render_pack_avatar(
+            rendered = _render_pack_avatar(
                 frames_by_state=self._avatar_pack_frames,
                 frame_index=self._avatar_pack_frame_index,
                 state_key=state_key,
                 size=size,
                 empty_pixmap_factory=QPixmap,
                 aspect_ratio_mode=Qt.AspectRatioMode.KeepAspectRatio,
-                transformation_mode=Qt.TransformationMode.SmoothTransformation,
+                transformation_mode=(
+                    Qt.TransformationMode.FastTransformation
+                    if self._avatar_pack_pixel_art
+                    else Qt.TransformationMode.SmoothTransformation
+                ),
             )
+            if state_key == "walk_right" and not rendered.isNull():
+                return rendered.transformed(
+                    QTransform().scale(-1, 1), Qt.TransformationMode.FastTransformation,
+                )
+            return rendered
 
         def _render_lottie_avatar(self, size: int) -> QPixmap:
             return _render_lottie_avatar(
@@ -1888,6 +1990,8 @@ def main() -> None:
             saved_pos = _load_saved_position()
             target_pos = saved_pos or _default_position(self.width(), self.height())
             self.move(_clamp_to_visible_area(target_pos, self.width(), self.height()))
+            if saved_pos is None and self._avatar_pack_pixel_art and self._ambient_roam_enabled:
+                self._place_on_bottom_lane()
 
         def _save_position(self) -> None:
             _save_widget_state(
@@ -1901,6 +2005,7 @@ def main() -> None:
                     "text_hotkey_combination": self._text_hotkey,
                     "show_response_bubble": self._show_response_bubble,
                     "idle_motion_enabled": self._idle_motion_enabled,
+                    "ambient_roam_enabled": self._ambient_roam_enabled,
                     "snap_to_edge_enabled": self._snap_to_edge_enabled,
                     "avatar_opacity": self._avatar_opacity,
                     "avatar_skin": self._avatar_skin,

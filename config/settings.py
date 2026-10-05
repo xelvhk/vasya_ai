@@ -257,7 +257,7 @@ AVATAR_IMAGE_PATH = os.getenv("AVATAR_IMAGE_PATH", "").strip()
 AVATAR_SKIN = os.getenv("AVATAR_SKIN", "classic").strip()
 AVATAR_PACK_SKINS = [
     item.strip()
-    for item in os.getenv("AVATAR_PACK_SKINS", "vasya_pro,vasya_pro_female").split(",")
+    for item in os.getenv("AVATAR_PACK_SKINS", "pixel_vasya,vasya_pro,vasya_pro_female").split(",")
     if item.strip()
 ]
 AVATAR_SIZE = int(os.getenv("AVATAR_SIZE", "210"))

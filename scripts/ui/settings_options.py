@@ -29,7 +29,7 @@ AVATAR_SIZE_OPTIONS: tuple[SettingsOption, ...] = (
 )
 
 TRAY_CLICK_OPTIONS: tuple[SettingsOption, ...] = (
-    SettingsOption("Показать или скрыть Васю", "toggle"),
+    SettingsOption("Показать Васю", "show"),
     SettingsOption("Начать слушать", "listen"),
 )
 

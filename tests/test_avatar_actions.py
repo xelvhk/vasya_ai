@@ -3,10 +3,17 @@ from __future__ import annotations
 import unittest
 
 from assistant.state import AssistantStateName
-from scripts.ui.avatar_actions import text_command_decision, voice_activation_decision
+from scripts.ui.avatar_actions import (
+    text_command_decision, tray_icon_command, voice_activation_decision,
+)
 
 
 class AvatarActionsTests(unittest.TestCase):
+    def test_tray_click_opens_vasya_including_legacy_toggle_setting(self) -> None:
+        self.assertEqual(tray_icon_command("show"), "show")
+        self.assertEqual(tray_icon_command("toggle"), "show")
+        self.assertEqual(tray_icon_command("listen"), "listen")
+
     def test_voice_activation_starts_when_no_interaction_is_running(self) -> None:
         decision = voice_activation_decision(
             interaction_locked=False,

@@ -304,6 +304,8 @@ def _load_avatar_atlas_frames(
 
     frames_by_state = {}
     crop_cache = {}
+    raw_bounds = payload.get("visible_bounds", {})
+    visible_bounds = raw_bounds if isinstance(raw_bounds, dict) else {}
     for raw_key, indexes in payload["states"].items():
         state_key = str(raw_key).strip().lower()
         if state_key not in AVATAR_PACK_STATE_KEYS or not isinstance(indexes, list):
@@ -318,6 +320,21 @@ def _load_avatar_atlas_frames(
                 top = row * atlas.height() // rows
                 right = (column + 1) * atlas.width() // columns
                 bottom = (row + 1) * atlas.height() // rows
+                bounds = visible_bounds.get(str(index))
+                if (
+                    isinstance(bounds, list) and len(bounds) == 4
+                    and all(type(value) is int for value in bounds)
+                ):
+                    x, y, width, height = bounds
+                    if (
+                        0 <= x < right - left and 0 <= y < bottom - top
+                        and 0 < width <= right - left - x
+                        and 0 < height <= bottom - top - y
+                    ):
+                        left += x
+                        top += y
+                        right = left + width
+                        bottom = top + height
                 crop_cache[index] = atlas.copy(left, top, right - left, bottom - top)
             frame = crop_cache[index]
             if not frame.isNull():

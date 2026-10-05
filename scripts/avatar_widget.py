@@ -192,6 +192,7 @@ def main() -> None:
             )
             from scripts.ui.avatar_actions import (
                 text_command_decision as _text_command_decision,
+                tray_icon_command as _tray_icon_command,
                 voice_activation_decision as _voice_activation_decision,
             )
             from scripts.ui.settings_dialog import SettingsDialog
@@ -263,6 +264,7 @@ def main() -> None:
             )
             from ui.avatar_actions import (
                 text_command_decision as _text_command_decision,
+                tray_icon_command as _tray_icon_command,
                 voice_activation_decision as _voice_activation_decision,
             )
             from ui.settings_dialog import SettingsDialog
@@ -695,8 +697,8 @@ def main() -> None:
             if self._avatar_skin not in _avatar_skin_ids():
                 self._avatar_skin = AVATAR_SKIN if AVATAR_SKIN in _avatar_skin_ids() else "classic"
             self._auto_child_skin = bool(self._widget_state.get("auto_child_skin", True))
-            self._tray_click_action = str(
-                self._widget_state.get("tray_click_action", "toggle")
+            self._tray_click_action = _tray_icon_command(
+                str(self._widget_state.get("tray_click_action", "show"))
             )
             self._show_response_bubble = bool(
                 self._widget_state.get("show_response_bubble", True)
@@ -1333,14 +1335,15 @@ def main() -> None:
             painter.setOpacity(max(0.45, min(1.0, self._avatar_opacity)))
 
             if self._avatar is not None or self._avatar_is_lottie or self._avatar_is_pack:
-                self._paint_ambient_glow(painter)
+                if not self._avatar_pack_pixel_art:
+                    self._paint_ambient_glow(painter)
                 self._paint_avatar(painter)
             else:
                 self._paint_character(painter)
             self._paint_status_indicator(painter)
 
         def _paint_status_indicator(self, painter: QPainter) -> None:
-            if self._state.name == AssistantStateName.IDLE:
+            if self._state.name == AssistantStateName.IDLE or self._avatar_pack_pixel_art:
                 return
             painter.save()
             color = _animated_glow(
@@ -1392,6 +1395,11 @@ def main() -> None:
             scale_y = bounds.height() / self.height()
             painter.translate(bounds.left(), bounds.top())
             painter.scale(scale_x, scale_y)
+
+            if self._avatar_pack_pixel_art:
+                self._paint_pixel_pack_avatar(painter)
+                painter.restore()
+                return
 
             glow = _animated_glow(self._state.name, pulse, skin_id)
             painter.setPen(Qt.PenStyle.NoPen)
@@ -1446,6 +1454,9 @@ def main() -> None:
             painter.restore()
 
         def _paint_avatar(self, painter: QPainter) -> None:
+            if self._avatar_pack_pixel_art:
+                self._paint_pixel_pack_avatar(painter)
+                return
             bob_offset = _avatar_bob_offset(
                 self._state.name,
                 self._bob,
@@ -1498,6 +1509,17 @@ def main() -> None:
             )
             painter.drawPath(highlight_path)
             painter.restore()
+
+        def _paint_pixel_pack_avatar(self, painter: QPainter) -> None:
+            pixmap = self._render_pack_avatar(
+                max(64, self.height() - 4), state_key=self._visible_pack_state_key(),
+            )
+            if not pixmap.isNull():
+                painter.drawPixmap(
+                    (self.width() - pixmap.width()) // 2,
+                    self.height() - pixmap.height(),
+                    pixmap,
+                )
 
         def _set_avatar_image_path(self, path: Path | None) -> None:
             if path is None:
@@ -2120,7 +2142,7 @@ def main() -> None:
                 if self._tray_click_action == "listen":
                     self._activate_interaction()
                 else:
-                    self.toggle_avatar_visibility()
+                    self.show_avatar()
 
         def toggle_avatar_visibility(self) -> None:
             if self.isVisible():

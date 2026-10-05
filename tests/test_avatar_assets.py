@@ -235,6 +235,28 @@ class AvatarAssetsTests(unittest.TestCase):
             self.assertNotIn("thinking", result.frames)
             self.assertNotIn("unknown", result.frames)
 
+    def test_pixel_atlas_visible_bounds_anchor_uneven_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            manifest.write_text(
+                json.dumps({
+                    "atlas": "atlas.png",
+                    "grid": {"columns": 4, "rows": 2},
+                    "visible_bounds": {
+                        "0": [160, 33, 206, 427],
+                        "1": [102, 36, 207, 424],
+                        "2": [999, 0, 2, 2],
+                    },
+                    "states": {"idle": [0, 1], "walk_left": [2]},
+                }), encoding="utf-8",
+            )
+
+            result = load_avatar_pack_manifest(manifest, FakeAtlasPixmap)
+
+            self.assertEqual(result.frames["idle"][0].crop, (160, 33, 206, 427))
+            self.assertEqual(result.frames["idle"][1].crop, (519, 36, 207, 424))
+            self.assertEqual(result.frames["walk_left"][0].crop, (835, 0, 418, 470))
+
     def test_cached_avatar_pack_result_restores_valid_payload(self) -> None:
         payload = {
             "frames": {"idle": [object()], "empty": []},

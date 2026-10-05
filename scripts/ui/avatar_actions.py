@@ -25,6 +25,11 @@ class TextCommandDecision:
     cancel_current: bool = False
 
 
+def tray_icon_command(configured_action: str) -> str:
+    """Clicking the tray icon opens Vasya; hiding remains an explicit menu action."""
+    return "listen" if configured_action == "listen" else "show"
+
+
 def voice_activation_decision(
     *,
     interaction_locked: bool,

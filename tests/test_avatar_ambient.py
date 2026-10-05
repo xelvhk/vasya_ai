@@ -67,6 +67,17 @@ class AmbientWalkerTests(unittest.TestCase):
     def test_assistant_state_takes_priority_over_walk(self) -> None:
         self.assertEqual(visible_pack_state("thinking", "walk_left", "thinking"), "thinking")
         self.assertEqual(visible_pack_state("idle", "walk_left", "idle"), "walk_left")
+        self.assertEqual(
+            visible_pack_state(
+                "thinking", "walk_left", "thinking",
+                activity="work", work_available=True,
+            ),
+            "work",
+        )
+        self.assertEqual(
+            visible_pack_state("thinking", None, "thinking", activity="work"),
+            "thinking",
+        )
 
 
 if __name__ == "__main__":

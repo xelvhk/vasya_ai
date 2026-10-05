@@ -18,6 +18,7 @@ class AssistantStateName(str, Enum):
 class AssistantState:
     name: AssistantStateName
     message: str | None = None
+    activity: str | None = None
 
 
 class AssistantStateStore:
@@ -30,9 +31,12 @@ class AssistantStateStore:
         with self._lock:
             return self._state
 
-    def set(self, name: AssistantStateName, message: str | None = None) -> None:
+    def set(
+        self, name: AssistantStateName, message: str | None = None,
+        *, activity: str | None = None,
+    ) -> None:
         with self._lock:
-            self._state = AssistantState(name=name, message=message)
+            self._state = AssistantState(name=name, message=message, activity=activity)
             subscribers = list(self._subscribers)
 
         for callback in subscribers:

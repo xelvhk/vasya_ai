@@ -51,8 +51,9 @@ dragging him back allows walking after the next idle delay. macOS Reduce Motion
 also disables roaming. The chat, microphone, hotkeys, and other skins remain
 available.
 
-The atlas includes work and success poses, but task lifecycle events are not
-wired to those poses in this slice. Speaking uses the success pose for now.
+For text commands, the work pose appears after the pipeline resolves the
+intent. Speaking uses the success pose. Agent jobs started outside the desktop
+text pipeline do not yet publish lifecycle events to this widget.
 
 ## Later slices
 

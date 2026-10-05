@@ -1117,6 +1117,8 @@ def main() -> None:
             return visible_pack_state(
                 self._state.name, self._ambient_walk_state,
                 _avatar_state_key(self._state.name),
+                activity=self._state.activity,
+                work_available=bool(self._avatar_pack_frames.get("work")),
             )
 
         def _tick_ambient_walk(self) -> None:
@@ -2448,6 +2450,7 @@ def main() -> None:
                                 assistant_state.set(
                                     AssistantStateName.THINKING,
                                     "Поняла задачу, формирую ответ...",
+                                    activity="work",
                                 )
                                 continue
                             if event.stage == "pipeline_canceled":

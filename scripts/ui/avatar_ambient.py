@@ -38,7 +38,10 @@ def prefers_reduced_motion() -> bool:
 
 def visible_pack_state(
     assistant_state: str, ambient_state: str | None, default_state: str,
+    *, activity: str | None = None, work_available: bool = False,
 ) -> str:
+    if assistant_state == "thinking" and activity == "work" and work_available:
+        return "work"
     if assistant_state == "idle" and ambient_state:
         return ambient_state
     return default_state

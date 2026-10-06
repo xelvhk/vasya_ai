@@ -30,6 +30,7 @@ class BuildMacOSAppTests(unittest.TestCase):
         self.assertEqual(command[command.index("--workpath") + 1], "/repo/build/packaging/work")
         self.assertEqual(command[command.index("--specpath") + 1], "/repo/build/packaging/spec")
         self.assertEqual(command[command.index("--add-data") + 1], f"/repo/assets{os.pathsep}assets")
+        self.assertIn(f"/repo/scripts/run_silero_tts.py{os.pathsep}scripts", command)
         self.assertEqual(command[-1], "/repo/main.py")
 
     def test_resolve_pyinstaller_prefers_project_virtualenv_binary(self) -> None:

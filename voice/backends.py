@@ -5,7 +5,10 @@ import subprocess
 import sys
 import tempfile
 import os
+import importlib.util
+import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 from queue import Queue, Empty
@@ -22,6 +25,9 @@ from config.settings import (
     PIPER_LENGTH_SCALE,
     PIPER_MODEL_PATH,
     PIPER_SPEAKER,
+    SILERO_MODEL_PATH,
+    SILERO_PYTHON,
+    SILERO_SPEED,
     TTS_BACKEND,
     TTS_HYBRID_SHORT_TEXT_MAX_WORDS,
     TTS_RATE,
@@ -178,15 +184,15 @@ class PiperTTSBackend(BaseTTSBackend):
         model_path = get_profile_model_path(profile)
         if model_path is None:
             raise RuntimeError(f"Piper model for profile '{profile.label}' is not available.")
-        command_path = _resolve_piper_command()
-        if command_path is None:
+        command_prefix = _resolve_piper_command()
+        if command_prefix is None:
             raise RuntimeError(f"Piper command '{PIPER_COMMAND}' was not found.")
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             output_path = Path(temp_file.name)
 
         command = [
-            command_path,
+            *command_prefix,
             "--model",
             str(model_path),
             "--output_file",
@@ -309,6 +315,86 @@ class PiperTTSBackend(BaseTTSBackend):
         finally:
             with self._lock:
                 self._play_process = None
+
+
+class SileroTTSBackend(PiperTTSBackend):
+    name = "silero"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._worker: subprocess.Popen[str] | None = None
+        self._request_lock = Lock()
+
+    def _get_worker(self) -> subprocess.Popen[str]:
+        worker = self._worker
+        if worker is not None and worker.poll() is None:
+            return worker
+        worker = subprocess.Popen(
+            [SILERO_PYTHON, str(Path(__file__).resolve().parent.parent / "scripts" / "run_silero_tts.py"),
+             "--model", SILERO_MODEL_PATH, "--serve"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        ready = worker.stdout.readline() if worker.stdout else ""
+        if not ready:
+            error = worker.stderr.read() if worker.stderr else ""
+            worker.wait(timeout=5)
+            raise RuntimeError(error.strip() or "Silero worker did not start.")
+        if not json.loads(ready).get("ready"):
+            raise RuntimeError("Silero worker was not ready.")
+        self._worker = worker
+        return worker
+
+    def speak(self, text: str, voice: str | None = None, rate: int | None = None) -> None:
+        _ = voice, rate
+        if not is_silero_available():
+            raise RuntimeError("Silero aidar needs the local model, PyTorch Python, and ffmpeg.")
+        with tempfile.TemporaryDirectory(prefix="vasya-silero-") as temp_dir:
+            raw_path = Path(temp_dir) / "raw.wav"
+            output_path = Path(temp_dir) / "speech.wav"
+            with self._request_lock:
+                worker = self._get_worker()
+                with self._lock:
+                    self._is_playing = True
+                try:
+                    assert worker.stdin is not None and worker.stdout is not None
+                    worker.stdin.write(json.dumps({"text": text, "output": str(raw_path)}, ensure_ascii=False) + "\n")
+                    worker.stdin.flush()
+                    response = worker.stdout.readline()
+                    if not response:
+                        raise RuntimeError("Silero worker stopped during synthesis.")
+                    result = json.loads(response)
+                    if not result.get("ok"):
+                        raise RuntimeError(result.get("error", "Silero synthesis failed."))
+                finally:
+                    with self._lock:
+                        self._is_playing = False
+            subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-i", str(raw_path),
+                 "-filter:a", f"atempo={SILERO_SPEED}", str(output_path)],
+                check=True,
+                timeout=30,
+            )
+            self._play_audio_file(output_path)
+
+    def stop(self) -> None:
+        super().stop()
+        worker = self._worker
+        self._worker = None
+        if worker is not None and worker.poll() is None:
+            worker.terminate()
+            try:
+                worker.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                worker.kill()
+
+    def list_voices(self) -> list[str]:
+        profile = get_voice_profile("silero_aidar")
+        suffix = "" if is_silero_available() else " (нужно установить модель и PyTorch)"
+        return [f"{profile.label}{suffix}"]
 
 
 class XTTSBackend(BaseTTSBackend):
@@ -689,6 +775,9 @@ def get_tts_backend() -> BaseTTSBackend:
     if backend_name == "piper":
         _TTS_BACKEND = PiperTTSBackend()
         return _TTS_BACKEND
+    if backend_name == "silero":
+        _TTS_BACKEND = SileroTTSBackend()
+        return _TTS_BACKEND
     if backend_name == "xtts":
         _TTS_BACKEND = XTTSBackend()
         return _TTS_BACKEND
@@ -700,6 +789,9 @@ def get_tts_backend() -> BaseTTSBackend:
         return _TTS_BACKEND
     if backend_name == "auto":
         active_profile = get_active_voice_profile()
+        if active_profile.backend == "silero" and is_silero_available():
+            _TTS_BACKEND = SileroTTSBackend()
+            return _TTS_BACKEND
         if active_profile.backend == "xtts" and is_xtts_available(active_profile):
             _TTS_BACKEND = HybridTTSBackend()
             return _TTS_BACKEND
@@ -732,6 +824,30 @@ def is_piper_available() -> bool:
     return get_profile_model_path() is not None and _resolve_piper_command() is not None
 
 
+def is_silero_available() -> bool:
+    return (
+        Path(SILERO_MODEL_PATH).expanduser().is_file()
+        and Path(SILERO_PYTHON).expanduser().is_file()
+        and shutil.which("ffmpeg") is not None
+        and (Path(__file__).resolve().parent.parent / "scripts" / "run_silero_tts.py").is_file()
+        and _has_silero_runtime(SILERO_PYTHON)
+    )
+
+
+@lru_cache(maxsize=2)
+def _has_silero_runtime(python_path: str) -> bool:
+    try:
+        result = subprocess.run(
+            [python_path, "-c", "import torch, numpy"],
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
 def is_xtts_command_available() -> bool:
     return _resolve_command(XTTS_COMMAND) is not None
 
@@ -750,6 +866,10 @@ def get_tts_backend_status() -> str:
     active_profile = get_active_voice_profile()
 
     if configured_backend == "auto":
+        if active_profile.backend == "silero" and active_backend == "piper":
+            return "TTS backend: piper fallback (Silero aidar is unavailable; check model, Python, and ffmpeg)"
+        if active_backend == "silero":
+            return f"TTS backend: silero ({active_profile.label}, {SILERO_SPEED}x)"
         if active_profile.backend == "xtts" and active_backend == "piper":
             return (
                 f"TTS backend: piper fallback (XTTS profile '{active_profile.label}' is unavailable; "
@@ -778,6 +898,8 @@ def get_tts_backend_status() -> str:
         if get_profile_model_path(active_profile) is None:
             return f"TTS backend: piper is selected, but the model for '{active_profile.label}' is not installed"
         return f"TTS backend: piper is selected, but command '{PIPER_COMMAND}' was not found"
+    if configured_backend == "silero" and not is_silero_available():
+        return "TTS backend: silero is selected, but model, Python, or ffmpeg is unavailable"
     if configured_backend == "xtts" and not is_xtts_available(active_profile):
         if get_profile_speaker_wav(active_profile) is None:
             return (
@@ -790,6 +912,8 @@ def get_tts_backend_status() -> str:
         speaker = get_profile_speaker_wav(active_profile)
         speaker_name = speaker.name if speaker is not None else "missing speaker wav"
         return f"TTS backend: hybrid (XTTS + Piper, {active_profile.label}, speaker={speaker_name})"
+    if active_backend == "silero":
+        return f"TTS backend: silero ({active_profile.label}, {SILERO_SPEED}x)"
     if active_backend == "piper":
         model_path = get_profile_model_path(active_profile)
         model_name = model_path.name if model_path is not None else "missing model"
@@ -811,8 +935,32 @@ def reset_tts_backend() -> None:
     _TTS_BACKEND = None
 
 
-def _resolve_piper_command() -> str | None:
-    return _resolve_command(PIPER_COMMAND)
+def _resolve_piper_command() -> list[str] | None:
+    configured = _resolve_command(PIPER_COMMAND)
+    if configured is not None and _has_working_shebang(configured):
+        return [configured]
+    try:
+        module_available = importlib.util.find_spec("piper.__main__") is not None
+    except ModuleNotFoundError:
+        module_available = False
+    if module_available:
+        return [sys.executable, "-m", "piper"]
+    return None
+
+
+def _has_working_shebang(command_path: str) -> bool:
+    try:
+        with open(command_path, "rb") as executable:
+            first_line = executable.readline(256)
+    except OSError:
+        return False
+    if not first_line.startswith(b"#!"):
+        return True
+    shebang_parts = first_line[2:].split(maxsplit=1)
+    if not shebang_parts:
+        return False
+    interpreter = shebang_parts[0].decode(errors="replace")
+    return Path(interpreter).exists()
 
 
 def _resolve_command(command_name: str) -> str | None:

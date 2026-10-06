@@ -13,7 +13,6 @@ from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
     AGENT_ROUTING_PROFILE,
     AUDIO_FILENAME,
-    AVATAR_IMAGE_PATH,
     AVATAR_SKIN,
     AVATAR_SIZE,
     AVATAR_STATE_FILE,
@@ -168,7 +167,6 @@ def main() -> None:
                 render_lottie_avatar as _render_lottie_avatar,
                 render_pack_avatar as _render_pack_avatar,
                 render_svg_avatar as _render_svg_avatar,
-                resolve_avatar_path as _resolve_avatar_path,
             )
             from scripts.ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -178,6 +176,7 @@ def main() -> None:
                 exportable_skin_spec as _exportable_skin_spec,
                 pack_manifest_path as _pack_manifest_path,
                 pack_skin_combo_value as _pack_skin_combo_value,
+                active_avatar_path as _active_avatar_path,
                 pack_skin_from_combo_value as _pack_skin_from_combo_value,
                 save_custom_skin_spec as _save_custom_skin_spec,
             )
@@ -240,7 +239,6 @@ def main() -> None:
                 render_lottie_avatar as _render_lottie_avatar,
                 render_pack_avatar as _render_pack_avatar,
                 render_svg_avatar as _render_svg_avatar,
-                resolve_avatar_path as _resolve_avatar_path,
             )
             from ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -250,6 +248,7 @@ def main() -> None:
                 exportable_skin_spec as _exportable_skin_spec,
                 pack_manifest_path as _pack_manifest_path,
                 pack_skin_combo_value as _pack_skin_combo_value,
+                active_avatar_path as _active_avatar_path,
                 pack_skin_from_combo_value as _pack_skin_from_combo_value,
                 save_custom_skin_spec as _save_custom_skin_spec,
             )
@@ -889,7 +888,7 @@ def main() -> None:
             start_memory_background_scheduler()
 
         def _resolve_avatar_path(self) -> Path | None:
-            return _resolve_avatar_path(self._widget_state, AVATAR_IMAGE_PATH)
+            return _active_avatar_path(self._widget_state)
 
         def _load_avatar(self):
             path = self._avatar_path

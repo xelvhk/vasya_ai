@@ -28,8 +28,8 @@ with the maintainer's projects or local paths.
 The desktop shell provides the avatar, tray controls, global hotkeys, voice
 activation, dictation, and local settings.
 
-The optional [Pixel Vasya companion](docs/PIXEL_VASYA_WIDGET.md) adds a compact
-human character and short walks along the bottom edge of the desktop.
+[Pixel Vasya](docs/PIXEL_VASYA_WIDGET.md) is the desktop widget's sole character.
+He takes short walks along the bottom edge of the desktop.
 
 ## What works today
 

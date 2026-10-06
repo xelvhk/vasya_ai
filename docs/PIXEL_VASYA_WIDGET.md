@@ -16,12 +16,12 @@ while gaining a small, recognisable character and purposeful ambient motion.
   No screen capture, window inspection, cursor tracking, or model calls drive
   ambient motion.
 - Existing assistant states take priority over ambient walking. Reduced motion
-  and an explicit switch disable roaming. Existing skins remain available.
+  and an explicit switch disable roaming. Pixel Vasya is the desktop character.
 - No new Python UI framework or runtime dependency.
 
 ## First-slice behavior
 
-1. A new optional skin renders a consistent pixel character at a compact size.
+1. The desktop widget renders a consistent pixel character at a compact size.
 2. While idle and enabled, he occasionally walks a short bounded distance,
    pauses, then returns to idle animation. User interaction immediately stops
    the walk. A manual drag remains authoritative and preserves its saved position.
@@ -43,8 +43,8 @@ while gaining a small, recognisable character and purposeful ambient motion.
 
 ## Trying the first slice
 
-In the desktop settings, choose the **Пиксельный Вася** character pack and the
-**Компактный** size. The character moves to the bottom of the current screen.
+The desktop widget uses **Пиксельный Вася** automatically. Choose the
+**Компактный** size if preferred. The character moves to the bottom of the current screen.
 Click Vasya to open the compact question window. Type and press Enter or the
 orange send button; the microphone button starts the existing voice flow. The
 answer remains readable in the window until it is closed. The dark violet and
@@ -54,8 +54,7 @@ Right-click the widget and use **Настройки → Прогулка по э
 resume short walks, or **Погулять сейчас** to start one immediately. Dragging
 Vasya away from the bottom leaves him stationary; dragging him back allows
 walking after the next idle delay. macOS Reduce Motion
-also disables roaming. The chat, microphone, hotkeys, and other skins remain
-available.
+also disables roaming. The chat, microphone, and hotkeys remain available.
 
 For text commands, the work pose appears after the pipeline resolves the
 intent. Speaking uses the success pose. Agent jobs started outside the desktop
@@ -63,6 +62,5 @@ text pipeline do not yet publish lifecycle events to this widget.
 
 ## Later slices
 
-Add dedicated work/result art tied to actual task lifecycle events, optional
-sleep/sit behavior, and an alternate cat skin only after the first slice works
-well during daily desktop use.
+Add dedicated work/result art tied to actual task lifecycle events and optional
+sleep/sit behavior after the first slice works well during daily desktop use.

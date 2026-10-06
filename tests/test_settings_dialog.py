@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QScrollArea, QWidget
+    from PySide6.QtWidgets import QApplication, QLabel, QScrollArea, QWidget
 
     from scripts.ui.settings_dialog import SettingsDialog
 except ImportError:  # pragma: no cover - depends on optional desktop deps
@@ -69,6 +69,8 @@ class SettingsDialogTests(unittest.TestCase):
         self.assertIsNotNone(dialog._dictation_target_combo)
         self.assertIsNotNone(dialog._auto_interrupt_adaptive_checkbox)
         self.assertIsNotNone(dialog._hotkey_input)
+        self.assertFalse(hasattr(dialog, "_skin_combo"))
+        self.assertTrue(any(label.text() == "Пиксельный Вася" for label in dialog.findChildren(QLabel)))
 
     def test_settings_tabs_scroll_and_dialog_fits_available_screen(self) -> None:
         app = QApplication.instance() or QApplication([])

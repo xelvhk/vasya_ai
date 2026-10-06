@@ -44,10 +44,8 @@ prototype must preserve.
 
 ## Assets To Include
 
-- Runtime avatar assets live under `assets/`, including `assets/vasya_avatar.svg`
-  and the `assets/skins/vasya_pro` skin pack.
-- The `vasya_pro` skin pack includes `manifest.json`, `preview.png`, and WebP
-  frames for idle, listening, speaking, thinking, and error states.
+- Runtime avatar assets live under `assets/skins/pixel_vasya/`. Include
+  `manifest.json` and `atlas.png` in the application bundle.
 - Generated Finder metadata such as `.DS_Store` should not be bundled.
 - User-provided custom skins or images remain user data and should stay outside
   the application bundle.

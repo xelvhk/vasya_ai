@@ -273,7 +273,7 @@ AVATAR_CUSTOM_SKIN_FILE = _runtime_path(
 )
 TTS_VOICE = os.getenv("TTS_VOICE", "Milena")
 TTS_RATE = int(os.getenv("TTS_RATE", "185"))
-TTS_PROFILE = os.getenv("TTS_PROFILE", "ruslan_direct")
+TTS_PROFILE = os.getenv("TTS_PROFILE", "silero_aidar")
 TTS_STATE_FILE = _runtime_path(
     "TTS_STATE_FILE",
     APP_PATHS.state_file("tts_settings.json"),
@@ -413,6 +413,12 @@ PIPER_MODEL_PATH = _runtime_path(
 )
 PIPER_SPEAKER = os.getenv("PIPER_SPEAKER", "")
 PIPER_LENGTH_SCALE = os.getenv("PIPER_LENGTH_SCALE", "1.0")
+SILERO_MODEL_PATH = _runtime_path(
+    "SILERO_MODEL_PATH",
+    APP_PATHS.data_dir / "voices" / "v5_5_ru.pt",
+)
+SILERO_PYTHON = os.getenv("SILERO_PYTHON", "").strip() or sys.executable
+SILERO_SPEED = 1.25
 XTTS_COMMAND = os.getenv("XTTS_COMMAND", "tts")
 XTTS_MODEL_NAME = os.getenv(
     "XTTS_MODEL_NAME",

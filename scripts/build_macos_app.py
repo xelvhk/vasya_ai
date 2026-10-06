@@ -122,6 +122,8 @@ def pyinstaller_command(config: MacOSAppBuildConfig, *, pyinstaller: str) -> lis
         str(config.spec_path),
         "--add-data",
         f"{config.assets_path}{os.pathsep}assets",
+        "--add-data",
+        f"{config.root_dir / 'scripts' / 'run_silero_tts.py'}{os.pathsep}scripts",
         str(config.entrypoint),
     ]
 

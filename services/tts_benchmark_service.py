@@ -33,6 +33,7 @@ from config.settings import (
     XTTS_TRUST_LOCAL_CHECKPOINT,
 )
 from voice.profiles import get_profile_model_path, get_profile_speaker_wav, get_voice_profile
+from voice.backends import _resolve_piper_command
 
 
 DEFAULT_TTS_BENCHMARK_TEXT = "Привет, это короткий тест скорости голоса Васи."
@@ -239,16 +240,16 @@ def build_tts_benchmark_plan(
 
 
 def _build_piper_plan(*, text: str, output_dir: Path) -> TTSBenchmarkPlan | TTSBenchmarkResult:
-    command_path = _resolve_command(PIPER_COMMAND)
+    command_prefix = _resolve_piper_command()
     profile = get_voice_profile("ruslan_direct")
     model_path = get_profile_model_path(profile)
-    if command_path is None:
+    if command_prefix is None:
         return _skip("piper", "piper", f"Piper command '{PIPER_COMMAND}' was not found")
     if model_path is None:
         return _skip("piper", "piper", "Piper model is not installed")
 
     output_path = output_dir / "piper.wav"
-    command = [command_path, "--model", str(model_path), "--output_file", str(output_path)]
+    command = [*command_prefix, "--model", str(model_path), "--output_file", str(output_path)]
     if PIPER_SPEAKER:
         command.extend(["--speaker", PIPER_SPEAKER])
     length_scale = profile.piper_length_scale or (float(PIPER_LENGTH_SCALE) if PIPER_LENGTH_SCALE else None)

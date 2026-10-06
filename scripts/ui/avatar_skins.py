@@ -5,12 +5,12 @@ import sys
 from pathlib import Path
 
 try:
-    from config.settings import AVATAR_CUSTOM_SKIN_FILE, AVATAR_PACK_SKINS, AVATAR_SKIN
+    from config.settings import AVATAR_CUSTOM_SKIN_FILE, AVATAR_SKIN
 except ModuleNotFoundError as exc:
     if exc.name != "config":
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from config.settings import AVATAR_CUSTOM_SKIN_FILE, AVATAR_PACK_SKINS, AVATAR_SKIN
+    from config.settings import AVATAR_CUSTOM_SKIN_FILE, AVATAR_SKIN
 
 
 AVATAR_SKINS = {
@@ -187,15 +187,32 @@ def pack_manifest_path(pack_id: str) -> Path:
     )
 
 
+def pixel_vasya_manifest_path() -> Path:
+    """The single supported desktop character pack."""
+    return pack_manifest_path("pixel_vasya")
+
+
+def active_avatar_path(widget_state: dict) -> Path | None:
+    """Discard a saved legacy skin while preserving all other widget settings."""
+    widget_state.pop("avatar_image_path", None)
+    manifest = pixel_vasya_manifest_path()
+    return manifest if manifest.exists() else None
+
+
 def available_pack_skin_ids() -> list[str]:
-    result: list[str] = []
-    for raw_id in AVATAR_PACK_SKINS:
-        pack_id = str(raw_id or "").strip()
-        if not pack_id:
-            continue
-        if pack_manifest_path(pack_id).exists():
-            result.append(pack_id)
-    return result
+    return ["pixel_vasya"] if pixel_vasya_manifest_path().exists() else []
+
+
+def pack_skin_title(pack_id: str) -> str:
+    fallback = pack_id.replace("_", " ").title()
+    try:
+        payload = json.loads(pack_manifest_path(pack_id).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return fallback
+    if not isinstance(payload, dict):
+        return fallback
+    title = payload.get("title")
+    return title.strip() if isinstance(title, str) and title.strip() else fallback
 
 
 def pack_skin_combo_value(pack_id: str) -> str:

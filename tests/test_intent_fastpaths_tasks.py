@@ -20,6 +20,25 @@ class TaskPlanFastpathTests(unittest.TestCase):
         self.assertEqual(intent.intent, "get_tasks")
         self.assertIn("неделе", str(intent.data.get("datetime", "")))
 
+    def test_priority_question_reads_tasks_instead_of_creating_one(self) -> None:
+        for question in (
+            "Какие у меня первостепенные задачи?",
+            "Какие сейчас приоритетные задачи?",
+            "Что из моих задач сделать в первую очередь?",
+        ):
+            with self.subTest(question=question):
+                intent = detect_fast_intent(question)
+                self.assertIsNotNone(intent)
+                assert intent is not None
+                self.assertEqual(intent.intent, "get_tasks")
+                self.assertTrue(intent.data.get("priority_query"))
+
+    def test_explicit_add_task_still_creates_it(self) -> None:
+        intent = detect_fast_intent("Добавь задачу подготовить отчет")
+        self.assertIsNotNone(intent)
+        assert intent is not None
+        self.assertEqual(intent.intent, "create_task")
+
 
 if __name__ == "__main__":
     unittest.main()

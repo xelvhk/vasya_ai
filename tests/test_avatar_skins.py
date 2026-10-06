@@ -3,15 +3,28 @@ from __future__ import annotations
 import unittest
 
 from scripts.ui.avatar_skins import (
+    active_avatar_path,
+    available_pack_skin_ids,
     avatar_skin_ids,
     avatar_skin_spec,
     exportable_skin_spec,
     pack_skin_combo_value,
     pack_skin_from_combo_value,
+    pack_skin_title,
+    pixel_vasya_manifest_path,
 )
 
 
 class AvatarSkinsTests(unittest.TestCase):
+    def test_only_pixel_character_pack_is_available(self) -> None:
+        self.assertEqual(available_pack_skin_ids(), ["pixel_vasya"])
+        self.assertTrue(pixel_vasya_manifest_path().exists())
+
+    def test_legacy_skin_path_is_migrated_without_losing_other_settings(self) -> None:
+        state = {"avatar_image_path": "/old/vasya_pro/manifest.json", "size": 128}
+        self.assertEqual(active_avatar_path(state), pixel_vasya_manifest_path())
+        self.assertEqual(state, {"size": 128})
+
     def test_avatar_skin_ids_include_classic_default(self) -> None:
         self.assertIn("classic", avatar_skin_ids())
 
@@ -25,6 +38,10 @@ class AvatarSkinsTests(unittest.TestCase):
         combo_value = pack_skin_combo_value("8-bit-cat")
 
         self.assertEqual(pack_skin_from_combo_value(combo_value), "8-bit-cat")
+
+    def test_pack_skin_title_reads_manifest(self) -> None:
+        self.assertEqual(pack_skin_title("pixel_vasya"), "Пиксельный Вася")
+        self.assertEqual(pack_skin_title("missing_pack"), "Missing Pack")
 
     def test_pack_skin_from_combo_value_rejects_regular_skin_ids(self) -> None:
         self.assertIsNone(pack_skin_from_combo_value("classic"))

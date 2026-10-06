@@ -13,7 +13,6 @@ from assistant.state import AssistantState, AssistantStateName, assistant_state
 from config.settings import (
     AGENT_ROUTING_PROFILE,
     AUDIO_FILENAME,
-    AVATAR_IMAGE_PATH,
     AVATAR_SKIN,
     AVATAR_SIZE,
     AVATAR_STATE_FILE,
@@ -105,6 +104,7 @@ def main() -> None:
             QPen,
             QPixmap,
             QRadialGradient,
+            QTransform,
         )
         from PySide6.QtWidgets import (
             QApplication,
@@ -133,6 +133,13 @@ def main() -> None:
                 clamp_to_visible_area as clamp_avatar_to_visible_area,
                 snap_to_nearest_edge as snap_avatar_to_nearest_edge,
             )
+            from scripts.ui.avatar_ambient import (
+                AmbientWalker,
+                bottom_walk_lane,
+                prefers_reduced_motion,
+                visible_pack_state,
+            )
+            from scripts.ui.companion_bubble import ResponseBubble
             from scripts.ui.avatar_rendering import (
                 animated_glow as _animated_glow,
                 animation_speed as _animation_speed,
@@ -160,7 +167,6 @@ def main() -> None:
                 render_lottie_avatar as _render_lottie_avatar,
                 render_pack_avatar as _render_pack_avatar,
                 render_svg_avatar as _render_svg_avatar,
-                resolve_avatar_path as _resolve_avatar_path,
             )
             from scripts.ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -170,6 +176,7 @@ def main() -> None:
                 exportable_skin_spec as _exportable_skin_spec,
                 pack_manifest_path as _pack_manifest_path,
                 pack_skin_combo_value as _pack_skin_combo_value,
+                active_avatar_path as _active_avatar_path,
                 pack_skin_from_combo_value as _pack_skin_from_combo_value,
                 save_custom_skin_spec as _save_custom_skin_spec,
             )
@@ -177,7 +184,6 @@ def main() -> None:
                 bubble_text as _bubble_text,
                 hover_hint_text as _hover_hint_text,
                 tray_tooltip_text as _tray_tooltip_text,
-                visible_response_bubble_text as _visible_response_bubble_text,
             )
             from scripts.ui.avatar_memory_actions import (
                 memory_search_actions as _memory_search_actions,
@@ -185,6 +191,7 @@ def main() -> None:
             )
             from scripts.ui.avatar_actions import (
                 text_command_decision as _text_command_decision,
+                tray_icon_command as _tray_icon_command,
                 voice_activation_decision as _voice_activation_decision,
             )
             from scripts.ui.settings_dialog import SettingsDialog
@@ -200,6 +207,11 @@ def main() -> None:
                 clamp_to_visible_area as clamp_avatar_to_visible_area,
                 snap_to_nearest_edge as snap_avatar_to_nearest_edge,
             )
+            from ui.avatar_ambient import (
+                AmbientWalker, bottom_walk_lane, prefers_reduced_motion,
+                visible_pack_state,
+            )
+            from ui.companion_bubble import ResponseBubble
             from ui.avatar_rendering import (
                 animated_glow as _animated_glow,
                 animation_speed as _animation_speed,
@@ -227,7 +239,6 @@ def main() -> None:
                 render_lottie_avatar as _render_lottie_avatar,
                 render_pack_avatar as _render_pack_avatar,
                 render_svg_avatar as _render_svg_avatar,
-                resolve_avatar_path as _resolve_avatar_path,
             )
             from ui.avatar_skins import (
                 available_pack_skin_ids as _available_pack_skin_ids,
@@ -237,6 +248,7 @@ def main() -> None:
                 exportable_skin_spec as _exportable_skin_spec,
                 pack_manifest_path as _pack_manifest_path,
                 pack_skin_combo_value as _pack_skin_combo_value,
+                active_avatar_path as _active_avatar_path,
                 pack_skin_from_combo_value as _pack_skin_from_combo_value,
                 save_custom_skin_spec as _save_custom_skin_spec,
             )
@@ -244,7 +256,6 @@ def main() -> None:
                 bubble_text as _bubble_text,
                 hover_hint_text as _hover_hint_text,
                 tray_tooltip_text as _tray_tooltip_text,
-                visible_response_bubble_text as _visible_response_bubble_text,
             )
             from ui.avatar_memory_actions import (
                 memory_search_actions as _memory_search_actions,
@@ -252,6 +263,7 @@ def main() -> None:
             )
             from ui.avatar_actions import (
                 text_command_decision as _text_command_decision,
+                tray_icon_command as _tray_icon_command,
                 voice_activation_decision as _voice_activation_decision,
             )
             from ui.settings_dialog import SettingsDialog
@@ -317,46 +329,6 @@ def main() -> None:
         exit_requested = Signal()
         text_command_requested = Signal()
 
-    class ResponseBubble(QWidget):
-        def __init__(self) -> None:
-            super().__init__()
-            self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint
-                | Qt.WindowType.WindowStaysOnTopHint
-                | Qt.WindowType.Tool
-            )
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-            self._text = ""
-            self.resize(250, 84)
-
-        def set_text(self, text: str) -> None:
-            self._text = text
-            self.update()
-
-        def paintEvent(self, event) -> None:
-            _ = event
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            bubble_rect = self.rect().adjusted(2, 2, -2, -2)
-            gradient = QLinearGradient(bubble_rect.topLeft(), bubble_rect.bottomRight())
-            gradient.setColorAt(0.0, QColor("#0f1a45"))
-            gradient.setColorAt(0.6, QColor("#111a41"))
-            gradient.setColorAt(1.0, QColor("#1a1642"))
-            painter.setBrush(gradient)
-            painter.setPen(QPen(QColor("#4ea8ff"), 1))
-            painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 18, 18)
-
-            painter.setPen(QPen(QColor("#7d4bff"), 1))
-            painter.drawRoundedRect(self.rect().adjusted(4, 4, -4, -4), 16, 16)
-
-            painter.setPen(QColor("#f4f8ff"))
-            painter.setFont(QFont("Helvetica", 10))
-            painter.drawText(
-                self.rect().adjusted(16, 12, -16, -12),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
-                self._text,
-            )
-
     class HoverBubble(QWidget):
         def __init__(self) -> None:
             super().__init__()
@@ -379,13 +351,13 @@ def main() -> None:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             bubble_rect = self.rect().adjusted(2, 2, -2, -2)
             gradient = QLinearGradient(bubble_rect.topLeft(), bubble_rect.bottomRight())
-            gradient.setColorAt(0.0, QColor("#101a45"))
-            gradient.setColorAt(1.0, QColor("#181b43"))
+            gradient.setColorAt(0.0, QColor("#10122f"))
+            gradient.setColorAt(1.0, QColor("#2a1c4c"))
             painter.setBrush(gradient)
-            painter.setPen(QPen(QColor("#40b5ff"), 1))
+            painter.setPen(QPen(QColor("#ab7ddb"), 1))
             painter.drawRoundedRect(self.rect().adjusted(2, 2, -2, -2), 14, 14)
 
-            painter.setPen(QColor("#e8f0ff"))
+            painter.setPen(QColor("#ffffff"))
             painter.setFont(QFont("Helvetica", 9))
             painter.drawText(
                 self.rect().adjusted(12, 8, -12, -8),
@@ -417,10 +389,14 @@ def main() -> None:
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
             text_hotkey_hint = widget._text_hotkey or HOTKEY_TEXT_COMBINATION
+            click_hint = (
+                "Клик — открыть вопрос (текст или голос)\n"
+                if widget._avatar_pack_pixel_art else "Клик — начать говорить\n"
+            )
             commands = (
                 f"Горячая клавиша: {hotkey_hint}\n"
                 f"Текстовая клавиша: {text_hotkey_hint}\n"
-                "Клик — начать говорить\n"
+                f"{click_hint}"
                 "«пока» — закрыть помощника\n"
                 "«замолчи» — остановить речь\n"
                 "«какие у меня задачи» — список задач\n"
@@ -548,11 +524,16 @@ def main() -> None:
 
             hotkey_hint = widget._activation_hotkey or HOTKEY_COMBINATION
             text_hotkey_hint = widget._text_hotkey or HOTKEY_TEXT_COMBINATION
+            click_hint = (
+                "Клик по мне — задать вопрос текстом или голосом, правый клик — меню."
+                if widget._avatar_pack_pixel_art else
+                "Клик по мне — начать говорить, правый клик — меню."
+            )
             body = QLabel(
                 "Я рядом и готов помочь.\n"
                 f"Горячая клавиша: {hotkey_hint}\n"
                 f"Текстовая клавиша: {text_hotkey_hint}\n"
-                "Клик по мне — начать говорить, правый клик — меню.",
+                f"{click_hint}",
                 self,
             )
             body.setWordWrap(True)
@@ -684,8 +665,8 @@ def main() -> None:
             if self._avatar_skin not in _avatar_skin_ids():
                 self._avatar_skin = AVATAR_SKIN if AVATAR_SKIN in _avatar_skin_ids() else "classic"
             self._auto_child_skin = bool(self._widget_state.get("auto_child_skin", True))
-            self._tray_click_action = str(
-                self._widget_state.get("tray_click_action", "toggle")
+            self._tray_click_action = _tray_icon_command(
+                str(self._widget_state.get("tray_click_action", "show"))
             )
             self._show_response_bubble = bool(
                 self._widget_state.get("show_response_bubble", True)
@@ -693,6 +674,13 @@ def main() -> None:
             self._idle_motion_enabled = bool(
                 self._widget_state.get("idle_motion_enabled", True)
             )
+            self._ambient_roam_enabled = bool(
+                self._widget_state.get("ambient_roam_enabled", True)
+            )
+            self._ambient_reduced_motion = prefers_reduced_motion()
+            self._ambient_walker = AmbientWalker()
+            self._ambient_walk_state: str | None = None
+            self._ambient_menu_open = False
             self._snap_to_edge_enabled = bool(
                 self._widget_state.get("snap_to_edge_enabled", True)
             )
@@ -843,6 +831,7 @@ def main() -> None:
             self._smile_bounce = 0.0
             self._avatar_path = self._resolve_avatar_path()
             self._avatar_is_pack = False
+            self._avatar_pack_pixel_art = False
             self._avatar_pack_frames: dict[str, list[QPixmap]] = {}
             self._avatar_pack_timing_ms: dict[str, int] = {}
             self._avatar_pack_frame_index: dict[str, int] = {}
@@ -864,6 +853,10 @@ def main() -> None:
             self._tray_icon_pixmap = self._build_tray_pixmap()
             self._bridge = StateBridge()
             self._bubble = ResponseBubble()
+            self._bubble_manual_open = False
+            self._bubble.question_submitted.connect(self._start_text_command_thread)
+            self._bubble.voice_requested.connect(self._activate_interaction)
+            self._bubble.dismissed.connect(self._on_bubble_dismissed)
             self._hover_bubble = HoverBubble()
             self._hotkey_listener = None
             self._tray = None
@@ -895,7 +888,7 @@ def main() -> None:
             start_memory_background_scheduler()
 
         def _resolve_avatar_path(self) -> Path | None:
-            return _resolve_avatar_path(self._widget_state, AVATAR_IMAGE_PATH)
+            return _active_avatar_path(self._widget_state)
 
         def _load_avatar(self):
             path = self._avatar_path
@@ -913,6 +906,7 @@ def main() -> None:
 
         def _load_avatar_pack(self, manifest_path: Path) -> bool:
             self._avatar_is_pack = False
+            self._avatar_pack_pixel_art = False
             self._avatar_pack_frames = {}
             self._avatar_pack_timing_ms = {}
             self._avatar_pack_frame_index = {}
@@ -927,6 +921,7 @@ def main() -> None:
                 return False
 
             self._avatar_pack_frames = result.frames
+            self._avatar_pack_pixel_art = result.pixel_art
             self._avatar_pack_timing_ms = result.timing_ms
             self._avatar_pack_frame_index = result.frame_index
             self._avatar_pack_preloaded_cache[manifest_key] = _avatar_pack_cache_payload(result)
@@ -943,6 +938,7 @@ def main() -> None:
                     continue
                 snapshot = (
                     self._avatar_is_pack,
+                    self._avatar_pack_pixel_art,
                     self._avatar_pack_frames,
                     self._avatar_pack_timing_ms,
                     self._avatar_pack_frame_index,
@@ -955,6 +951,7 @@ def main() -> None:
                 finally:
                     (
                         self._avatar_is_pack,
+                        self._avatar_pack_pixel_art,
                         self._avatar_pack_frames,
                         self._avatar_pack_timing_ms,
                         self._avatar_pack_frame_index,
@@ -1056,6 +1053,7 @@ def main() -> None:
             self._apply_state(pending_state)
 
         def _tick(self) -> None:
+            self._tick_ambient_walk()
             if self._state.name == AssistantStateName.IDLE and not self._idle_motion_enabled:
                 self._pulse = 0.0
                 self._bob = 0.0
@@ -1072,7 +1070,7 @@ def main() -> None:
                     self._tray.setIcon(QIcon(self._tray_icon_pixmap))
             if self._avatar_is_pack and self._avatar_pack_frames:
                 self._avatar_pack_elapsed_ms += 60.0
-                state_key = _avatar_state_key(self._state.name)
+                state_key = self._visible_pack_state_key()
                 state_frames = _pack_frames_for_state(self._avatar_pack_frames, state_key)
                 frame_count = len(state_frames)
                 interval_ms = int(self._avatar_pack_timing_ms.get(state_key, 220))
@@ -1086,11 +1084,50 @@ def main() -> None:
                     self._avatar_lottie_frame + frame_step
                 ) % self._avatar_lottie_total_frames
             self.update()
-            self._update_bubble_position()
+            if self._bubble.isVisible():
+                self._update_bubble_position()
             self._update_hover_bubble_position()
+
+        def _visible_pack_state_key(self) -> str:
+            return visible_pack_state(
+                self._state.name, self._ambient_walk_state,
+                _avatar_state_key(self._state.name),
+                activity=self._state.activity,
+                work_available=bool(self._avatar_pack_frames.get("work")),
+            )
+
+        def _tick_ambient_walk(self) -> None:
+            now = time.monotonic()
+            screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+            if screen is None:
+                self._ambient_walk_state = None
+                self._ambient_walker.advance(now, self.x(), 0, 0, allowed=False)
+                return
+            left, right, floor_y = bottom_walk_lane(
+                screen.availableGeometry(), self.width(), self.height()
+            )
+            allowed = (
+                self._avatar_is_pack
+                and self._avatar_pack_pixel_art
+                and self._ambient_roam_enabled
+                and self._idle_motion_enabled
+                and not self._ambient_reduced_motion
+                and self._state.name == AssistantStateName.IDLE
+                and self._drag_pos is None
+                and not self._ambient_menu_open
+                and self.isVisible()
+                and abs(self.y() - floor_y) <= 6
+            )
+            x, self._ambient_walk_state = self._ambient_walker.advance(
+                now, self.x(), left, right, allowed=allowed,
+            )
+            if allowed and x != self.x():
+                self.move(x, self.y())
 
         def mousePressEvent(self, event: QMouseEvent) -> None:
             if event.button() == Qt.MouseButton.LeftButton:
+                self._ambient_walker.stop(time.monotonic())
+                self._ambient_walk_state = None
                 self._press_pos = event.globalPosition().toPoint()
                 self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
 
@@ -1108,7 +1145,10 @@ def main() -> None:
                 self._drag_pos = None
                 self._press_pos = None
                 if moved_distance <= 6:
-                    self._activate_interaction()
+                    if self._avatar_pack_pixel_art:
+                        self._show_question_bubble()
+                    else:
+                        self._activate_interaction()
                 else:
                     if self._snap_to_edge_enabled:
                         self.move(_snap_to_nearest_edge(self.pos(), self.width(), self.height()))
@@ -1126,6 +1166,7 @@ def main() -> None:
             super().leaveEvent(event)
 
         def contextMenuEvent(self, event) -> None:
+            self._ambient_menu_open = True
             try:
                 menu = QMenu(self)
 
@@ -1147,6 +1188,18 @@ def main() -> None:
 
                 settings_menu = menu.addMenu("Настройки")
                 settings_action = settings_menu.addAction("Открыть настройки...")
+                roam_action = settings_menu.addAction("Прогулка по экрану")
+                roam_action.setCheckable(True)
+                roam_action.setChecked(self._ambient_roam_enabled)
+                roam_action.setEnabled(
+                    self._avatar_pack_pixel_art and not self._ambient_reduced_motion
+                )
+                walk_now_action = settings_menu.addAction("Погулять сейчас")
+                walk_now_action.setEnabled(
+                    self._avatar_pack_pixel_art and self._ambient_roam_enabled
+                    and self._idle_motion_enabled and not self._ambient_reduced_motion
+                    and self._state.name == AssistantStateName.IDLE
+                )
                 clear_memory_action = settings_menu.addAction("Очистить личную память...")
                 menu.addSeparator()
                 quit_action = menu.addAction("Закрыть Васю")
@@ -1166,6 +1219,8 @@ def main() -> None:
                     memory_search_action: self._search_memory_center,
                     memory_sync_action: self._sync_memory_center_now,
                     settings_action: self._open_settings_dialog,
+                    roam_action: self._toggle_ambient_roam,
+                    walk_now_action: lambda: QTimer.singleShot(0, self._start_ambient_walk_now),
                     clear_memory_action: self._clear_personal_memory,
                     quit_action: self.quit_application,
                 }
@@ -1174,6 +1229,36 @@ def main() -> None:
                     handler()
             except Exception as exc:
                 log(f"Context menu error: {exc}")
+            finally:
+                self._ambient_menu_open = False
+
+        def _toggle_ambient_roam(self) -> None:
+            self._ambient_roam_enabled = not self._ambient_roam_enabled
+            self._ambient_walker.stop(time.monotonic())
+            self._ambient_walk_state = None
+            if self._ambient_roam_enabled and self._avatar_pack_pixel_art:
+                self._place_on_bottom_lane()
+            self._save_position()
+
+        def _place_on_bottom_lane(self) -> None:
+            screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+            if screen is None:
+                return
+            left, right, floor_y = bottom_walk_lane(
+                screen.availableGeometry(), self.width(), self.height()
+            )
+            self.move(min(max(self.x(), left), right), floor_y)
+            self._update_bubble_position()
+
+        def _start_ambient_walk_now(self) -> None:
+            if not (
+                self._avatar_pack_pixel_art and self._ambient_roam_enabled
+                and self._idle_motion_enabled and not self._ambient_reduced_motion
+                and self._state.name == AssistantStateName.IDLE
+            ):
+                return
+            self._place_on_bottom_lane()
+            self._ambient_walker.request_walk(time.monotonic())
 
         def _activate_interaction(self) -> None:
             decision = _voice_activation_decision(
@@ -1243,14 +1328,15 @@ def main() -> None:
             painter.setOpacity(max(0.45, min(1.0, self._avatar_opacity)))
 
             if self._avatar is not None or self._avatar_is_lottie or self._avatar_is_pack:
-                self._paint_ambient_glow(painter)
+                if not self._avatar_pack_pixel_art:
+                    self._paint_ambient_glow(painter)
                 self._paint_avatar(painter)
             else:
                 self._paint_character(painter)
             self._paint_status_indicator(painter)
 
         def _paint_status_indicator(self, painter: QPainter) -> None:
-            if self._state.name == AssistantStateName.IDLE:
+            if self._state.name == AssistantStateName.IDLE or self._avatar_pack_pixel_art:
                 return
             painter.save()
             color = _animated_glow(
@@ -1302,6 +1388,11 @@ def main() -> None:
             scale_y = bounds.height() / self.height()
             painter.translate(bounds.left(), bounds.top())
             painter.scale(scale_x, scale_y)
+
+            if self._avatar_pack_pixel_art:
+                self._paint_pixel_pack_avatar(painter)
+                painter.restore()
+                return
 
             glow = _animated_glow(self._state.name, pulse, skin_id)
             painter.setPen(Qt.PenStyle.NoPen)
@@ -1356,6 +1447,9 @@ def main() -> None:
             painter.restore()
 
         def _paint_avatar(self, painter: QPainter) -> None:
+            if self._avatar_pack_pixel_art:
+                self._paint_pixel_pack_avatar(painter)
+                return
             bob_offset = _avatar_bob_offset(
                 self._state.name,
                 self._bob,
@@ -1409,6 +1503,17 @@ def main() -> None:
             painter.drawPath(highlight_path)
             painter.restore()
 
+        def _paint_pixel_pack_avatar(self, painter: QPainter) -> None:
+            pixmap = self._render_pack_avatar(
+                max(64, self.height() - 4), state_key=self._visible_pack_state_key(),
+            )
+            if not pixmap.isNull():
+                painter.drawPixmap(
+                    (self.width() - pixmap.width()) // 2,
+                    self.height() - pixmap.height(),
+                    pixmap,
+                )
+
         def _set_avatar_image_path(self, path: Path | None) -> None:
             if path is None:
                 self._widget_state.pop("avatar_image_path", None)
@@ -1423,11 +1528,16 @@ def main() -> None:
             self._avatar_lottie_frame = 0.0
             self._avatar_lottie_fps = 30.0
             self._avatar_is_pack = False
+            self._avatar_pack_pixel_art = False
             self._avatar_pack_frames = {}
             self._avatar_pack_timing_ms = {}
             self._avatar_pack_frame_index = {}
             self._avatar_pack_elapsed_ms = 0.0
             self._avatar = self._load_avatar()
+            self._ambient_walker.stop(time.monotonic())
+            self._ambient_walk_state = None
+            if self._avatar_pack_pixel_art and self._ambient_roam_enabled:
+                self._place_on_bottom_lane()
             self._avatar_is_svg = (
                 self._avatar_path is not None and self._avatar_path.suffix.lower() == ".svg"
             )
@@ -1452,9 +1562,9 @@ def main() -> None:
                 state_name=self._state.name,
                 width=width,
                 height=height,
-                pack_renderer=lambda size, state_key: self._render_pack_avatar(
+                pack_renderer=lambda size, _state_key: self._render_pack_avatar(
                     size,
-                    state_key=state_key,
+                    state_key=self._visible_pack_state_key(),
                 ),
                 lottie_renderer=self._render_lottie_avatar,
                 svg_renderer=self._render_svg_avatar,
@@ -1464,15 +1574,24 @@ def main() -> None:
             )
 
         def _render_pack_avatar(self, size: int, *, state_key: str) -> QPixmap:
-            return _render_pack_avatar(
+            rendered = _render_pack_avatar(
                 frames_by_state=self._avatar_pack_frames,
                 frame_index=self._avatar_pack_frame_index,
                 state_key=state_key,
                 size=size,
                 empty_pixmap_factory=QPixmap,
                 aspect_ratio_mode=Qt.AspectRatioMode.KeepAspectRatio,
-                transformation_mode=Qt.TransformationMode.SmoothTransformation,
+                transformation_mode=(
+                    Qt.TransformationMode.FastTransformation
+                    if self._avatar_pack_pixel_art
+                    else Qt.TransformationMode.SmoothTransformation
+                ),
             )
+            if state_key == "walk_right" and not rendered.isNull():
+                return rendered.transformed(
+                    QTransform().scale(-1, 1), Qt.TransformationMode.FastTransformation,
+                )
+            return rendered
 
         def _render_lottie_avatar(self, size: int) -> QPixmap:
             return _render_lottie_avatar(
@@ -1798,17 +1917,27 @@ def main() -> None:
         def _bubble_text(self) -> str:
             return _bubble_text(self._state)
 
+        def _show_question_bubble(self) -> None:
+            self._hide_hover_hint()
+            if not self._bubble.isVisible() and self._state.name == AssistantStateName.IDLE:
+                self._bubble.set_text("")
+            self._bubble_manual_open = True
+            self._update_bubble()
+            self._bubble.focus_input()
+
+        def _on_bubble_dismissed(self) -> None:
+            self._bubble_manual_open = False
+
         def _update_bubble(self) -> None:
-            text = _visible_response_bubble_text(
-                self._state,
-                show_response_bubble=self._show_response_bubble,
-                widget_visible=self.isVisible(),
-            )
-            if text is None:
+            if not self.isVisible():
                 self._bubble.hide()
                 return
-
-            self._bubble.set_text(text)
+            active_response = self._state.name != AssistantStateName.IDLE
+            if active_response and (self._show_response_bubble or self._bubble_manual_open):
+                self._bubble.set_text(self._bubble_text())
+            elif not self._bubble_manual_open:
+                self._bubble.hide()
+                return
             self._update_bubble_position()
             self._bubble.show()
             self._bubble.raise_()
@@ -1837,6 +1966,8 @@ def main() -> None:
             self._hover_bubble.hide()
 
         def _hover_hint_text(self) -> str:
+            if self._avatar_pack_pixel_art and self._state.name == AssistantStateName.IDLE:
+                return "Клик — спросить • ПКМ — меню"
             return _hover_hint_text(
                 self._state,
                 thinking_seconds=int(time.monotonic() - self._state_since),
@@ -1860,16 +1991,19 @@ def main() -> None:
             return self._voice_health_cached_text
 
         def _update_bubble_position(self) -> None:
-            if not self._bubble.isVisible():
-                return
-
             bubble_x = self.x() + self.width() + 12
-            bubble_y = self.y() + max(8, (self.height() - self._bubble.height()) // 2)
-            primary = QGuiApplication.primaryScreen()
-            if primary is not None:
-                available = primary.availableGeometry()
+            bubble_y = self.y() + self.height() - self._bubble.height()
+            screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+            if screen is not None:
+                available = screen.availableGeometry()
                 if bubble_x + self._bubble.width() > available.right() - 8:
                     bubble_x = self.x() - self._bubble.width() - 12
+                bubble_x = max(available.left() + 8, min(
+                    bubble_x, available.right() - self._bubble.width() - 7,
+                ))
+                bubble_y = max(available.top() + 8, min(
+                    bubble_y, available.bottom() - self._bubble.height() - 7,
+                ))
             self._bubble.move(bubble_x, bubble_y)
 
         def _update_hover_bubble_position(self) -> None:
@@ -1888,6 +2022,8 @@ def main() -> None:
             saved_pos = _load_saved_position()
             target_pos = saved_pos or _default_position(self.width(), self.height())
             self.move(_clamp_to_visible_area(target_pos, self.width(), self.height()))
+            if saved_pos is None and self._avatar_pack_pixel_art and self._ambient_roam_enabled:
+                self._place_on_bottom_lane()
 
         def _save_position(self) -> None:
             _save_widget_state(
@@ -1901,6 +2037,7 @@ def main() -> None:
                     "text_hotkey_combination": self._text_hotkey,
                     "show_response_bubble": self._show_response_bubble,
                     "idle_motion_enabled": self._idle_motion_enabled,
+                    "ambient_roam_enabled": self._ambient_roam_enabled,
                     "snap_to_edge_enabled": self._snap_to_edge_enabled,
                     "avatar_opacity": self._avatar_opacity,
                     "avatar_skin": self._avatar_skin,
@@ -2013,7 +2150,7 @@ def main() -> None:
                 if self._tray_click_action == "listen":
                     self._activate_interaction()
                 else:
-                    self.toggle_avatar_visibility()
+                    self.show_avatar()
 
         def toggle_avatar_visibility(self) -> None:
             if self.isVisible():
@@ -2034,6 +2171,7 @@ def main() -> None:
 
         def hide_avatar(self) -> None:
             self._save_position()
+            self._bubble_manual_open = False
             self._bubble.hide()
             self.hide()
             self._update_toggle_action()
@@ -2343,6 +2481,7 @@ def main() -> None:
                                 assistant_state.set(
                                     AssistantStateName.THINKING,
                                     "Поняла задачу, формирую ответ...",
+                                    activity="work",
                                 )
                                 continue
                             if event.stage == "pipeline_canceled":
@@ -2396,11 +2535,16 @@ def main() -> None:
                     self.show_avatar()
                 hotkey_hint = self._activation_hotkey or HOTKEY_COMBINATION
                 text_hotkey_hint = self._text_hotkey or HOTKEY_TEXT_COMBINATION
+                click_hint = (
+                    "Клик по мне — задать вопрос текстом или голосом, правый клик — меню.\n"
+                    if self._avatar_pack_pixel_art else
+                    "Клик по мне — начать говорить, правый клик — меню.\n"
+                )
                 message = (
                     "Привет. Я Вася и я рядом.\n"
                     f"Горячая клавиша: {hotkey_hint}\n"
                     f"Текстовая клавиша: {text_hotkey_hint}\n"
-                    "Клик по мне — начать говорить, правый клик — меню.\n"
+                    f"{click_hint}"
                     "Скажи «пока», чтобы закрыть, или «замолчи», чтобы остановить речь.\n"
                     "Настройки — в меню, если нужно."
                 )

@@ -8,12 +8,19 @@ from typing import Any, Callable
 from assistant.state import AssistantStateName
 
 
-AVATAR_PACK_STATE_KEYS = {"idle", "listening", "thinking", "speaking", "error"}
+AVATAR_PACK_STATE_KEYS = {
+    "idle", "walk_left", "walk_right", "listening", "thinking",
+    "work", "speaking", "success", "error",
+}
 AVATAR_PACK_TIMING_DEFAULTS = {
     "idle": 260,
+    "walk_left": 180,
+    "walk_right": 180,
     "listening": 180,
     "thinking": 200,
+    "work": 180,
     "speaking": 90,
+    "success": 350,
     "error": 150,
 }
 
@@ -23,6 +30,7 @@ class AvatarPackLoadResult:
     frames: dict[str, list[Any]]
     timing_ms: dict[str, int]
     frame_index: dict[str, int]
+    pixel_art: bool = False
 
     @property
     def loaded(self) -> bool:
@@ -76,13 +84,17 @@ def cached_avatar_pack_result(payload: dict | None) -> AvatarPackLoadResult | No
     frame_index = {key: 0 for key, value in frames.items() if value}
     if not frames:
         return None
-    return AvatarPackLoadResult(frames=frames, timing_ms=timing_ms, frame_index=frame_index)
+    return AvatarPackLoadResult(
+        frames=frames, timing_ms=timing_ms, frame_index=frame_index,
+        pixel_art=bool(payload.get("pixel_art", False)),
+    )
 
 
-def avatar_pack_cache_payload(result: AvatarPackLoadResult) -> dict[str, dict]:
+def avatar_pack_cache_payload(result: AvatarPackLoadResult) -> dict[str, Any]:
     return {
         "frames": {key: list(value) for key, value in result.frames.items()},
         "timing_ms": dict(result.timing_ms),
+        "pixel_art": result.pixel_art,
     }
 
 
@@ -101,11 +113,14 @@ def load_avatar_pack_manifest(
     if not isinstance(raw_states, dict):
         return AvatarPackLoadResult(frames={}, timing_ms={}, frame_index={})
 
-    frames = _load_avatar_pack_frames(
-        raw_states,
-        base_dir=manifest_path.parent,
-        pixmap_factory=pixmap_factory,
-    )
+    if "atlas" in payload:
+        frames = _load_avatar_atlas_frames(
+            payload, base_dir=manifest_path.parent, pixmap_factory=pixmap_factory,
+        )
+    else:
+        frames = _load_avatar_pack_frames(
+            raw_states, base_dir=manifest_path.parent, pixmap_factory=pixmap_factory,
+        )
     if not frames:
         return AvatarPackLoadResult(frames={}, timing_ms={}, frame_index={})
 
@@ -113,6 +128,7 @@ def load_avatar_pack_manifest(
         frames=frames,
         timing_ms=_avatar_pack_timing(payload.get("timing_ms")),
         frame_index={key: 0 for key in frames},
+        pixel_art=bool(payload.get("pixel_art", False)),
     )
 
 
@@ -259,6 +275,70 @@ def _load_avatar_pack_frames(
             if pixmap.isNull():
                 continue
             frames.append(pixmap)
+        if frames:
+            frames_by_state[state_key] = frames
+    return frames_by_state
+
+
+def _load_avatar_atlas_frames(
+    payload: dict,
+    *,
+    base_dir: Path,
+    pixmap_factory: Callable[[str], Any],
+) -> dict[str, list[Any]]:
+    atlas_name = payload.get("atlas")
+    grid = payload.get("grid")
+    if not isinstance(atlas_name, str) or Path(atlas_name).name != atlas_name:
+        return {}
+    if not isinstance(grid, dict):
+        return {}
+    columns, rows = grid.get("columns"), grid.get("rows")
+    if (
+        type(columns) is not int or type(rows) is not int
+        or not 1 <= columns <= 16 or not 1 <= rows <= 16
+    ):
+        return {}
+    atlas = pixmap_factory(str(base_dir / atlas_name))
+    if atlas.isNull() or atlas.width() < columns or atlas.height() < rows:
+        return {}
+
+    frames_by_state = {}
+    crop_cache = {}
+    raw_bounds = payload.get("visible_bounds", {})
+    visible_bounds = raw_bounds if isinstance(raw_bounds, dict) else {}
+    for raw_key, indexes in payload["states"].items():
+        state_key = str(raw_key).strip().lower()
+        if state_key not in AVATAR_PACK_STATE_KEYS or not isinstance(indexes, list):
+            continue
+        frames = []
+        for index in indexes:
+            if type(index) is not int or not 0 <= index < columns * rows:
+                continue
+            if index not in crop_cache:
+                column, row = index % columns, index // columns
+                left = column * atlas.width() // columns
+                top = row * atlas.height() // rows
+                right = (column + 1) * atlas.width() // columns
+                bottom = (row + 1) * atlas.height() // rows
+                bounds = visible_bounds.get(str(index))
+                if (
+                    isinstance(bounds, list) and len(bounds) == 4
+                    and all(type(value) is int for value in bounds)
+                ):
+                    x, y, width, height = bounds
+                    if (
+                        0 <= x < right - left and 0 <= y < bottom - top
+                        and 0 < width <= right - left - x
+                        and 0 < height <= bottom - top - y
+                    ):
+                        left += x
+                        top += y
+                        right = left + width
+                        bottom = top + height
+                crop_cache[index] = atlas.copy(left, top, right - left, bottom - top)
+            frame = crop_cache[index]
+            if not frame.isNull():
+                frames.append(frame)
         if frames:
             frames_by_state[state_key] = frames
     return frames_by_state

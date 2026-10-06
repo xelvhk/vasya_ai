@@ -26,6 +26,7 @@ class SettingsDialogRowLabels:
     avatar_image: str = "Картинка Васи"
     avatar_opacity: str = "Прозрачность Васи"
     voice_profile: str = "Голос Васи"
+    voice_backend_status: str = "Сейчас используется"
     tray_click: str = "Клик по иконке в трее"
     morning_show_city: str = "Город утреннего шоу"
     morning_show_hour_limit: str = "До какого часа"

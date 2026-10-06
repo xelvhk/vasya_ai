@@ -1,0 +1,39 @@
+{
+  "id": "pixel_vasya",
+  "title": "Пиксельный Вася",
+  "atlas": "atlas.png",
+  "grid": {"columns": 4, "rows": 2},
+  "pixel_art": true,
+  "visible_bounds": {
+    "0": [160, 33, 206, 427],
+    "1": [102, 36, 207, 424],
+    "2": [54, 42, 256, 418],
+    "3": [27, 42, 250, 417],
+    "4": [155, 25, 217, 419],
+    "5": [121, 23, 210, 421],
+    "6": [70, 27, 222, 417],
+    "7": [42, 23, 235, 421]
+  },
+  "states": {
+    "idle": [0, 0, 0, 0, 0, 0, 0, 1],
+    "walk_left": [2, 3],
+    "walk_right": [2, 3],
+    "listening": [4],
+    "thinking": [5],
+    "work": [6],
+    "speaking": [7],
+    "success": [7],
+    "error": [5]
+  },
+  "timing_ms": {
+    "idle": 350,
+    "walk_left": 180,
+    "walk_right": 180,
+    "listening": 400,
+    "thinking": 400,
+    "work": 300,
+    "speaking": 300,
+    "success": 400,
+    "error": 400
+  }
+}

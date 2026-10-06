@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from assistant.child_mode import child_mode_store
-from config.settings import AVATAR_SKIN, MORNING_SHOW_CITY
+from config.settings import MORNING_SHOW_CITY
 from services.github_service import GitHubServiceError, fetch_recent_commits
 from services.integration_settings_service import (
     get_integration_setting,
@@ -18,6 +16,7 @@ from services.user_profile_service import clear_user_profile
 from utils.logger import log
 from utils.platform_runtime import get_platform_name
 from voice.profiles import get_active_voice_profile, list_voice_profiles
+from voice.backends import get_tts_backend_status
 from voice.tts import set_voice_profile, speak
 
 from PySide6.QtCore import Qt
@@ -29,7 +28,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFrame,
     QFormLayout,
     QHBoxLayout,
@@ -47,17 +45,7 @@ from PySide6.QtWidgets import (
 )
 
 from .avatar_geometry import snap_to_nearest_edge as _snap_to_nearest_screen_edge
-from .avatar_skins import (
-    available_pack_skin_ids as _available_pack_skin_ids,
-    avatar_skin_ids as _avatar_skin_ids,
-    avatar_skin_spec as _avatar_skin_spec,
-    delete_custom_skin_spec as _delete_custom_skin_spec,
-    exportable_skin_spec as _exportable_skin_spec,
-    pack_manifest_path as _pack_manifest_path,
-    pack_skin_combo_value as _pack_skin_combo_value,
-    pack_skin_from_combo_value as _pack_skin_from_combo_value,
-    save_custom_skin_spec as _save_custom_skin_spec,
-)
+from .avatar_skins import pack_manifest_path as _pack_manifest_path
 from .settings_dialog_specs import (
     SETTINGS_DIALOG_BUTTON_LABELS,
     SETTINGS_DIALOG_CHECKBOX_LABELS,
@@ -250,47 +238,10 @@ class SettingsDialog(QDialog):
             self._size_combo,
         )
 
-        self._skin_combo = QComboBox(self)
-        self._skin_combo.currentIndexChanged.connect(self._sync_preview)
-        self._reload_skin_choices(widget._avatar_skin)
-
-        skin_actions = QHBoxLayout()
-        import_skin_button = QPushButton(
-            SETTINGS_DIALOG_BUTTON_LABELS.import_skin,
-            self,
+        appearance_form.addRow(
+            SETTINGS_DIALOG_ROW_LABELS.avatar_skin,
+            QLabel("Пиксельный Вася", self),
         )
-        import_skin_button.clicked.connect(self._import_custom_skin)
-        export_skin_button = QPushButton(
-            SETTINGS_DIALOG_BUTTON_LABELS.export_skin,
-            self,
-        )
-        export_skin_button.clicked.connect(self._export_current_skin)
-        reset_skin_button = QPushButton(SETTINGS_DIALOG_BUTTON_LABELS.reset_skin, self)
-        reset_skin_button.clicked.connect(self._reset_custom_skin)
-        add_action_row_widgets(
-            skin_actions,
-            (import_skin_button, export_skin_button, reset_skin_button),
-        )
-
-        skin_row = QVBoxLayout()
-        skin_row.setSpacing(8)
-        skin_row.addWidget(self._skin_combo)
-        skin_row.addLayout(skin_actions)
-        appearance_form.addRow(SETTINGS_DIALOG_ROW_LABELS.avatar_skin, skin_row)
-
-        image_actions = QHBoxLayout()
-        choose_image_button = QPushButton(
-            SETTINGS_DIALOG_BUTTON_LABELS.choose_avatar_image,
-            self,
-        )
-        choose_image_button.clicked.connect(self._choose_avatar_image)
-        reset_image_button = QPushButton(
-            SETTINGS_DIALOG_BUTTON_LABELS.reset_avatar_image,
-            self,
-        )
-        reset_image_button.clicked.connect(self._reset_avatar_image)
-        add_action_row_widgets(image_actions, (choose_image_button, reset_image_button))
-        appearance_form.addRow(SETTINGS_DIALOG_ROW_LABELS.avatar_image, image_actions)
 
         self._opacity_slider = QSlider(Qt.Orientation.Horizontal, self)
         configure_slider_value_input(
@@ -341,6 +292,12 @@ class SettingsDialog(QDialog):
         behavior_form.addRow(
             SETTINGS_DIALOG_ROW_LABELS.voice_profile,
             self._voice_profile_combo,
+        )
+        self._tts_backend_status = QLabel(get_tts_backend_status(), self)
+        self._tts_backend_status.setWordWrap(True)
+        behavior_form.addRow(
+            SETTINGS_DIALOG_ROW_LABELS.voice_backend_status,
+            self._tts_backend_status,
         )
 
         self._tray_click_combo = QComboBox(self)
@@ -765,25 +722,11 @@ class SettingsDialog(QDialog):
     def apply(self) -> None:
         self._save_integrations()
         self._widget._set_avatar_size(int(self._size_combo.currentData()))
-        selected_skin = str(self._skin_combo.currentData())
-        selected_pack_skin = _pack_skin_from_combo_value(selected_skin)
-        desired_child_mode = self._child_mode_checkbox.isChecked()
-        if selected_pack_skin is not None:
-            manifest_path = _pack_manifest_path(selected_pack_skin)
-            if manifest_path.exists():
-                self._widget._set_avatar_image_path(manifest_path)
-            else:
-                log(f"Avatar pack manifest not found: {manifest_path}")
-                self._widget._set_avatar_image_path(None)
-            self._widget._avatar_skin = "classic"
-            self._widget._auto_child_skin = True
-        else:
-            if self._active_pack_skin_id() is not None:
-                self._widget._set_avatar_image_path(None)
-            self._widget._avatar_skin = selected_skin
-            self._widget._auto_child_skin = not (
-                desired_child_mode and selected_skin != "child"
-            )
+        manifest_path = _pack_manifest_path("pixel_vasya")
+        if manifest_path.exists():
+            self._widget._set_avatar_image_path(manifest_path)
+        self._widget._avatar_skin = "classic"
+        self._widget._auto_child_skin = True
         selected_profile_id = str(self._voice_profile_combo.currentData())
         if selected_profile_id != get_active_voice_profile().profile_id:
             set_voice_profile(selected_profile_id)
@@ -869,122 +812,15 @@ class SettingsDialog(QDialog):
                 combo.setCurrentIndex(index)
                 return
 
-    def _reload_skin_choices(self, selected_skin: str | None = None) -> None:
-        current_signal_state = self._skin_combo.blockSignals(True)
-        self._skin_combo.clear()
-        for skin_id in _avatar_skin_ids():
-            self._skin_combo.addItem(_avatar_skin_spec(skin_id)["label"], skin_id)
-        for pack_id in _available_pack_skin_ids():
-            pretty_name = pack_id.replace("_", " ").title()
-            self._skin_combo.addItem(f"{pretty_name} (персонаж)", _pack_skin_combo_value(pack_id))
-        self._skin_combo.blockSignals(current_signal_state)
-        active_pack_skin_id = self._active_pack_skin_id()
-        if active_pack_skin_id is not None:
-            resolved_skin = _pack_skin_combo_value(active_pack_skin_id)
-        elif selected_skin in _avatar_skin_ids():
-            resolved_skin = str(selected_skin)
-        else:
-            resolved_skin = AVATAR_SKIN
-        self._select_combo_value(self._skin_combo, resolved_skin)
-
-    def _active_pack_skin_id(self) -> str | None:
-        current_path = self._widget._avatar_path
-        if current_path is None:
-            return None
-        try:
-            resolved_current = current_path.resolve()
-        except OSError:
-            return None
-        for pack_id in _available_pack_skin_ids():
-            try:
-                if resolved_current == _pack_manifest_path(pack_id).resolve():
-                    return pack_id
-            except OSError:
-                continue
-        return None
-
-    def _import_custom_skin(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Выбери JSON-палитру",
-            str(Path.cwd()),
-            "JSON Files (*.json)",
-        )
-        if not file_path:
-            return
-        try:
-            payload = json.loads(Path(file_path).read_text(encoding="utf-8"))
-            if not isinstance(payload, dict):
-                raise ValueError("JSON должен содержать объект с цветами палитры.")
-            _save_custom_skin_spec(payload)
-        except Exception as exc:
-            log(f"Не удалось импортировать палитру: {exc}")
-            return
-        self._reload_skin_choices("custom")
-        self._sync_preview()
-
-    def _reset_custom_skin(self) -> None:
-        _delete_custom_skin_spec()
-        current_skin = str(self._skin_combo.currentData())
-        self._reload_skin_choices(
-            AVATAR_SKIN if current_skin == "custom" else current_skin
-        )
-        self._sync_preview()
-
-    def _export_current_skin(self) -> None:
-        current_skin = str(self._skin_combo.currentData())
-        suggested_name = f"vasya_{current_skin or 'skin'}.json"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Сохранить палитру Васи",
-            str(Path.cwd() / suggested_name),
-            "JSON Files (*.json)",
-        )
-        if not file_path:
-            return
-        try:
-            Path(file_path).write_text(
-                json.dumps(
-                    _exportable_skin_spec(current_skin),
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                encoding="utf-8",
-            )
-        except OSError as exc:
-            log(f"Не удалось сохранить палитру: {exc}")
-
-    def _choose_avatar_image(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Выбери изображение Васи",
-            str(Path.cwd()),
-            "Avatar Files (*.png *.svg *.jpg *.jpeg *.webp *.json *.lottie)",
-        )
-        if not file_path:
-            return
-        chosen = Path(file_path).expanduser()
-        if not chosen.exists():
-            log(f"Не удалось выбрать изображение: файл не найден {chosen}")
-            return
-        self._widget._set_avatar_image_path(chosen)
-        self._sync_preview()
-
-    def _reset_avatar_image(self) -> None:
-        self._widget._set_avatar_image_path(None)
-        self._sync_preview()
-
     def _sync_preview(self) -> None:
         if not hasattr(self, "_child_mode_checkbox"):
             return
-        selected_skin = str(self._skin_combo.currentData())
         child_mode_enabled = self._child_mode_checkbox.isChecked()
-        auto_child_skin = not (child_mode_enabled and selected_skin != "child")
         self._preview.update_preview(
             size=int(self._size_combo.currentData()),
-            skin_id=selected_skin,
+            skin_id="classic",
             child_mode_enabled=child_mode_enabled,
-            auto_child_skin=auto_child_skin,
+            auto_child_skin=True,
             opacity=self._opacity_slider.value() / 100.0,
             idle_motion=self._idle_motion_checkbox.isChecked(),
         )

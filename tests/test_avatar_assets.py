@@ -40,6 +40,19 @@ class FakePixmap:
         return FakeImagePixmap(image)
 
 
+class FakeAtlasPixmap(FakePixmap):
+    def width(self) -> int:
+        return 1671
+
+    def height(self) -> int:
+        return 941
+
+    def copy(self, x, y, width, height):
+        frame = FakePixmap(self.path)
+        frame.crop = (x, y, width, height)
+        return frame
+
+
 class FakeScaledPixmap:
     def __init__(self, *, source, width, height, aspect_ratio_mode, transformation_mode) -> None:
         self.source = source
@@ -195,6 +208,54 @@ class AvatarAssetsTests(unittest.TestCase):
             self.assertEqual(result.timing_ms["idle"], 40)
             self.assertEqual(result.timing_ms["speaking"], 2000)
             self.assertEqual(result.frame_index, {"idle": 0, "speaking": 0})
+
+    def test_load_avatar_pack_manifest_reads_pixel_atlas_grid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            manifest.write_text(
+                json.dumps({
+                    "atlas": "atlas.png",
+                    "grid": {"columns": 4, "rows": 2},
+                    "pixel_art": True,
+                    "states": {
+                        "idle": [0, 1], "walk_left": [2, 3],
+                        "listening": [4], "unknown": [7], "thinking": [99],
+                    },
+                }),
+                encoding="utf-8",
+            )
+
+            result = load_avatar_pack_manifest(manifest, FakeAtlasPixmap)
+
+            self.assertTrue(result.loaded)
+            self.assertTrue(result.pixel_art)
+            self.assertEqual(result.frames["idle"][0].crop, (0, 0, 417, 470))
+            self.assertEqual(result.frames["idle"][1].crop, (417, 0, 418, 470))
+            self.assertEqual(result.frames["listening"][0].crop, (0, 470, 417, 471))
+            self.assertNotIn("thinking", result.frames)
+            self.assertNotIn("unknown", result.frames)
+
+    def test_pixel_atlas_visible_bounds_anchor_uneven_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            manifest.write_text(
+                json.dumps({
+                    "atlas": "atlas.png",
+                    "grid": {"columns": 4, "rows": 2},
+                    "visible_bounds": {
+                        "0": [160, 33, 206, 427],
+                        "1": [102, 36, 207, 424],
+                        "2": [999, 0, 2, 2],
+                    },
+                    "states": {"idle": [0, 1], "walk_left": [2]},
+                }), encoding="utf-8",
+            )
+
+            result = load_avatar_pack_manifest(manifest, FakeAtlasPixmap)
+
+            self.assertEqual(result.frames["idle"][0].crop, (160, 33, 206, 427))
+            self.assertEqual(result.frames["idle"][1].crop, (519, 36, 207, 424))
+            self.assertEqual(result.frames["walk_left"][0].crop, (835, 0, 418, 470))
 
     def test_cached_avatar_pack_result_restores_valid_payload(self) -> None:
         payload = {

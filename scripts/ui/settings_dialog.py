@@ -18,6 +18,7 @@ from services.user_profile_service import clear_user_profile
 from utils.logger import log
 from utils.platform_runtime import get_platform_name
 from voice.profiles import get_active_voice_profile, list_voice_profiles
+from voice.backends import get_tts_backend_status
 from voice.tts import set_voice_profile, speak
 
 from PySide6.QtCore import Qt
@@ -342,6 +343,12 @@ class SettingsDialog(QDialog):
         behavior_form.addRow(
             SETTINGS_DIALOG_ROW_LABELS.voice_profile,
             self._voice_profile_combo,
+        )
+        self._tts_backend_status = QLabel(get_tts_backend_status(), self)
+        self._tts_backend_status.setWordWrap(True)
+        behavior_form.addRow(
+            SETTINGS_DIALOG_ROW_LABELS.voice_backend_status,
+            self._tts_backend_status,
         )
 
         self._tray_click_combo = QComboBox(self)

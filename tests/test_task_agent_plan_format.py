@@ -31,6 +31,30 @@ class TaskAgentPlanFormatTests(unittest.TestCase):
             response = handle_task_intent(intent)
         self.assertTrue(response.startswith("План:"))
 
+    def test_priority_question_uses_due_dates_without_inventing_priority(self) -> None:
+        intent = IntentResult(intent="get_tasks", data={"priority_query": True})
+        fake_tasks = [
+            {"id": "1", "task": "Без срока", "datetime": None},
+            {"id": "2", "task": "Срочная задача", "datetime": "2026-10-07 10:00"},
+            {"id": "3", "task": "Позже", "datetime": "2026-10-12 10:00"},
+        ]
+        with patch("agents.task_agent.get_tasks", return_value=fake_tasks), patch(
+            "agents.task_agent.create_task"
+        ) as create_task:
+            response = handle_task_intent(intent)
+        self.assertIn("По срокам", response)
+        self.assertIn("Срочная задача", response)
+        self.assertNotIn("Без срока", response)
+        create_task.assert_not_called()
+
+    def test_priority_question_without_dates_reports_missing_priority(self) -> None:
+        intent = IntentResult(intent="get_tasks", data={"priority_query": True})
+        fake_tasks = [{"id": "1", "task": "Написать отчет", "datetime": None}]
+        with patch("agents.task_agent.get_tasks", return_value=fake_tasks):
+            response = handle_task_intent(intent)
+        self.assertIn("не указаны", response)
+        self.assertIn("Написать отчет", response)
+
 
 if __name__ == "__main__":
     unittest.main()

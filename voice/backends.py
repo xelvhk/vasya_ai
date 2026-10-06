@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import os
+import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -178,15 +179,15 @@ class PiperTTSBackend(BaseTTSBackend):
         model_path = get_profile_model_path(profile)
         if model_path is None:
             raise RuntimeError(f"Piper model for profile '{profile.label}' is not available.")
-        command_path = _resolve_piper_command()
-        if command_path is None:
+        command_prefix = _resolve_piper_command()
+        if command_prefix is None:
             raise RuntimeError(f"Piper command '{PIPER_COMMAND}' was not found.")
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             output_path = Path(temp_file.name)
 
         command = [
-            command_path,
+            *command_prefix,
             "--model",
             str(model_path),
             "--output_file",
@@ -811,8 +812,32 @@ def reset_tts_backend() -> None:
     _TTS_BACKEND = None
 
 
-def _resolve_piper_command() -> str | None:
-    return _resolve_command(PIPER_COMMAND)
+def _resolve_piper_command() -> list[str] | None:
+    configured = _resolve_command(PIPER_COMMAND)
+    if configured is not None and _has_working_shebang(configured):
+        return [configured]
+    try:
+        module_available = importlib.util.find_spec("piper.__main__") is not None
+    except ModuleNotFoundError:
+        module_available = False
+    if module_available:
+        return [sys.executable, "-m", "piper"]
+    return None
+
+
+def _has_working_shebang(command_path: str) -> bool:
+    try:
+        with open(command_path, "rb") as executable:
+            first_line = executable.readline(256)
+    except OSError:
+        return False
+    if not first_line.startswith(b"#!"):
+        return True
+    shebang_parts = first_line[2:].split(maxsplit=1)
+    if not shebang_parts:
+        return False
+    interpreter = shebang_parts[0].decode(errors="replace")
+    return Path(interpreter).exists()
 
 
 def _resolve_command(command_name: str) -> str | None:

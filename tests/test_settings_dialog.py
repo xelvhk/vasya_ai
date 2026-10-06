@@ -65,6 +65,7 @@ class SettingsDialogTests(unittest.TestCase):
         dialog = SettingsDialog(widget)
 
         self.assertIsNotNone(dialog._voice_profile_combo)
+        self.assertIn("TTS backend:", dialog._tts_backend_status.text())
         self.assertIsNotNone(dialog._dictation_target_combo)
         self.assertIsNotNone(dialog._auto_interrupt_adaptive_checkbox)
         self.assertIsNotNone(dialog._hotkey_input)

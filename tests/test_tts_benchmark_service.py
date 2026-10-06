@@ -224,6 +224,21 @@ class TTSBenchmarkServiceTests(unittest.TestCase):
 
             self.assertFalse(bench._audio_file_started(header_only))
 
+    def test_piper_plan_uses_module_when_cli_path_is_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "services.tts_benchmark_service._resolve_piper_command",
+            return_value=["/venv/python", "-m", "piper"],
+        ), patch(
+            "services.tts_benchmark_service.get_profile_model_path",
+            return_value=Path(tmp) / "ruslan.onnx",
+        ):
+            plan = bench.build_tts_benchmark_plan(
+                backend="piper", text="Привет", output_dir=Path(tmp),
+            )
+        self.assertIsInstance(plan, bench.TTSBenchmarkPlan)
+        assert isinstance(plan, bench.TTSBenchmarkPlan)
+        self.assertEqual(plan.command[:3], ["/venv/python", "-m", "piper"])
+
     def test_xtts_plan_uses_project_local_runner_and_caches(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             xtts_bin = Path(tmp) / "venv_xtts" / "bin"

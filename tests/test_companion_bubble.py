@@ -7,11 +7,15 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+try:
+    from PySide6.QtWidgets import QApplication
+    from scripts.ui.companion_bubble import ResponseBubble
+except ImportError:  # pragma: no cover - Linux CI may omit the Qt EGL runtime
+    QApplication = None
+    ResponseBubble = None
 
-from scripts.ui.companion_bubble import ResponseBubble
 
-
+@unittest.skipUnless(ResponseBubble is not None, "Qt desktop runtime is unavailable")
 class CompanionBubbleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

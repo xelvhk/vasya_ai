@@ -1,3 +1,5 @@
+import re
+
 from config.settings import (
     OLLAMA_FAST_MODEL,
     OLLAMA_FAST_NUM_PREDICT,
@@ -38,5 +40,20 @@ def parse_intent(user_text: str) -> IntentResult:
     parse_ms = (time.perf_counter() - started) * 1000
     log_voice_event(f"intent_parse_ms={parse_ms:.0f} model={OLLAMA_FAST_MODEL}")
     data = extract_json(raw_response)
-    return IntentResult(**data)
+    result = IntentResult(**data)
+    if result.intent == "create_task" and not _explicit_task_creation_request(user_text):
+        return IntentResult(intent="unknown", data={})
+    return result
+
+
+def _explicit_task_creation_request(user_text: str) -> bool:
+    normalized = " ".join(user_text.lower().split())
+    if re.search(r"\b(?:добавь|создай|запиши|внеси|поставь|зафиксируй)\b", normalized):
+        return True
+    if re.match(r"^(?:добавить|создать|записать)\b", normalized):
+        return True
+    return bool(re.search(
+        r"\b(?:можешь|прошу|пожалуйста)\b.{0,32}\b(?:добавить|создать|записать)\b",
+        normalized,
+    ))
 import time

@@ -67,6 +67,26 @@ def handle_task_intent(intent_result: IntentResult) -> str:
                 spoken_items.append(item["task"])
 
         count = len(tasks)
+        if intent_result.data.get("priority_query"):
+            dated_tasks = sorted(
+                (item for item in tasks if item.get("datetime")),
+                key=lambda item: str(item["datetime"]),
+            )
+            if dated_tasks:
+                nearest = [
+                    f"{item['task']} на "
+                    f"{humanize_event_datetime(item['datetime']) or item['datetime']}"
+                    for item in dated_tasks[:3]
+                ]
+                return (
+                    "Приоритеты в списке не указаны. "
+                    f"По срокам сначала: {join_spoken_list(nearest)}."
+                )
+            preview = join_spoken_list(spoken_items[:3])
+            return (
+                "Приоритеты и сроки в задачах не указаны. "
+                f"Сейчас открыты: {preview}."
+            )
         if _is_compact_plan_context(date_context):
             top = spoken_items[:3]
             if count <= 3:

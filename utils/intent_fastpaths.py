@@ -636,6 +636,15 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         if re.search(pattern, normalized):
             return IntentResult(intent="get_tasks", data={"datetime": "на этой неделе"})
 
+    priority_task_patterns = (
+        r"^какие(?:\s+у\s+меня|\s+сейчас|\s+мои)?\s+"
+        r"(?:первостепенные|приоритетные|важные|срочные)\s+задачи\b",
+        r"^что\s+из\s+(?:моих|наших|текущих)\s+задач\s+"
+        r"(?:сделать|выполнить)\s+в\s+первую\s+очередь\b",
+    )
+    if any(re.search(pattern, normalized) for pattern in priority_task_patterns):
+        return IntentResult(intent="get_tasks", data={"priority_query": True})
+
     list_tasks_patterns = (
         r"^(какие у меня задачи|какие задачи|есть ли у меня задачи|покажи задачи|список задач)\b",
     )

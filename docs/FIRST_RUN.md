@@ -28,6 +28,20 @@ Packaged builds do not write into the application bundle or launch directory. Be
 - `python scripts/doctor.py` reports no blocking failures
 - `python main.py` starts the desktop shell
 
+## Voice and weather city
+
+Open **Настройки → Поведение** from Vasya's right-click menu. **Голос Васи**
+selects a voice profile; **Сейчас используется** shows the actual TTS engine.
+With `TTS_BACKEND=auto`, Vasya uses the installed Piper model when available
+and falls back to the macOS system voice otherwise. A selected XTTS profile
+alone does not install XTTS. To prepare the bundled Russian Piper profile, run
+`python scripts/setup_piper_ru.py --voices ruslan` in the project's virtual
+environment, then restart Vasya and check the actual engine in Settings.
+
+In the same tab, **Город утреннего шоу** controls the weather city. Enter
+`Saint-Petersburg` for Saint Petersburg and apply the settings. `Moscow` is
+only the fallback when no city has been saved.
+
 ## Optional API Mode
 ```bash
 python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload

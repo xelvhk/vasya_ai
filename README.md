@@ -23,8 +23,6 @@ with the maintainer's projects or local paths.
 
 ### Desktop assistant
 
-![Vasya desktop assistant settings with avatar preview](docs/screenshots/desktop-settings.png)
-
 The desktop shell provides the avatar, tray controls, global hotkeys, voice
 activation, dictation, and local settings.
 

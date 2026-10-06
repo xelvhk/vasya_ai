@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from assistant.child_mode import child_mode_store
-from config.settings import PIPER_MODEL_PATH, TTS_PROFILE, TTS_STATE_FILE, XTTS_SPEAKER_WAV
+from config.settings import PIPER_MODEL_PATH, SILERO_MODEL_PATH, TTS_PROFILE, TTS_STATE_FILE, XTTS_SPEAKER_WAV
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,13 @@ class VoiceProfile:
 
 
 VOICE_PROFILES: tuple[VoiceProfile, ...] = (
+    VoiceProfile(
+        profile_id="silero_aidar",
+        label="Айдар — основной голос Васи",
+        backend="silero",
+        gender="мужской",
+        character="естественный, дружелюбный, темп 1,25×",
+    ),
     VoiceProfile(
         profile_id="ruslan_direct",
         label="Руслан — энергичный и прямой",
@@ -72,7 +79,7 @@ def get_voice_profile(profile_id: str | None = None) -> VoiceProfile:
     profile = _VOICE_PROFILE_MAP.get(selected_id)
     if profile is not None:
         return profile
-    return _VOICE_PROFILE_MAP["ruslan_direct"]
+    return _VOICE_PROFILE_MAP["silero_aidar"]
 
 
 def get_active_voice_profile_id() -> str:
@@ -81,7 +88,7 @@ def get_active_voice_profile_id() -> str:
         return stored
     if TTS_PROFILE in _VOICE_PROFILE_MAP:
         return TTS_PROFILE
-    return "ruslan_direct"
+    return "silero_aidar"
 
 
 def get_active_voice_profile() -> VoiceProfile:
@@ -128,6 +135,8 @@ def is_profile_installed(profile: VoiceProfile | None = None) -> bool:
         return get_profile_model_path(resolved_profile) is not None
     if resolved_profile.backend == "xtts":
         return get_profile_speaker_wav(resolved_profile) is not None
+    if resolved_profile.backend == "silero":
+        return Path(SILERO_MODEL_PATH).expanduser().is_file()
     return True
 
 

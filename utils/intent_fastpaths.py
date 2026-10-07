@@ -681,6 +681,12 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
             if dt_text:
                 return IntentResult(intent="delete_tasks", data={"all": True, "datetime": dt_text})
 
+    # Explanatory questions need an answer, not a second model call to classify them.
+    # Keep requests about the user's own data and requests containing actions on
+    # the intent router, where a tool or confirmation may be needed.
+    if is_conceptual_question(normalized):
+        return IntentResult(intent="chat", data={})
+
     if any(marker in normalized for marker in _COMMAND_MARKERS):
         return None
 
@@ -696,6 +702,29 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
         return IntentResult(intent="chat", data={})
 
     return None
+
+
+def is_conceptual_question(text: str) -> bool:
+    if not re.match(
+        r"^(?:как|почему|зачем|что такое|что означает|чем отличается|в ч[её]м разница|объясни,?\s+(?:как|почему|зачем|что такое|чем отличается))\b",
+        text,
+    ):
+        return False
+    if re.search(
+        r"\b(?:мой|моя|моё|мое|мои|моих|моим|моём|моем|наш|наша|наше|наши|наших|сегодня|завтра|вчера)\b|\bу (?:меня|нас)\b",
+        text,
+    ):
+        return False
+    if re.search(
+        r"\b(?:в|из) (?:памяти|заметках|документах|календаре|обсидиане|obsidian|проекте|файле)\b"
+        r"|\b(?:эта|эти|этот|эту|этом|этих)\s+(?:заметк\w*|запис\w*|файл\w*|документ\w*|задач\w*|событ\w*|проект\w*)\b",
+        text,
+    ):
+        return False
+    return not bool(re.search(
+        r"\b(?:добавь|создай|удали|очисти|запиши|сохрани|открой|покажи|найди|запусти|измени|обнови|синхронизируй|выгрузи|экспортируй|нажми|кликни|отправь|сделай|напомни)\b",
+        text,
+    ))
 
 
 def detect_early_fast_intent(user_text: str) -> IntentResult | None:

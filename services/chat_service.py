@@ -23,6 +23,7 @@ from config.settings import (
 from services.memory_service import get_memory_snapshot, search_memory
 from services.ollama_client import generate, generate_stream, resolve_chat_model
 from utils.chat_fast_replies import generate_local_chat_reply
+from utils.intent_fastpaths import is_conceptual_question
 from utils.logger import log_voice_event
 
 _LAST_CHAT_PROMPT_PACK = "default_mode"
@@ -459,6 +460,8 @@ _GENERIC_MEMORY_QUERIES = (
 def _build_memory_context(user_text: str) -> str | None:
     normalized = " ".join(user_text.lower().strip().split())
     if not normalized:
+        return None
+    if is_conceptual_question(normalized):
         return None
     if not any(marker in normalized for marker in _MEMORY_QUERY_MARKERS):
         return None

@@ -2,6 +2,7 @@ import re
 
 from config.settings import (
     OLLAMA_FAST_MODEL,
+    OLLAMA_FAST_KEEP_ALIVE,
     OLLAMA_FAST_NUM_PREDICT,
     OLLAMA_FAST_TEMPERATURE,
     OLLAMA_FAST_THINK,
@@ -36,6 +37,7 @@ def parse_intent(user_text: str) -> IntentResult:
         think=OLLAMA_FAST_THINK,
         temperature=OLLAMA_FAST_TEMPERATURE,
         num_predict=OLLAMA_FAST_NUM_PREDICT,
+        keep_alive=OLLAMA_FAST_KEEP_ALIVE,
     )
     parse_ms = (time.perf_counter() - started) * 1000
     log_voice_event(f"intent_parse_ms={parse_ms:.0f} model={OLLAMA_FAST_MODEL}")

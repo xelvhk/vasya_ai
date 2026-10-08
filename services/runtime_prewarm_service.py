@@ -4,6 +4,7 @@ import threading
 
 from config.settings import (
     OLLAMA_FAST_MODEL,
+    OLLAMA_FAST_KEEP_ALIVE,
     VOICE_RUNTIME_PREWARM_ENABLED,
     VOICE_RUNTIME_PREWARM_OLLAMA,
     VOICE_RUNTIME_PREWARM_OLLAMA_CHAT,
@@ -69,6 +70,7 @@ def _prewarm_model(model_name: str, *, tag: str) -> None:
             think=False,
             temperature=0.0,
             num_predict=4,
+            keep_alive=OLLAMA_FAST_KEEP_ALIVE if tag == "fast" else None,
         )
         log_voice_event(f"runtime_prewarm_model_ok tag={tag} model={model_name!r}")
     except Exception as exc:

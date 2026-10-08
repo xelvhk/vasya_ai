@@ -77,6 +77,7 @@ def generate(
     think: bool | str | None = None,
     temperature: float | None = None,
     num_predict: int | None = None,
+    keep_alive: str | None = None,
 ) -> str:
     ensure_ollama_running()
     payload: dict = {
@@ -86,6 +87,8 @@ def generate(
     }
     if think is not None:
         payload["think"] = think
+    if keep_alive is not None:
+        payload["keep_alive"] = keep_alive
 
     options: dict = {}
     if temperature is not None:

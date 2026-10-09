@@ -111,6 +111,34 @@
   margin: 20px 0 40px;
 }
 
+.focus-radio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 24px 0;
+  padding: 20px 24px;
+  border: 1px solid #65446e;
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, #35213d, #211a36 58%, #352519);
+}
+
+.focus-radio h2 { margin: 4px 0 8px; }
+.focus-radio p:last-child { color: #e2c9de; }
+.focus-radio-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.focus-radio-controls button { background: #df8b53; color: #1b1222; }
+.focus-radio-controls select {
+  min-height: 40px;
+  border: 1px solid #816380;
+  border-radius: var(--radius);
+  background: #2e2638;
+  color: #fff;
+  padding: 0 10px;
+}
+.focus-radio-controls input { width: 110px; accent-color: #ed9e6e; }
+.focus-radio-controls select:focus-visible { outline: 2px solid #ed9e6e; outline-offset: 3px; }
+@media (max-width: 760px) { .focus-radio { align-items: stretch; flex-direction: column; } }
+
 .agent-chat {
   scroll-margin-top: 92px;
   margin: 24px 0;

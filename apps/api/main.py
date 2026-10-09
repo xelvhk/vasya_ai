@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.deps import require_api_key
 from apps.api.rate_limit import check_http_rate_limit, resolve_client_id_from_request
-from apps.api.routes import chat, control_center, events, memory, morning_brief, notes, projects, realtime, recovery, system, tasks, video, voice
+from apps.api.routes import chat, control_center, events, focus_radio, memory, morning_brief, notes, projects, realtime, recovery, system, tasks, video, voice
 from config.settings import APP_VERSION
 from utils.logger import log_interaction_event, start_logging_scope
 
@@ -31,6 +31,7 @@ app.include_router(recovery.router, dependencies=_secure)
 app.include_router(realtime.router, dependencies=_secure)
 app.include_router(memory.router, dependencies=_secure)
 app.include_router(morning_brief.router, dependencies=_secure)
+app.include_router(focus_radio.router, dependencies=_secure)
 
 
 @app.middleware("http")

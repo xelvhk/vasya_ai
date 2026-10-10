@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -52,6 +53,17 @@ class BuildMacOSAppTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         run.assert_not_called()
+
+    def test_run_build_uses_active_interpreter_instead_of_stale_launcher(self) -> None:
+        config = MacOSAppBuildConfig(root_dir=Path("/repo"))
+
+        with patch("scripts.build_macos_app.importlib.util.find_spec", return_value=object()), patch(
+            "scripts.build_macos_app.resolve_pyinstaller", return_value="/old/.venv/bin/pyinstaller"
+        ), patch("scripts.build_macos_app.subprocess.run") as run:
+            result = run_build(config, allow_non_macos=True)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(run.call_args.args[0][:3], [sys.executable, "-m", "PyInstaller"])
 
     def test_pyinstaller_environment_uses_repo_local_cache_by_default(self) -> None:
         config = MacOSAppBuildConfig(root_dir=Path("/repo"))

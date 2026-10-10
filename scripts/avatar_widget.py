@@ -10,8 +10,10 @@ from pathlib import Path
 from assistant.child_mode import child_mode_store
 from assistant.control import AssistantControlAction, assistant_control
 from assistant.state import AssistantState, AssistantStateName, assistant_state
+from services.focus_radio_bridge import take_commands, write_status
 from config.settings import (
     AGENT_ROUTING_PROFILE,
+    APP_PATHS,
     AUDIO_FILENAME,
     AVATAR_SKIN,
     AVATAR_SIZE,
@@ -196,6 +198,7 @@ def main() -> None:
             )
             from scripts.ui.settings_dialog import SettingsDialog
             from scripts.ui.tray_menu import build_tray_menu
+            from scripts.ui.focus_radio import FocusRadio
         except ImportError:
             from ui.avatar_state import (
                 load_saved_position as load_avatar_saved_position,
@@ -268,6 +271,7 @@ def main() -> None:
             )
             from ui.settings_dialog import SettingsDialog
             from ui.tray_menu import build_tray_menu
+            from ui.focus_radio import FocusRadio
     except ImportError:
         print("PySide6 is not installed. Run: pip install -r requirements.txt")
         raise SystemExit(1)
@@ -660,6 +664,14 @@ def main() -> None:
             )
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             self._widget_state = _load_widget_state()
+            self._radio_bridge_started_at = time.time()
+            self._radio = FocusRadio(
+                self,
+                mode=str(self._widget_state.get("focus_radio_mode", "warm")),
+                volume=self._widget_state.get("focus_radio_volume", 0.32),
+                on_change=self._on_radio_change,
+            )
+            self._last_radio_prefs = (self._radio.mode, self._radio.volume)
             self._avatar_size = int(self._widget_state.get("size", AVATAR_SIZE))
             self._avatar_skin = str(self._widget_state.get("avatar_skin", AVATAR_SKIN))
             if self._avatar_skin not in _avatar_skin_ids():
@@ -877,6 +889,14 @@ def main() -> None:
             self._timer.timeout.connect(self._tick)
             self._timer.start(60)
 
+            self._radio_commands_timer = QTimer(self)
+            self._radio_commands_timer.timeout.connect(self._poll_radio_commands)
+            self._radio_commands_timer.start(300)
+            self._radio_status_timer = QTimer(self)
+            self._radio_status_timer.timeout.connect(self._publish_radio_status)
+            self._radio_status_timer.start(2000)
+            self._publish_radio_status()
+
             self._restore_position()
             self._update_bubble()
             self._start_hotkey_listener()
@@ -1009,6 +1029,7 @@ def main() -> None:
             self._bridge.state_changed.emit(state)
 
         def _apply_state(self, state: AssistantState) -> None:
+            self._radio.set_assistant_state(state.name.value)
             previous_state = self._state.name
             if (
                 self._pending_speaking_state is not None
@@ -1180,6 +1201,14 @@ def main() -> None:
                 quick_action = interaction_menu.addAction("Быстрые команды")
                 mic_test_action = interaction_menu.addAction("Тест микрофона")
 
+                radio_menu = menu.addMenu("Радио")
+                radio_toggle_action = radio_menu.addAction("Включить / пауза")
+                radio_mode_actions = {
+                    radio_menu.addAction(label): mode
+                    for mode, label in (("warm", "Тёплый"), ("rain", "Дождь"),
+                                        ("night", "Ночь"), ("pulse", "Ритм"), ("mix", "Микс"))
+                }
+
                 memory_menu = menu.addMenu("Memory Center")
                 memory_status_action = memory_menu.addAction("Статус памяти...")
                 memory_recent_action = memory_menu.addAction("Последнее в памяти...")
@@ -1214,6 +1243,7 @@ def main() -> None:
                     text_action: self._open_text_command_dialog,
                     quick_action: self._open_quick_commands,
                     mic_test_action: self._run_quick_mic_test,
+                    radio_toggle_action: self._radio.toggle,
                     memory_status_action: self._show_memory_center_status,
                     memory_recent_action: self._show_memory_center_recent,
                     memory_search_action: self._search_memory_center,
@@ -1227,6 +1257,9 @@ def main() -> None:
                 handler = handlers.get(chosen_action)
                 if handler is not None:
                     handler()
+                elif chosen_action in radio_mode_actions:
+                    self._radio.set_mode(radio_mode_actions[chosen_action])
+                    self._radio.play()
             except Exception as exc:
                 log(f"Context menu error: {exc}")
             finally:
@@ -2041,6 +2074,8 @@ def main() -> None:
                     "snap_to_edge_enabled": self._snap_to_edge_enabled,
                     "avatar_opacity": self._avatar_opacity,
                     "avatar_skin": self._avatar_skin,
+                    "focus_radio_mode": self._radio.mode,
+                    "focus_radio_volume": self._radio.volume,
                     "auto_child_skin": self._auto_child_skin,
                     "start_hidden": not self.isVisible(),
                     "morning_show_enabled": self._morning_show_enabled,
@@ -2111,6 +2146,14 @@ def main() -> None:
                     "toggle_avatar": self.toggle_avatar_visibility,
                     "listen": self._activate_interaction,
                     "text_command": self._open_text_command_dialog,
+                    "radio_toggle": self._radio.toggle,
+                    "radio_warm": lambda: self._select_radio_mode("warm"),
+                    "radio_rain": lambda: self._select_radio_mode("rain"),
+                    "radio_night": lambda: self._select_radio_mode("night"),
+                    "radio_pulse": lambda: self._select_radio_mode("pulse"),
+                    "radio_mix": lambda: self._select_radio_mode("mix"),
+                    "radio_quieter": lambda: self._radio.set_volume(self._radio.volume - 0.1),
+                    "radio_louder": lambda: self._radio.set_volume(self._radio.volume + 0.1),
                     "quick_commands": self._open_quick_commands,
                     "mic_test": self._run_quick_mic_test,
                     "speed_diagnostics": self._show_speed_diagnostics,
@@ -2131,6 +2174,43 @@ def main() -> None:
             self._tray.activated.connect(self._on_tray_activated)
             self._tray.show()
             self._update_tray_tooltip()
+
+        def _select_radio_mode(self, mode: str) -> None:
+            self._radio.set_mode(mode)
+            self._radio.play()
+
+        def _on_radio_change(self) -> None:
+            if hasattr(self, "_radio"):
+                self._widget_state["focus_radio_mode"] = self._radio.mode
+                self._widget_state["focus_radio_volume"] = self._radio.volume
+                if hasattr(self, "_timer"):
+                    prefs = (self._radio.mode, self._radio.volume)
+                    if prefs != self._last_radio_prefs:
+                        self._last_radio_prefs = prefs
+                        self._save_position()
+                    self._publish_radio_status()
+
+        def _publish_radio_status(self) -> None:
+            try:
+                write_status(APP_PATHS.data_dir, self._radio.snapshot())
+            except OSError as exc:
+                log(f"Focus radio status unavailable: {exc}")
+
+        def _poll_radio_commands(self) -> None:
+            try:
+                commands = take_commands(APP_PATHS.data_dir, since=self._radio_bridge_started_at)
+                for command in commands:
+                    action = command.get("action")
+                    if action == "play":
+                        self._radio.play()
+                    elif action == "pause":
+                        self._radio.pause()
+                    elif action == "mode":
+                        self._radio.set_mode(command["mode"])
+                    elif action == "volume":
+                        self._radio.set_volume(command["volume"])
+            except (OSError, KeyError, ValueError, TypeError) as exc:
+                log(f"Focus radio command failed: {exc}")
 
         def _clear_personal_memory(self) -> None:
             answer = QMessageBox.question(

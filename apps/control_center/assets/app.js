@@ -63,6 +63,10 @@ const elements = {
   videoSave: document.querySelector("#agent-video-save"),
   videoSaveFeedback: document.querySelector("#agent-video-save-feedback"),
   videoSavedLink: document.querySelector("#agent-video-saved-link"),
+  radioStatus: document.querySelector("#focus-radio-status"),
+  radioToggle: document.querySelector("#focus-radio-toggle"),
+  radioMode: document.querySelector("#focus-radio-mode"),
+  radioVolume: document.querySelector("#focus-radio-volume"),
 };
 let subtitleObjectUrl = null;
 let pendingVideoNote = null;
@@ -91,6 +95,49 @@ const api = createApiClient({
   getToken: () => elements.token.value,
   onUnauthorized: () => showConnectionDialog("Проверьте API-токен и подключитесь снова."),
 });
+let radioState = { available: false };
+
+async function refreshRadio() {
+  if (elements.connectionDialog.open) return;
+  try {
+    radioState = await api.requestJson("/v1/focus-radio");
+    const available = Boolean(radioState.available);
+    for (const control of [elements.radioToggle, elements.radioMode, elements.radioVolume]) {
+      control.disabled = !available;
+    }
+    elements.radioStatus.textContent = available
+      ? radioState.playing ? `Играет: ${elements.radioMode.querySelector(`[value="${radioState.scene}"]`)?.textContent || radioState.scene}` : "На паузе"
+      : "Запустите виджет Васи на этом компьютере, чтобы включить радио.";
+    if (available) {
+      elements.radioToggle.textContent = radioState.playing ? "Пауза" : "Включить";
+      elements.radioMode.value = radioState.mode;
+      if (document.activeElement !== elements.radioVolume) {
+        elements.radioVolume.value = Math.round(radioState.volume * 100);
+      }
+    }
+  } catch (error) {
+    radioState = { available: false };
+    elements.radioStatus.textContent = errorMessage(error);
+    for (const control of [elements.radioToggle, elements.radioMode, elements.radioVolume]) {
+      control.disabled = true;
+    }
+  }
+}
+
+async function sendRadio(command) {
+  try {
+    await api.requestJson("/v1/focus-radio", { method: "POST", body: JSON.stringify(command) });
+    window.setTimeout(refreshRadio, 400);
+  } catch (error) {
+    elements.radioStatus.textContent = errorMessage(error);
+  }
+}
+
+elements.radioToggle.addEventListener("click", () => sendRadio({ action: radioState.playing ? "pause" : "play" }));
+elements.radioMode.addEventListener("change", () => sendRadio({ action: "mode", mode: elements.radioMode.value }));
+elements.radioVolume.addEventListener("change", () => sendRadio({ action: "volume", volume: Number(elements.radioVolume.value) / 100 }));
+window.setInterval(refreshRadio, 2000);
+refreshRadio();
 const dashboardView = createDashboardView(elements);
 let registryView;
 

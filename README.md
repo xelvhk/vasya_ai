@@ -99,6 +99,10 @@ Open [http://127.0.0.1:8787/control-center](http://127.0.0.1:8787/control-center
 API authentication is enabled by default. Use the **Connection** control with
 the `VASYA_API_AUTH_TOKEN` from your local `.env`.
 
+The desktop widget owns the background lo-fi radio. Control it from Project OS,
+the tray, or the character's context menu. See [docs/FOCUS_RADIO.md](docs/FOCUS_RADIO.md)
+for setup and the shared data-directory requirement.
+
 ## Voice typing
 
 Vasya can send dictated text to the active OS field or to an allowlisted HTTP

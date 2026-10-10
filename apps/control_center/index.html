@@ -18,6 +18,7 @@
         </a>
         <nav class="main-nav" aria-label="Разделы Control Center">
           <a href="#agent-chat">Чат</a>
+          <a href="#focus-radio">Радио</a>
           <a href="#status-summary">Сводка</a>
           <a href="#project-grid">Проекты</a>
           <a href="#project-management">Управление</a>
@@ -75,6 +76,27 @@
           <button id="agent-video-save" type="button" hidden>Сохранить расшифровку в Obsidian</button>
           <p id="agent-video-save-feedback" role="status" hidden></p>
           <a id="agent-video-saved-link" hidden>Открыть заметку в Obsidian</a>
+        </div>
+      </section>
+
+      <section id="focus-radio" class="focus-radio" aria-labelledby="focus-radio-title">
+        <div>
+          <p class="eyebrow">С Васей в рабочем ритме</p>
+          <h2 id="focus-radio-title">Lo-fi радио</h2>
+          <p id="focus-radio-status" role="status" aria-live="polite">Проверяю виджет Васи...</p>
+        </div>
+        <div class="focus-radio-controls">
+          <button id="focus-radio-toggle" type="button" disabled>Включить</button>
+          <label for="focus-radio-mode">Атмосфера</label>
+          <select id="focus-radio-mode" disabled>
+            <option value="warm">Тёплый</option>
+            <option value="rain">Дождь</option>
+            <option value="night">Ночь</option>
+            <option value="pulse">Ритм</option>
+            <option value="mix">Микс</option>
+          </select>
+          <label for="focus-radio-volume">Громкость</label>
+          <input id="focus-radio-volume" type="range" min="0" max="100" value="32" disabled />
         </div>
       </section>
 

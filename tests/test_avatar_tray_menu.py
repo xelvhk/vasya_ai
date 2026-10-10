@@ -21,7 +21,8 @@ class _FakeAction:
 
 
 class _FakeMenu:
-    def __init__(self) -> None:
+    def __init__(self, label: str = "") -> None:
+        self.label = label
         self.items: list[object] = []
 
     def addAction(self, action: _FakeAction) -> None:
@@ -29,6 +30,11 @@ class _FakeMenu:
 
     def addSeparator(self) -> None:
         self.items.append("separator")
+
+    def addMenu(self, label: str):
+        submenu = _FakeMenu(label)
+        self.items.append(submenu)
+        return submenu
 
 
 class AvatarTrayMenuTests(unittest.TestCase):
@@ -39,6 +45,14 @@ class AvatarTrayMenuTests(unittest.TestCase):
             "toggle_avatar": lambda: calls.append("toggle"),
             "listen": lambda: calls.append("listen"),
             "text_command": lambda: calls.append("text"),
+            "radio_toggle": lambda: calls.append("radio"),
+            "radio_warm": lambda: calls.append("warm"),
+            "radio_rain": lambda: calls.append("rain"),
+            "radio_night": lambda: calls.append("night"),
+            "radio_pulse": lambda: calls.append("pulse"),
+            "radio_mix": lambda: calls.append("mix"),
+            "radio_quieter": lambda: calls.append("quieter"),
+            "radio_louder": lambda: calls.append("louder"),
             "quick_commands": lambda: calls.append("quick"),
             "mic_test": lambda: calls.append("mic"),
             "speed_diagnostics": lambda: calls.append("speed"),
@@ -60,32 +74,31 @@ class AvatarTrayMenuTests(unittest.TestCase):
             callbacks=callbacks,
         )
 
-        labels = [item.label if isinstance(item, _FakeAction) else item for item in menu.items]
+        labels = [item.label if isinstance(item, (_FakeAction, _FakeMenu)) else item for item in menu.items]
         self.assertEqual(
             labels,
             [
                 "Скрыть Васю",
                 "Начать слушать",
-                "Текстовая команда...",
-                "Быстрые команды",
-                "Тест микрофона",
-                "Диагностика скорости...",
-                "Memory Center...",
-                "Последнее в памяти...",
-                "Поиск в памяти...",
-                "Последний дайджест памяти...",
-                "История дайджестов...",
-                "Синхронизировать память",
+                "Написать Васе...",
+                "Радио",
+                "Память",
+                "Ещё",
+                "separator",
                 "Настройки...",
-                "Очистить личную память...",
                 "separator",
                 "Закрыть Васю",
             ],
         )
+        radio = next(item for item in menu.items if isinstance(item, _FakeMenu) and item.label == "Радио")
+        self.assertEqual([item.label for item in radio.items if isinstance(item, _FakeAction)], [
+            "Включить / пауза", "Тёплый", "Дождь", "Ночь", "Ритм", "Микс", "Тише", "Громче",
+        ])
         self.assertIs(actions["toggle_avatar"].owner, owner)
         actions["listen"].triggered.callback()
+        actions["radio_toggle"].triggered.callback()
         actions["quit"].triggered.callback()
-        self.assertEqual(calls, ["listen", "quit"])
+        self.assertEqual(calls, ["listen", "radio", "quit"])
 
 
 if __name__ == "__main__":

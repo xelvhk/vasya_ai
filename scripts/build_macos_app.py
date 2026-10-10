@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -75,15 +76,23 @@ def run_build(
         print("macOS packaging must run on macOS. Use --dry-run --allow-non-macos to inspect the command.")
         return 1
 
-    pyinstaller = resolve_pyinstaller(config.root_dir)
-    if pyinstaller is None:
-        if dry_run:
-            pyinstaller = "pyinstaller"
-        else:
-            print("PyInstaller is not installed. Run: .venv/bin/python -m pip install -r requirements-build.txt")
-            return 1
-
-    command = pyinstaller_command(config, pyinstaller=pyinstaller)
+    if importlib.util.find_spec("PyInstaller") is not None:
+        # Console-script shebangs can become stale when a virtualenv is moved.
+        command = [
+            sys.executable,
+            "-m",
+            "PyInstaller",
+            *pyinstaller_command(config, pyinstaller="pyinstaller")[1:],
+        ]
+    else:
+        pyinstaller = resolve_pyinstaller(config.root_dir)
+        if pyinstaller is None:
+            if dry_run:
+                pyinstaller = "pyinstaller"
+            else:
+                print("PyInstaller is not installed. Run: .venv/bin/python -m pip install -r requirements-build.txt")
+                return 1
+        command = pyinstaller_command(config, pyinstaller=pyinstaller)
     if dry_run:
         print(" ".join(command))
         return 0

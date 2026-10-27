@@ -247,7 +247,6 @@ class MemoryCenterService:
                            url, tags, created_at, updated_at
                     FROM memory_chunks
                     ORDER BY updated_at DESC, id DESC
-                    LIMIT 200
                     """
                 ).fetchall()
                 seen_ids = {int(row["id"]) for row in rows}

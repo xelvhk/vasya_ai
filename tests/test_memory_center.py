@@ -128,6 +128,23 @@ class MemoryCenterServiceTests(unittest.TestCase):
             self.assertIn("inspectable", item["snippet"])
             self.assertTrue(Path(item["markdown_path"]).exists())
 
+    def test_search_finds_content_older_than_200_other_chunks(self) -> None:
+        with TemporaryDirectory() as tmp:
+            with patch("storage.db.STORAGE_DB_FILE", str(Path(tmp) / "vasya.db")):
+                service = MemoryCenterService(wiki_dir=Path(tmp) / "wiki")
+                service.ingest_text(
+                    source_key="test", source_name="Test", title="Older entry",
+                    content="A unique old detail.", external_id="old",
+                )
+                for index in range(201):
+                    service.ingest_text(
+                        source_key="test", source_name="Test", title=f"New entry {index}",
+                        content="Unrelated content.", external_id=f"new-{index}",
+                    )
+                result = service.search("unique old detail")
+
+            self.assertEqual([item["title"] for item in result["items"]], ["Older entry"])
+
     def test_list_recent_returns_latest_chunks_first(self) -> None:
         with TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "vasya.db"

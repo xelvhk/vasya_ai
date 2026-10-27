@@ -173,6 +173,18 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
                     data["datetime"] = dt_text
                 return IntentResult(intent="create_task", data=data)
 
+    remember_profile_prefixes = (
+        "запомни, что ",
+        "запомни что ",
+        "запомни обо мне ",
+        "запомни про меня ",
+    )
+    for prefix in remember_profile_prefixes:
+        if normalized.startswith(prefix):
+            memory_text = normalized[len(prefix):].strip(" .,:;!-")
+            if memory_text:
+                return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
+
     create_note_prefixes = (
         "запомни ",
         "добавь заметку ",
@@ -197,18 +209,6 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
                     break
             if content:
                 return IntentResult(intent="create_note", data={"content": content})
-
-    remember_profile_prefixes = (
-        "запомни, что ",
-        "запомни что ",
-        "запомни обо мне ",
-        "запомни про меня ",
-    )
-    for prefix in remember_profile_prefixes:
-        if normalized.startswith(prefix):
-            memory_text = normalized[len(prefix):].strip(" .,:;!-")
-            if memory_text:
-                return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
 
     if normalized.startswith("запомни "):
         memory_text = normalized[len("запомни "):].strip(" .,:;!-")

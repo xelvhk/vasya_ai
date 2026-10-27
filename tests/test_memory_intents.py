@@ -9,6 +9,25 @@ from utils.intent_fastpaths import detect_fast_intent
 
 
 class MemoryIntentFastpathTests(unittest.TestCase):
+    def test_explicit_profile_phrases_take_priority_over_notes(self) -> None:
+        for phrase in (
+            "запомни что мой город Москва",
+            "запомни, что мой город Москва",
+            "запомни обо мне мой город Москва",
+            "запомни про меня мой город Москва",
+        ):
+            with self.subTest(phrase=phrase):
+                intent = detect_fast_intent(phrase)
+                self.assertIsNotNone(intent)
+                self.assertEqual(intent.intent, "remember_user_profile")
+                self.assertEqual(intent.data["memory"], "мой город москва")
+
+    def test_generic_remember_phrase_still_creates_a_note(self) -> None:
+        intent = detect_fast_intent("запомни купить молоко")
+        self.assertIsNotNone(intent)
+        self.assertEqual(intent.intent, "create_note")
+        self.assertEqual(intent.data["content"], "купить молоко")
+
     def test_memory_status_phrase_routes_to_memory_status(self) -> None:
         intent = detect_fast_intent("покажи статус памяти")
         self.assertIsNotNone(intent)

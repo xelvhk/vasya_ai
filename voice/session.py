@@ -183,6 +183,29 @@ def run_voice_interaction() -> AssistantControlAction:
     ultra_fast_rms_bounds = _resolve_ultra_fast_recovery_rms_bounds()
     morning_show_message = get_morning_show_message()
     pending_user_text: str | None = None
+
+    def _log_session_perf(status: str, failure_reason: str | None) -> None:
+        _log_voice_perf(
+            metrics=metrics,
+            total_ms=(time.perf_counter() - interaction_started) * 1000,
+            status=status,
+            failure_reason=failure_reason,
+            first_action_ms=first_action_ms,
+            first_response_ms=first_response_ms,
+            barge_in_count=barge_in_count,
+            barge_in_false_count=barge_in_false_count,
+            not_heard_failure=_is_not_heard_failure(failure_reason),
+            auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
+            routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
+            prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
+            primary_intent=primary_intent,
+            primary_role=primary_role,
+            role_counts=role_counts,
+            chat_pack_counts=chat_pack_counts,
+            local_fast_lane_hits=local_fast_lane_hits,
+            last_capture_rms=last_capture_rms,
+        )
+
     if morning_show_message:
         assistant_state.set(AssistantStateName.SPEAKING, morning_show_message)
         if first_response_ms is None:
@@ -230,26 +253,7 @@ def run_voice_interaction() -> AssistantControlAction:
         if not user_text:
             if keep_conversation_open:
                 assistant_state.set(AssistantStateName.IDLE)
-                _log_voice_perf(
-                    metrics=metrics,
-                    total_ms=(time.perf_counter() - interaction_started) * 1000,
-                    status="followup_timeout",
-                    failure_reason=capture.failure_reason,
-                    first_action_ms=first_action_ms,
-                    first_response_ms=first_response_ms,
-                    barge_in_count=barge_in_count,
-                    barge_in_false_count=barge_in_false_count,
-                    not_heard_failure=_is_not_heard_failure(capture.failure_reason),
-                    auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
-                    routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
-                    prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
-                    primary_intent=primary_intent,
-                    primary_role=primary_role,
-                    role_counts=role_counts,
-                    chat_pack_counts=chat_pack_counts,
-                    local_fast_lane_hits=local_fast_lane_hits,
-                    last_capture_rms=last_capture_rms,
-                )
+                _log_session_perf("followup_timeout", capture.failure_reason)
                 return assistant_control.consume_action()
             if inline_recovery_retries_left > 0 and _is_not_heard_failure(capture.failure_reason):
                 inline_recovery_retries_left -= 1
@@ -276,26 +280,7 @@ def run_voice_interaction() -> AssistantControlAction:
             speak(_failure_message_for(capture.failure_reason, streak=streak))
             metrics["tts_ms"] += (time.perf_counter() - tts_started) * 1000
             assistant_state.set(AssistantStateName.IDLE)
-            _log_voice_perf(
-                metrics=metrics,
-                total_ms=(time.perf_counter() - interaction_started) * 1000,
-                status="capture_failed",
-                failure_reason=capture.failure_reason,
-                first_action_ms=first_action_ms,
-                first_response_ms=first_response_ms,
-                barge_in_count=barge_in_count,
-                barge_in_false_count=barge_in_false_count,
-                not_heard_failure=_is_not_heard_failure(capture.failure_reason),
-                auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
-                routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
-                prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
-                primary_intent=primary_intent,
-                primary_role=primary_role,
-                role_counts=role_counts,
-                chat_pack_counts=chat_pack_counts,
-                local_fast_lane_hits=local_fast_lane_hits,
-                last_capture_rms=last_capture_rms,
-            )
+            _log_session_perf("capture_failed", capture.failure_reason)
             return assistant_control.consume_action()
         _reset_capture_failure_streak()
         inline_recovery_retries_left = 1
@@ -375,26 +360,7 @@ def run_voice_interaction() -> AssistantControlAction:
         time.sleep(_post_reply_followup_pause(result.intent, local_fast_lane_hit=used_local_fast_lane))
 
     assistant_state.set(AssistantStateName.IDLE)
-    _log_voice_perf(
-        metrics=metrics,
-        total_ms=(time.perf_counter() - interaction_started) * 1000,
-        status="ok",
-        failure_reason=None,
-        first_action_ms=first_action_ms,
-        first_response_ms=first_response_ms,
-        barge_in_count=barge_in_count,
-        barge_in_false_count=barge_in_false_count,
-        not_heard_failure=False,
-        auto_interrupt_profile=_auto_interrupt_profile_name(auto_interrupt_config),
-        routing_profile=str(ab_profile_config.get("routing_profile", AGENT_ROUTING_PROFILE)),
-        prompt_pack_profile=str(ab_profile_config.get("prompt_pack_profile", CHAT_PROMPT_PACK_PROFILE)),
-        primary_intent=primary_intent,
-        primary_role=primary_role,
-        role_counts=role_counts,
-        chat_pack_counts=chat_pack_counts,
-        local_fast_lane_hits=local_fast_lane_hits,
-        last_capture_rms=last_capture_rms,
-    )
+    _log_session_perf("ok", None)
     return assistant_control.consume_action()
 
 

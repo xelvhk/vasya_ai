@@ -173,90 +173,9 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
                     data["datetime"] = dt_text
                 return IntentResult(intent="create_task", data=data)
 
-    remember_profile_prefixes = (
-        "запомни, что ",
-        "запомни что ",
-        "запомни обо мне ",
-        "запомни про меня ",
-    )
-    for prefix in remember_profile_prefixes:
-        if normalized.startswith(prefix):
-            memory_text = normalized[len(prefix):].strip(" .,:;!-")
-            if memory_text:
-                return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
-
-    create_note_prefixes = (
-        "запомни ",
-        "добавь заметку ",
-        "запиши заметку ",
-        "сохрани заметку ",
-    )
-    for prefix in create_note_prefixes:
-        if normalized.startswith(prefix):
-            content = normalized[len(prefix):].strip(" .,:;!-")
-            if prefix == "запомни ":
-                personal_markers = (
-                    "мне нравится",
-                    "я люблю",
-                    "мне не нравится",
-                    "я не люблю",
-                    "терпеть не могу",
-                    "меня зовут",
-                    "будь ",
-                    "давай ",
-                )
-                if any(marker in content for marker in personal_markers):
-                    break
-            if content:
-                return IntentResult(intent="create_note", data={"content": content})
-
-    if normalized.startswith("запомни "):
-        memory_text = normalized[len("запомни "):].strip(" .,:;!-")
-        personal_markers = (
-            "мне нравится",
-            "я люблю",
-            "мне не нравится",
-            "я не люблю",
-            "терпеть не могу",
-            "меня зовут",
-            "будь ",
-            "давай ",
-        )
-        if memory_text and any(marker in memory_text for marker in personal_markers):
-            return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
-
-    get_profile_variants = {
-        "что ты обо мне помнишь",
-        "что ты про меня помнишь",
-        "что ты помнишь обо мне",
-        "что ты помнишь про меня",
-        "что ты знаешь обо мне",
-        "мои предпочтения",
-        "какие у меня предпочтения",
-    }
-    if normalized in get_profile_variants:
-        return IntentResult(intent="get_user_profile", data={})
-
-    forget_prefixes = (
-        "забудь ",
-        "удали из памяти ",
-        "стереть из памяти ",
-    )
-    for prefix in forget_prefixes:
-        if normalized.startswith(prefix):
-            target = normalized[len(prefix):].strip(" .,:;!-")
-            if target:
-                return IntentResult(intent="forget_user_profile", data={"target": target})
-
-    if normalized in {
-        "очисти личную память",
-        "сбрось личную память",
-        "очистить личную память",
-        "сбросить личную память",
-        "забудь обо мне все",
-        "забудь про меня все",
-    }:
-        return IntentResult(intent="forget_user_profile", data={"target": "все"})
+    memory_intent = _detect_profile_and_note_intent(normalized)
+    if memory_intent is not None:
+        return memory_intent
 
     if normalized.strip(" ?.!") in {
         "что дальше по проектам",
@@ -703,6 +622,79 @@ def detect_fast_intent(user_text: str) -> IntentResult | None:
 
     return None
 
+
+
+def _detect_profile_and_note_intent(normalized: str) -> IntentResult | None:
+    personal_markers = (
+        "мне нравится", "я люблю", "мне не нравится", "я не люблю",
+        "терпеть не могу", "меня зовут", "будь ", "давай ",
+    )
+    remember_profile_prefixes = (
+        "запомни, что ",
+        "запомни что ",
+        "запомни обо мне ",
+        "запомни про меня ",
+    )
+    for prefix in remember_profile_prefixes:
+        if normalized.startswith(prefix):
+            memory_text = normalized[len(prefix):].strip(" .,:;!-")
+            if memory_text:
+                return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
+
+    create_note_prefixes = (
+        "запомни ",
+        "добавь заметку ",
+        "запиши заметку ",
+        "сохрани заметку ",
+    )
+    for prefix in create_note_prefixes:
+        if normalized.startswith(prefix):
+            content = normalized[len(prefix):].strip(" .,:;!-")
+            if prefix == "запомни ":
+                if any(marker in content for marker in personal_markers):
+                    break
+            if content:
+                return IntentResult(intent="create_note", data={"content": content})
+
+    if normalized.startswith("запомни "):
+        memory_text = normalized[len("запомни "):].strip(" .,:;!-")
+        if memory_text and any(marker in memory_text for marker in personal_markers):
+            return IntentResult(intent="remember_user_profile", data={"memory": memory_text})
+
+    get_profile_variants = {
+        "что ты обо мне помнишь",
+        "что ты про меня помнишь",
+        "что ты помнишь обо мне",
+        "что ты помнишь про меня",
+        "что ты знаешь обо мне",
+        "мои предпочтения",
+        "какие у меня предпочтения",
+    }
+    if normalized in get_profile_variants:
+        return IntentResult(intent="get_user_profile", data={})
+
+    forget_prefixes = (
+        "забудь ",
+        "удали из памяти ",
+        "стереть из памяти ",
+    )
+    for prefix in forget_prefixes:
+        if normalized.startswith(prefix):
+            target = normalized[len(prefix):].strip(" .,:;!-")
+            if target:
+                return IntentResult(intent="forget_user_profile", data={"target": target})
+
+    if normalized in {
+        "очисти личную память",
+        "сбрось личную память",
+        "очистить личную память",
+        "сбросить личную память",
+        "забудь обо мне все",
+        "забудь про меня все",
+    }:
+        return IntentResult(intent="forget_user_profile", data={"target": "все"})
+
+    return None
 
 def is_conceptual_question(text: str) -> bool:
     if not re.match(

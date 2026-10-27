@@ -28,6 +28,12 @@ class MemoryIntentFastpathTests(unittest.TestCase):
         self.assertEqual(intent.intent, "create_note")
         self.assertEqual(intent.data["content"], "купить молоко")
 
+    def test_generic_remember_phrase_with_preference_updates_profile(self) -> None:
+        intent = detect_fast_intent("запомни мне нравится джаз")
+        self.assertIsNotNone(intent)
+        self.assertEqual(intent.intent, "remember_user_profile")
+        self.assertEqual(intent.data["memory"], "мне нравится джаз")
+
     def test_memory_status_phrase_routes_to_memory_status(self) -> None:
         intent = detect_fast_intent("покажи статус памяти")
         self.assertIsNotNone(intent)

@@ -1,9 +1,13 @@
 import hashlib
+import plistlib
+
+import pytest
 
 from fastapi.testclient import TestClient
 
 from apps.api.main import app
 from scripts import sync_video_notes
+from scripts import video_note_sync_launchd
 
 
 def test_mac_pulls_and_confirms_video_note(tmp_path, monkeypatch) -> None:
@@ -58,3 +62,85 @@ def test_mac_sync_rejects_remote_plain_http(tmp_path) -> None:
         assert "HTTPS" in str(exc)
     else:
         raise AssertionError("private transcript could use remote plaintext HTTP")
+
+
+def test_api_key_file_requires_private_regular_file(tmp_path) -> None:
+    key_file = tmp_path / "sync.key"
+    key_file.write_text("private-token\n")
+    key_file.chmod(0o600)
+    assert sync_video_notes.read_api_key_file(key_file) == "private-token"
+
+    key_file.chmod(0o644)
+    with pytest.raises(ValueError, match="owner-only"):
+        sync_video_notes.read_api_key_file(key_file)
+
+    key_file.chmod(0o600)
+    link = tmp_path / "link.key"
+    link.symlink_to(key_file)
+    with pytest.raises(ValueError, match="symbolic link"):
+        sync_video_notes.read_api_key_file(link)
+
+
+def test_launch_agent_runs_sync_periodically_without_embedding_key(tmp_path) -> None:
+    vault = tmp_path / "Vault"
+    key_file = tmp_path / "sync.key"
+    payload = video_note_sync_launchd.build_launch_agent(
+        server="https://vasya.example.test",
+        vault=vault,
+        api_key_file=key_file,
+        python=tmp_path / "venv/bin/python",
+        repo=tmp_path / "repo",
+        logs=tmp_path / "logs",
+        interval=300,
+    )
+    encoded = plistlib.dumps(payload)
+    assert payload["StartInterval"] == 300
+    assert payload["RunAtLoad"] is True
+    assert payload["WorkingDirectory"] == str(tmp_path / "repo")
+    assert payload["ProgramArguments"][-2:] == ["--api-key-file", str(key_file)]
+    assert b"private-token" not in encoded
+
+
+def test_launch_agent_rejects_insecure_server_and_fast_interval(tmp_path) -> None:
+    options = dict(
+        vault=tmp_path / "Vault", api_key_file=tmp_path / "sync.key",
+        python=tmp_path / "python", repo=tmp_path / "repo", logs=tmp_path / "logs",
+        interval=300,
+    )
+    with pytest.raises(ValueError, match="HTTPS"):
+        video_note_sync_launchd.build_launch_agent(server="http://192.0.2.1", **options)
+    with pytest.raises(ValueError, match="60"):
+        video_note_sync_launchd.build_launch_agent(
+            server="https://vasya.example.test", **{**options, "interval": 5}
+        )
+
+
+def test_launch_agent_install_uses_private_file_and_refuses_overwrite(tmp_path, monkeypatch) -> None:
+    key_file = tmp_path / "sync.key"
+    key_file.write_text("private-token\n")
+    key_file.chmod(0o600)
+    payload = video_note_sync_launchd.build_launch_agent(
+        server="https://vasya.example.test", vault=tmp_path / "Vault",
+        api_key_file=key_file, python=tmp_path / "python", repo=tmp_path / "repo",
+        logs=tmp_path / "logs",
+    )
+    plist_path = tmp_path / "LaunchAgents" / "sync.plist"
+    calls = []
+    monkeypatch.setattr(
+        video_note_sync_launchd.subprocess, "run", lambda *a, **k: calls.append((a, k))
+    )
+
+    video_note_sync_launchd.install_launch_agent(payload, plist_path, key_file)
+    assert plistlib.loads(plist_path.read_bytes()) == payload
+    assert plist_path.stat().st_mode & 0o077 == 0
+    assert calls[0][0][0][:2] == ["launchctl", "bootstrap"]
+    with pytest.raises(FileExistsError):
+        video_note_sync_launchd.install_launch_agent(payload, plist_path, key_file)
+
+
+def test_launch_agent_install_rejects_public_key_file(tmp_path) -> None:
+    key_file = tmp_path / "sync.key"
+    key_file.write_text("private-token")
+    key_file.chmod(0o644)
+    with pytest.raises(ValueError, match="owner-only"):
+        video_note_sync_launchd.install_launch_agent({}, tmp_path / "sync.plist", key_file)

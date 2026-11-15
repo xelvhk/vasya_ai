@@ -7,14 +7,15 @@
 | Security test changed `sys.modules` and broke later tests | Use installed FastAPI in the test without global module replacement | Previously 18 passed and 8 failed in the focused group; after the fix, 26 passed |
 | Upload requests could start excessive media work | Per-peer request quotas, per-route active-work limits, bounded rate buckets, `429` with retry hint | Parallel video-upload test and focused limiter tests pass |
 | Local proxy headers could change rate-limit identity | Reject `X-Forwarded-For`, use socket peer, document `--no-proxy-headers` startup | HTTP and WebSocket spoof-header tests pass |
-| Dependency and credential regressions may escape tests | Add `pip-audit` and Gitleaks CI jobs; read-only workflow token | Workflow parsed locally; first GitHub run still pending |
+| Dependency and credential regressions may escape tests | Add `pip-audit` and Gitleaks CI jobs; read-only workflow token | Gitleaks passed; first audit found 40 advisories in 10 packages, followed by pinned upgrades and local retest |
 | Model speed decisions lacked repeatable baseline | Add synthetic short-command, long-chat and grounded-note benchmark | Benchmark unit tests pass; live Ollama baseline recorded on 15 November |
 
 ## Before and after
 
 - Focused security/API test group: **18 pass, 8 fail → 26 pass, 0 fail** after removing the test module leak.
-- Full local suite after hardening: **498 pass, 35 subtests pass**. This does
-  not establish remote CI status.
+- Full local suite after hardening and dependency upgrades: **498 pass, 35
+  subtests pass**. `pip check` reports no broken requirements. The updated
+  audit still needs a second remote CI run.
 - Synthetic Mac baseline on 15 November, `llama3:latest`, five warm runs:
   long chat first text p50/p95 **169/184 ms**, full answer **6971/7413 ms**;
   grounded note first text **149/175 ms**, full answer **2770/2865 ms**.
@@ -29,7 +30,6 @@
 
 ## Release gate
 
-Review the first GitHub dependency and secret scan, resolve any reported
-findings, and confirm green CI. Then resume the EventKit read-only connector
+Confirm the updated GitHub dependency audit and full CI are green. Then resume the EventKit read-only connector
 in `docs/EXECUTION_PLAN.md`. macOS packaging and clean-machine checks follow
 the existing queue; the unsigned ZIP remains a tester artifact.

@@ -2,6 +2,7 @@ import hashlib
 
 from fastapi.testclient import TestClient
 
+from apps.api import deps as api_deps
 from apps.api.main import app
 from scripts import sync_video_notes
 
@@ -16,15 +17,8 @@ def test_mac_pulls_and_confirms_video_note(tmp_path, monkeypatch) -> None:
         "summary": "О проекте", "subtitle_srt": "1\n00:00:01,000 --> 00:00:02,000\nПривет\n",
         "subtitle_origin": "transcribed",
     }
-    auth_dependencies = {
-        dependency.call
-        for route in app.routes if route.path.startswith("/v1/video/")
-        for dependency in getattr(getattr(route, "dependant", None), "dependencies", ())
-        if dependency.call.__name__ in {"require_api_key", "require_video_note_sync_key"}
-    }
-    save_endpoint = next(route.endpoint for route in app.routes if route.path == "/v1/video/save-note")
-    sync_auth = save_endpoint.__globals__["require_video_note_sync_key"]
-    monkeypatch.setitem(sync_auth.__globals__, "VASYA_API_AUTH_TOKEN", "secret")
+    auth_dependencies = (api_deps.require_api_key, api_deps.require_video_note_sync_key)
+    monkeypatch.setattr(api_deps, "VASYA_API_AUTH_TOKEN", "secret")
     for dependency in auth_dependencies:
         app.dependency_overrides[dependency] = lambda: None
     try:

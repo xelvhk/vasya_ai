@@ -85,8 +85,8 @@ Scope: API auth, integrations secrets, logging privacy, dictation API safety
 
 - Media upload request and concurrency limits, peer-address client identity,
   and bounded in-memory rate-limit buckets are covered by API tests.
-- CI dependency and secret scans are configured; their first remote run and
-  any findings still require review before calling the release gate green.
+- CI secret scan passed on the first PR run. Dependency audit found 40
+  advisories in 10 packages; patched pins are staged for a second CI run.
 - The local threat model is in `docs/THREAT_MODEL_LOCAL.md`.
 - Browser-held API tokens remain exposed to any same-origin script that runs
   in Control Center. Review CSP and token handling before remote access.

@@ -32,9 +32,9 @@ item `IN PROGRESS`. Update it in the same commit that completes a slice.
   policy, provenance, cursor, lightweight readiness registry, and the Eva
   EventKit descriptor/platform availability adapter.
 - Current implementation item: Eva ingestion through Apple Reminders and Calendar.
-- Local API hardening and benchmark tooling are staged separately. The
-  synthetic Mac baseline is recorded; the new CI scans still need their first
-  remote verification before this checkpoint is treated as complete.
+- Local API hardening and benchmark tooling are complete on the review branch:
+  synthetic Mac baseline recorded and all three CI jobs green. Resume the
+  read-only EventKit connector as the current implementation item.
 - Next slice: add side-effect-free EventKit authorization inspection, explicit
   opt-in permission requests, and the required packaged-app metadata.
 - Personal/public data separation is accepted in

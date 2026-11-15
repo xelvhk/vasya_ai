@@ -59,6 +59,19 @@ class ApiSecurityE2ETests(unittest.TestCase):
             response = client.post("/v1/chat", json={"text": "привет"})
         self.assertEqual(response.status_code, 503)
 
+    def test_forwarded_for_is_rejected_on_local_api(self) -> None:
+        with TestClient(api_main.app) as client:
+            response = client.get("/health", headers={"x-forwarded-for": "1.2.3.4"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_forwarded_for_is_rejected_on_websocket(self) -> None:
+        api_deps.VASYA_API_REQUIRE_AUTH = False
+        with TestClient(api_main.app) as client:
+            with self.assertRaises(WebSocketDisconnect) as ctx:
+                with client.websocket_connect("/v1/ws/voice", headers={"x-forwarded-for": "1.2.3.4"}):
+                    pass
+        self.assertEqual(ctx.exception.code, 1008)
+
     def test_http_chat_allows_valid_token(self) -> None:
         api_deps.VASYA_API_REQUIRE_AUTH = True
         api_deps.VASYA_API_AUTH_TOKEN = "token123"

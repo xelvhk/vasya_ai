@@ -230,7 +230,7 @@ Verification:
 - Manual browser smoke for desktop and narrow viewport at `/control-center`.
 
 Local run:
-- `VASYA_API_REQUIRE_AUTH=false COSYVOICE_PYTHON= .venv/bin/python -m uvicorn apps.api.main:app --reload`
+- `VASYA_API_REQUIRE_AUTH=false COSYVOICE_PYTHON= .venv/bin/python -m uvicorn apps.api.main:app --no-proxy-headers --reload`
 - Open `http://127.0.0.1:8000/control-center`.
 - With API auth enabled, store the local API token in the dashboard token field.
 

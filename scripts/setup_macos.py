@@ -165,7 +165,7 @@ def first_run_checklist(model: str = DEFAULT_MODEL) -> list[str]:
         "Grant microphone/accessibility permissions when macOS asks",
         "Run diagnostics: python scripts/doctor.py",
         "Start desktop shell: python main.py",
-        "Optional API: python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload",
+        "Optional API: python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --no-proxy-headers --reload",
     ]
 
 

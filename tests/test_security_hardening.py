@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import importlib
-import sys
 import tempfile
-import types
 import unittest
 from pathlib import Path
+
+from fastapi import HTTPException
+
+from apps.api import deps as api_deps
 
 from services import integration_settings_service as integration_service
 from services import secret_store
@@ -21,7 +22,7 @@ class _FakeWebSocket:
 
 class ApiAuthPolicyTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.api_deps, self.http_exception_type = _load_api_deps_module()
+        self.api_deps, self.http_exception_type = api_deps, HTTPException
         self._orig_require_auth = self.api_deps.VASYA_API_REQUIRE_AUTH
         self._orig_token = self.api_deps.VASYA_API_AUTH_TOKEN
         self._orig_allow_query = self.api_deps.VASYA_API_ALLOW_QUERY_TOKEN
@@ -148,29 +149,3 @@ class LoggerRedactionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-def _load_api_deps_module():
-    fastapi_module = types.ModuleType("fastapi")
-
-    class HTTPException(Exception):
-        def __init__(self, status_code: int, detail: str):
-            super().__init__(detail)
-            self.status_code = status_code
-            self.detail = detail
-
-    def Header(default=None):
-        return default
-
-    class WebSocket:
-        pass
-
-    fastapi_module.HTTPException = HTTPException
-    fastapi_module.Header = Header
-    fastapi_module.WebSocket = WebSocket
-
-    sys.modules["fastapi"] = fastapi_module
-    sys.modules.pop("config.settings", None)
-    sys.modules.pop("apps.api.deps", None)
-    api_deps = importlib.import_module("apps.api.deps")
-    return api_deps, HTTPException

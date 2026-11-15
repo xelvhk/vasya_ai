@@ -11,9 +11,13 @@ from config.settings import (
     API_RATE_LIMIT_ENABLED,
     API_RATE_LIMIT_MORNING_BRIEF_MAX,
     API_RATE_LIMIT_PIPELINE_MAX,
+    API_RATE_LIMIT_VIDEO_MAX,
+    API_RATE_LIMIT_VOICE_MAX,
     API_RATE_LIMIT_WINDOW_SECONDS,
     API_RATE_LIMIT_WS_CONNECTIONS_MAX,
     API_RATE_LIMIT_WS_MESSAGES_MAX,
+    API_MEDIA_VIDEO_CONCURRENCY_MAX,
+    API_MEDIA_VOICE_CONCURRENCY_MAX,
 )
 
 
@@ -27,12 +31,11 @@ _LOCK = Lock()
 _HTTP_BUCKETS: dict[tuple[str, str], deque[float]] = {}
 _WS_MESSAGE_BUCKETS: dict[str, deque[float]] = {}
 _WS_CONNECTION_COUNTS: dict[str, int] = {}
+_MEDIA_ACTIVE_COUNTS: dict[str, int] = {}
+MAX_TRACKED_BUCKETS = 1024
 
 
 def resolve_client_id_from_request(request: Any) -> str:
-    forwarded = _read_forwarded_for(getattr(request, "headers", None))
-    if forwarded:
-        return forwarded
     client = getattr(request, "client", None)
     host = getattr(client, "host", "") if client is not None else ""
     host_text = str(host).strip()
@@ -40,9 +43,6 @@ def resolve_client_id_from_request(request: Any) -> str:
 
 
 def resolve_client_id_from_websocket(websocket: Any) -> str:
-    forwarded = _read_forwarded_for(getattr(websocket, "headers", None))
-    if forwarded:
-        return forwarded
     client = getattr(websocket, "client", None)
     host = getattr(client, "host", "") if client is not None else ""
     host_text = str(host).strip()
@@ -87,6 +87,27 @@ def unregister_ws_connection(client_id: str) -> None:
         _WS_CONNECTION_COUNTS[client_id] = current - 1
 
 
+def register_media_request(path: str) -> RateLimitDecision:
+    limit = _media_concurrency_limit(path)
+    if limit == 0:
+        return RateLimitDecision(True, 0)
+    with _LOCK:
+        active = _MEDIA_ACTIVE_COUNTS.get(path, 0)
+        if active >= limit:
+            return RateLimitDecision(False, 1)
+        _MEDIA_ACTIVE_COUNTS[path] = active + 1
+    return RateLimitDecision(True, 0)
+
+
+def unregister_media_request(path: str) -> None:
+    with _LOCK:
+        active = _MEDIA_ACTIVE_COUNTS.get(path, 0)
+        if active <= 1:
+            _MEDIA_ACTIVE_COUNTS.pop(path, None)
+        else:
+            _MEDIA_ACTIVE_COUNTS[path] = active - 1
+
+
 def check_ws_message_rate_limit(client_id: str, *, now: float | None = None) -> RateLimitDecision:
     if not API_RATE_LIMIT_ENABLED:
         return RateLimitDecision(True, 0)
@@ -114,6 +135,13 @@ def _check_bucket(
     with _LOCK:
         bucket = storage.get(key)
         if bucket is None:
+            if len(storage) >= MAX_TRACKED_BUCKETS:
+                expired = [item for item, values in storage.items() if not values or values[-1] <= cutoff]
+                for item in expired:
+                    storage.pop(item, None)
+            if len(storage) >= MAX_TRACKED_BUCKETS:
+                oldest = min(storage, key=lambda item: storage[item][-1])
+                storage.pop(oldest)
             bucket = deque()
             storage[key] = bucket
         while bucket and bucket[0] <= cutoff:
@@ -133,18 +161,16 @@ def _http_limit_for_path(path: str) -> int:
         return max(1, API_RATE_LIMIT_PIPELINE_MAX)
     if normalized.endswith("/morning-brief"):
         return max(1, API_RATE_LIMIT_MORNING_BRIEF_MAX)
+    if normalized == "/v1/voice/transcribe":
+        return max(1, API_RATE_LIMIT_VOICE_MAX)
+    if normalized == "/v1/video/upload":
+        return max(1, API_RATE_LIMIT_VIDEO_MAX)
     return 0
 
 
-def _read_forwarded_for(headers: Any) -> str:
-    if headers is None:
-        return ""
-    raw = ""
-    try:
-        raw = str(headers.get("x-forwarded-for", "")).strip()
-    except Exception:
-        raw = ""
-    if not raw:
-        return ""
-    first = raw.split(",", maxsplit=1)[0].strip()
-    return first
+def _media_concurrency_limit(path: str) -> int:
+    if path == "/v1/voice/transcribe":
+        return max(1, API_MEDIA_VOICE_CONCURRENCY_MAX)
+    if path == "/v1/video/upload":
+        return max(1, API_MEDIA_VIDEO_CONCURRENCY_MAX)
+    return 0

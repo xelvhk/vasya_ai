@@ -2,17 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from apps.api.main import app
-from services.video_analysis_service import TranscriptSegment, VideoAnalysis
+from apps.api import rate_limit
+from services.video_analysis_service import TranscriptSegment, VideoAnalysis, VideoAnalysisError
 
 
 class VideoAgentApiTests(unittest.TestCase):
     def setUp(self) -> None:
+        rate_limit._HTTP_BUCKETS.clear()
         self.analysis = VideoAnalysis(
             "Краткий ответ [00:01]\n\nРасшифровка:\n[00:01] Первый тезис.",
             "https://www.instagram.com/reel/AbC123/",
@@ -87,6 +91,42 @@ class VideoAgentApiTests(unittest.TestCase):
             with TestClient(app) as client:
                 response = client.post("/v1/video/upload", content=b"video", headers={"x-video-extension": "mp4"})
         self.assertEqual(response.status_code, 401)
+
+    def test_parallel_video_upload_returns_429_and_releases_slot(self) -> None:
+        entered, release = Event(), Event()
+
+        def slow_analysis(*_args, **_kwargs):
+            entered.set()
+            self.assertTrue(release.wait(timeout=5))
+            return self.analysis
+
+        def upload():
+            with TestClient(app) as client:
+                return client.post("/v1/video/upload", content=b"video", headers={"x-video-extension": "mp4"})
+
+        with patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False), patch(
+            "apps.api.routes.video.analyze_media", side_effect=slow_analysis
+        ), patch("apps.api.rate_limit.API_MEDIA_VIDEO_CONCURRENCY_MAX", 1):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(upload)
+                self.assertTrue(entered.wait(timeout=5))
+                blocked = upload()
+                release.set()
+                self.assertEqual(first.result(timeout=5).status_code, 200)
+            recovered = upload()
+
+        self.assertEqual(blocked.status_code, 429)
+        self.assertEqual(blocked.headers["Retry-After"], "1")
+        self.assertEqual(recovered.status_code, 200)
+
+    def test_failed_analysis_releases_video_slot(self) -> None:
+        with patch("apps.api.deps.VASYA_API_REQUIRE_AUTH", False), patch(
+            "apps.api.routes.video.analyze_media", side_effect=VideoAnalysisError("invalid media")
+        ):
+            with TestClient(app) as client:
+                response = client.post("/v1/video/upload", content=b"bad", headers={"x-video-extension": "mp4"})
+        self.assertEqual(response.status_code, 422)
+        self.assertNotIn("/v1/video/upload", rate_limit._MEDIA_ACTIVE_COUNTS)
 
 
 if __name__ == "__main__":

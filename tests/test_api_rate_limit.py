@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from apps.api import rate_limit
 
@@ -26,10 +27,49 @@ class RateLimitTests(unittest.TestCase):
         rate_limit._HTTP_BUCKETS.clear()
         rate_limit._WS_MESSAGE_BUCKETS.clear()
         rate_limit._WS_CONNECTION_COUNTS.clear()
+        rate_limit._MEDIA_ACTIVE_COUNTS.clear()
 
-    def test_client_id_prefers_x_forwarded_for(self) -> None:
+    def test_client_id_ignores_untrusted_x_forwarded_for(self) -> None:
         req = _Req(host="10.1.1.1", xff="1.2.3.4, 5.6.7.8")
-        self.assertEqual(rate_limit.resolve_client_id_from_request(req), "1.2.3.4")
+        self.assertEqual(rate_limit.resolve_client_id_from_request(req), "10.1.1.1")
+        self.assertEqual(rate_limit.resolve_client_id_from_websocket(req), "10.1.1.1")
+
+    def test_media_uploads_have_request_limits(self) -> None:
+        for path, maximum in (
+            ("/v1/voice/transcribe", rate_limit.API_RATE_LIMIT_VOICE_MAX),
+            ("/v1/video/upload", rate_limit.API_RATE_LIMIT_VIDEO_MAX),
+        ):
+            with self.subTest(path=path):
+                for _ in range(maximum):
+                    self.assertTrue(rate_limit.check_http_rate_limit(path, "local", now=1000).allowed)
+                self.assertFalse(rate_limit.check_http_rate_limit(path, "local", now=1000).allowed)
+
+    def test_media_concurrency_is_bounded_and_released(self) -> None:
+        for path, maximum in (
+            ("/v1/video/upload", rate_limit.API_MEDIA_VIDEO_CONCURRENCY_MAX),
+            ("/v1/voice/transcribe", rate_limit.API_MEDIA_VOICE_CONCURRENCY_MAX),
+        ):
+            with self.subTest(path=path):
+                for _ in range(maximum):
+                    self.assertTrue(rate_limit.register_media_request(path).allowed)
+                self.assertFalse(rate_limit.register_media_request(path).allowed)
+                rate_limit.unregister_media_request(path)
+                self.assertTrue(rate_limit.register_media_request(path).allowed)
+                for _ in range(maximum):
+                    rate_limit.unregister_media_request(path)
+
+    def test_media_concurrency_remains_bounded_when_request_rate_limit_is_disabled(self) -> None:
+        with patch.object(rate_limit, "API_RATE_LIMIT_ENABLED", False):
+            path = "/v1/video/upload"
+            self.assertTrue(rate_limit.register_media_request(path).allowed)
+            self.assertFalse(rate_limit.register_media_request(path).allowed)
+            rate_limit.unregister_media_request(path)
+
+    def test_expired_client_buckets_are_pruned(self) -> None:
+        with patch.object(rate_limit, "MAX_TRACKED_BUCKETS", 3):
+            for index in range(4):
+                rate_limit.check_http_rate_limit("/v1/chat", f"client-{index}", now=float(index * 1000))
+        self.assertLessEqual(len(rate_limit._HTTP_BUCKETS), 3)
 
     def test_http_rate_limit_blocks_after_limit(self) -> None:
         path = "/v1/chat"

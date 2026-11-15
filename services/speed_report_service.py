@@ -48,20 +48,23 @@ def build_voice_speed_report(*, limit: int | None = None) -> str:
 
     base = (
         f"Скорость по последним {len(samples)} запросам: "
-        f"total avg {_avg(total_values):.0f} мс, p50 {_p50(total_values):.0f} мс; "
+        f"total avg {_avg(total_values):.0f} мс, p50 {_p50(total_values):.0f} мс, "
+        f"total p95 {_percentile(total_values, 0.95):.0f} мс; "
         f"capture avg {_avg(capture_values):.0f} мс; "
-        f"stt avg {_avg(stt_values):.0f} мс; "
-        f"intent avg {_avg(intent_values):.0f} мс; "
-        f"tts avg {_avg(tts_values):.0f} мс."
+        f"stt avg {_avg(stt_values):.0f} мс, stt p95 {_percentile(stt_values, 0.95):.0f} мс; "
+        f"intent avg {_avg(intent_values):.0f} мс, intent p95 {_percentile(intent_values, 0.95):.0f} мс; "
+        f"tts avg {_avg(tts_values):.0f} мс, tts p95 {_percentile(tts_values, 0.95):.0f} мс."
     )
     extras: list[str] = []
     if first_action_values:
         extras.append(
-            f"first-action avg {_avg(first_action_values):.0f} мс, p50 {_p50(first_action_values):.0f} мс"
+            f"first-action avg {_avg(first_action_values):.0f} мс, p50 {_p50(first_action_values):.0f} мс, "
+            f"first-action p95 {_percentile(first_action_values, 0.95):.0f} мс"
         )
     if first_response_values:
         extras.append(
-            f"first-response avg {_avg(first_response_values):.0f} мс, p50 {_p50(first_response_values):.0f} мс"
+            f"first-response avg {_avg(first_response_values):.0f} мс, p50 {_p50(first_response_values):.0f} мс, "
+            f"first-response p95 {_percentile(first_response_values, 0.95):.0f} мс"
         )
     extras.append(f"follow-up timeout {timeout_rate:.0f}%")
     extras.append(f"неуспешные сессии {fail_rate:.0f}%")

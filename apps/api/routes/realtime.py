@@ -87,6 +87,9 @@ def pipeline(payload: PipelineRequest) -> PipelineResponse:
 
 @router.websocket("/ws/voice")
 async def voice_ws(websocket: WebSocket) -> None:
+    if "x-forwarded-for" in websocket.headers:
+        await websocket.close(code=1008, reason="Proxy headers are not supported")
+        return
     if not is_ws_authorized(websocket):
         await websocket.close(code=4401)
         return

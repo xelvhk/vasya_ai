@@ -4,7 +4,10 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from apps.api.deps import require_api_key
-from apps.api.rate_limit import check_http_rate_limit, resolve_client_id_from_request
+from apps.api.rate_limit import (
+    check_http_rate_limit, register_media_request, resolve_client_id_from_request,
+    unregister_media_request,
+)
 from apps.api.routes import chat, control_center, events, focus_radio, memory, morning_brief, notes, projects, realtime, recovery, system, tasks, video, voice
 from config.settings import APP_VERSION
 from utils.logger import log_interaction_event, start_logging_scope
@@ -48,9 +51,14 @@ async def rate_limit_middleware(request: Request, call_next):
     )
     path = str(request.url.path)
     method = str(request.method).upper()
+    if "x-forwarded-for" in request.headers:
+        return JSONResponse(status_code=400, content={"detail": "Proxy headers are not supported by the local API."})
+    media_request = method == "POST" and path in {"/v1/voice/transcribe", "/v1/video/upload"}
     if method == "POST" and path in {"/v1/chat", "/v1/video/upload", "/v1/video/save-note", "/v1/voice/transcribe", "/v1/pipeline", "/v1/morning-brief"}:
         client_id = resolve_client_id_from_request(request)
         decision = check_http_rate_limit(path, client_id)
+        if decision.allowed and media_request:
+            decision = register_media_request(path)
         if not decision.allowed:
             log_interaction_event(
                 "api_rate_limited",
@@ -71,4 +79,8 @@ async def rate_limit_middleware(request: Request, call_next):
             )
             response.headers["Retry-After"] = str(decision.retry_after_seconds)
             return response
-    return await call_next(request)
+    try:
+        return await call_next(request)
+    finally:
+        if media_request:
+            unregister_media_request(path)

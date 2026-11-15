@@ -11,7 +11,7 @@ prototype must preserve.
 - If the desktop shell exits with a non-zero `SystemExit`, `main.py` falls back
   to `scripts.hotkey_daemon.main`.
 - Optional local API entrypoint remains:
-  `python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787`.
+  `python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --no-proxy-headers`.
 
 ## Runtime Prerequisites
 

@@ -114,7 +114,7 @@ python main.py
 
 ```bash
 source .venv/bin/activate
-python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --reload
+python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8787 --no-proxy-headers --reload
 ```
 
 Откройте [http://127.0.0.1:8787/control-center](http://127.0.0.1:8787/control-center).
